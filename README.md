@@ -120,7 +120,9 @@ cd bCounter
 ### Configure output directories
 
 bBuilder writes ballot PDFs and YAML layout files to `~/bBuilder_ballots/` by
-default. Override in `bBuilder/src/main/resources/application.properties`:
+default. (If you want people to be able to count votes on the ballots using
+a different system, you should distribute bBuilder's PDFs and yaml files to simplify their lives.)
+Override in `bBuilder/src/main/resources/application.properties`:
 ```properties
 ballot.export.dir=/path/to/your/output/dir
 ```
