@@ -758,19 +758,25 @@ public class VoteTallyService {
             // Use a higher threshold (20%) than the standard darkPctMin to avoid
             // extracting images for blank write-in slots whose oval border alone
             // contributes ~8-9% darkness without any voter marking.
-            final double WRITE_IN_DARK_THRESHOLD = 20.0;
             Map<Long, List<MarkingResult>> writeIns = new LinkedHashMap<>();
             for (MarkingResult mr : sr.markings) {
-                if (mr.writeIn && mr.darkPct >= WRITE_IN_DARK_THRESHOLD) {
+                if (mr.writeIn && mr.marked) {  // use standard marking threshold
                     Long key = mr.contestId != null ? mr.contestId : -1L;
                     writeIns.computeIfAbsent(key, k -> new ArrayList<>()).add(mr);
                 }
             }
             if (writeIns.isEmpty()) continue;
 
-            Path imgPath = Paths.get(imageFolder, sr.imageName);
+            // Use full imagePath if available, else fall back to imageFolder + name
+            Path imgPath = (sr.imagePath != null && !sr.imagePath.isBlank())
+                ? Paths.get(sr.imagePath)
+                : Paths.get(imageFolder, sr.imageName);
+            // File may have been renamed to .counted after scanning
             if (!Files.exists(imgPath)) {
-                log.warn("Write-in: image not found:" + imgPath);
+                imgPath = Paths.get(imgPath.toString() + ".counted");
+            }
+            if (!Files.exists(imgPath)) {
+                log.warn("Write-in: image not found: {}", imgPath);
                 continue;
             }
             BufferedImage img;

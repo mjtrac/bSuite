@@ -433,8 +433,12 @@ public class ScanController {
                         int rptInterval = voteTally.getReportInterval();
                         if (rptInterval > 0 && written % rptInterval == 0) {
                             log.info("Writing periodic results report at {} images", written);
-                            voteTally.writePeriodicReport(
-                                session.results, session.imageFolder, session);
+                            try {
+                                voteTally.writePeriodicReport(
+                                    session.results, session.imageFolder, session);
+                            } finally {
+                                session.results.clear();
+                            }
                         }
                     }
                 } catch (Exception ex) {
@@ -444,8 +448,6 @@ public class ScanController {
                         log.error("  Caused by: " + ex.getCause().getMessage());
                     session.scanError = "DB error on " + imageName + ": " + ex.getMessage();
                 }
-
-                session.results.clear();
 
                 // Pause briefly at every 1000 images so /results can be shown
                 // (the /progress endpoint triggers the browser redirect)
