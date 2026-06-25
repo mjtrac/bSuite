@@ -18,6 +18,7 @@ bBuilder/election_ballot.db
 bCounter/counter_results.db
 bCounter/counter_results.db-shm
 bCounter/counter_results.db-war
+bCounter/writein*.png
 
 # Generated ballot files (PDFs, YAMLs, XMLs produced by bBuilder)
 bBuilder/*.pdf
