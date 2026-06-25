@@ -6,6 +6,9 @@
 **/*.gz
 **/#*#
 
+# Mac Finder artifacts
+**/.DS_Store
+
 # Test harness generated files
 test-harness/marked_ballots/
 test-harness/images/
