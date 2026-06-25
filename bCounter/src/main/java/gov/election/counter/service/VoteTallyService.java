@@ -798,7 +798,7 @@ public class VoteTallyService {
                 List<MarkingResult> wis = e.getValue();
                 for (int wi = 0; wi < wis.size(); wi++) {
                     String suffix = wis.size() > 1 ? "_" + (wi + 1) : "";
-                    String outName = Paths.get(currentImageFolder,
+                    String outName = Paths.get(reportOutputDir,
                         "writein_" + stem + "_" + cid + suffix + "." + ext).toString();
                     saveWriteInRegion(img, wis.get(wi), dpi, outName, ext);
                 }

@@ -323,6 +323,7 @@ public class VoteRecordService {
             .filter(p -> {
                 String name = p.getFileName().toString().toLowerCase();
                 if (name.endsWith(".counted")) return false;
+                if (name.startsWith("writein_")) return false;
                 int dot = name.lastIndexOf('.');
                 return dot >= 0 && exts.contains(name.substring(dot));
             })

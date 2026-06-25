@@ -263,6 +263,7 @@ public class ScanController {
                     java.nio.file.Files.walk(java.nio.file.Paths.get(session.imageFolder))
                         .filter(p -> {
                             String name = p.getFileName().toString().toLowerCase();
+                            if (name.startsWith("writein_")) return false;
                             return (name.endsWith(".png") || name.endsWith(".jpg")
                                  || name.endsWith(".jpeg") || name.endsWith(".tif")
                                  || name.endsWith(".tiff"));
