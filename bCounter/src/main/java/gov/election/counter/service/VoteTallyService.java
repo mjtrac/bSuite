@@ -196,6 +196,7 @@ public class VoteTallyService {
         List<ImageContestResult> icResults = buildImageContestResults(results);
         correctSessionTallies(icResults, session);
         writeResultsReport(icResults, session);
+        extractWriteIns(results, imageFolder);
     }
 
     public int getReportInterval() { return reportInterval; }
@@ -583,16 +584,30 @@ public class VoteTallyService {
                     : byContest.entrySet()) {
                 pw.printf("<h2>%s</h2>%n", ce.getKey()
                     .replace("&","&amp;").replace("<","&lt;"));
-                pw.println("<table><tr><th>Candidate / Option</th>"
-                    + "<th class=\"r\">Votes / Marks</th></tr>");
+                pw.println("<table><tr>"
+                    + "<th>Candidate / Option</th>"
+                    + "<th class=\"r\">Marked</th>"
+                    + "<th class=\"r\">Overvoted</th>"
+                    + "<th class=\"r\">Counted</th>"
+                    + "</tr>");
+                // byContest maps candidate → (voted+overvoted total) for leader calc
                 long maxVotes = ce.getValue().values().stream()
                     .max(Long::compare).orElse(0L);
                 for (java.util.Map.Entry<String, Long> cand : ce.getValue().entrySet()) {
                     boolean leader = cand.getValue() == maxVotes && maxVotes > 0;
-                    pw.printf("<tr%s><td>%s</td><td class=\"r\">%,d</td></tr>%n",
+                    // Look up voted and overvoted separately from rows
+                    long ov = rows.stream()
+                        .filter(r -> ce.getKey().equals(r.contest)
+                                  && cand.getKey().equals(r.candidate))
+                        .mapToLong(r -> r.overvoted).sum();
+                    long vt = cand.getValue() - ov;
+                    pw.printf("<tr%s><td>%s</td>"
+                        + "<td class=\"r\">%,d</td>"
+                        + "<td class=\"r\">%,d</td>"
+                        + "<td class=\"r\">%,d</td></tr>%n",
                         leader ? " class=\"leader\"" : "",
                         cand.getKey().replace("&","&amp;").replace("<","&lt;"),
-                        cand.getValue());
+                        cand.getValue(), ov, vt);
                 }
                 pw.println("</table>");
             }
@@ -614,6 +629,8 @@ public class VoteTallyService {
         java.util.Map<String, java.util.Map<String,Integer>> totals =
             new java.util.LinkedHashMap<>();
         java.util.Map<String, Integer> overvotes = new java.util.LinkedHashMap<>();
+        // Key: "contestTitle|candidateName" → overvote count for that candidate
+        java.util.Map<String, Integer> overvotesByCandidate = new java.util.LinkedHashMap<>();
         int totalBallots = 0;
         java.util.Set<String> seenImages = new java.util.HashSet<>();
 
@@ -623,6 +640,11 @@ public class VoteTallyService {
                 r.contestTitle, k -> new java.util.LinkedHashMap<>());
             if (r.overvoted) {
                 overvotes.merge(r.contestTitle, 1, Integer::sum);
+                // Also count per-candidate overvotes from session.overvoteTallies
+                for (String c : r.markedCandidates) {
+                    ct.merge(c, 1, Integer::sum);
+                    overvotesByCandidate.merge(r.contestTitle + "|" + c, 1, Integer::sum);
+                }
             } else {
                 for (String c : r.markedCandidates) ct.merge(c, 1, Integer::sum);
             }
@@ -670,15 +692,26 @@ public class VoteTallyService {
 
                 pw.printf("<h2>%s</h2>%n", h(contest));
                 pw.println("<table>");
-                pw.println("  <tr><th>Candidate / Option</th>" +
-                           "<th class=\"num\">Votes / Marks</th></tr>");
+                pw.println("  <tr>"
+                    + "<th>Candidate / Option</th>"
+                    + "<th class=\"num\" style=\"text-align:right\">Marked</th>"
+                    + "<th class=\"num\" style=\"text-align:right\">Overvoted</th>"
+                    + "<th class=\"num\" style=\"text-align:right\">Counted</th>"
+                    + "</tr>");
 
                 cands.entrySet().stream()
                     .sorted(java.util.Map.Entry.<String,Integer>comparingByValue()
                         .reversed())
-                    .forEach(e -> pw.printf(
-                        "  <tr><td>%s</td><td class=\"num\">%,d</td></tr>%n",
-                        h(e.getKey()), e.getValue()));
+                    .forEach(e -> {
+                        int ovCand = overvotesByCandidate
+                            .getOrDefault(contest + "|" + e.getKey(), 0);
+                        int counted = e.getValue() - ovCand;
+                        pw.printf("  <tr><td>%s</td>"
+                            + "<td class=\"num\">%,d</td>"
+                            + "<td class=\"num\">%,d</td>"
+                            + "<td class=\"num\">%,d</td></tr>%n",
+                            h(e.getKey()), e.getValue(), ovCand, counted);
+                    });
 
                 if (ov > 0) {
                     pw.printf("  <tr><td class=\"ov\">Overvoted ballots</td>" +

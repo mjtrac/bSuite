@@ -39,6 +39,8 @@ def parse_args():
     p.add_argument("--in-dir",   default="marked_ballots")
     p.add_argument("--out-dir",  default="images")
     p.add_argument("--dpi",      type=int, default=300)
+    p.add_argument("--distortions", default=None,
+                   help="Comma-separated list of distortion names to apply (default: all)")
     p.add_argument("--copies",   type=int, default=3,
                    help="How many copies of each variant to produce")
     p.add_argument("--gt-in",    default="marked_ballots/ground_truth.json")

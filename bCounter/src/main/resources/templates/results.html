@@ -113,8 +113,9 @@
           <thead>
             <tr>
               <th>Candidate / Option</th>
-              <th class="num">Votes&nbsp;/&nbsp;Marks</th>
-              <th class="num">Overvoted</th>
+              <th class="num" style="text-align:right">Marked</th>
+              <th class="num" style="text-align:right">Overvoted</th>
+              <th class="num" style="text-align:right">Counted</th>
             </tr>
           </thead>
           <tbody>
@@ -129,10 +130,11 @@
                 <span th:unless="${row.rankedChoice}"
                       th:text="${row.candidate}">Name</span>
               </td>
-              <td class="num" th:text="${row.voted}">0</td>
+              <td class="num" th:text="${row.voted + row.overvoted}">0</td>
               <td class="num"
                   th:classappend="${row.overvoted > 0} ? 'overvote' : ''"
                   th:text="${row.overvoted > 0 ? row.overvoted : '—'}">—</td>
+              <td class="num" th:text="${row.voted}">0</td>
             </tr>
           </tbody>
         </table>
@@ -149,8 +151,9 @@
           <tr>
             <th>Precinct (Region ID)</th>
             <th>Candidate / Option</th>
-            <th class="num">Votes&nbsp;/&nbsp;Marks</th>
-            <th class="num">Overvoted</th>
+            <th class="num" style="text-align:right">Marked</th>
+            <th class="num" style="text-align:right">Overvoted</th>
+            <th class="num" style="text-align:right">Counted</th>
           </tr>
         </thead>
         <tbody>
@@ -161,10 +164,11 @@
               <span th:if="${row.rankedChoice}" th:text="|— ${row.rankLabel}|" style="color:#64748b;font-size:.85em"></span>
               <span th:unless="${row.rankedChoice}" th:text="${row.candidate}">name</span>
             </td>
-            <td class="num" th:text="${row.voted}">0</td>
+            <td class="num" th:text="${row.voted + row.overvoted}">0</td>
             <td class="num"
                 th:classappend="${row.overvoted > 0} ? 'overvote' : ''"
                 th:text="${row.overvoted > 0 ? row.overvoted : '—'}">—</td>
+            <td class="num" th:text="${row.voted}">0</td>
           </tr>
         </tbody>
       </table>
@@ -181,8 +185,9 @@
           <tr>
             <th>Party ID</th>
             <th>Candidate / Option</th>
-            <th class="num">Votes&nbsp;/&nbsp;Marks</th>
-            <th class="num">Overvoted</th>
+            <th class="num" style="text-align:right">Marked</th>
+            <th class="num" style="text-align:right">Overvoted</th>
+            <th class="num" style="text-align:right">Counted</th>
           </tr>
         </thead>
         <tbody>
@@ -193,10 +198,11 @@
               <span th:if="${row.rankedChoice}" th:text="|— ${row.rankLabel}|" style="color:#64748b;font-size:.85em"></span>
               <span th:unless="${row.rankedChoice}" th:text="${row.candidate}">name</span>
             </td>
-            <td class="num" th:text="${row.voted}">0</td>
+            <td class="num" th:text="${row.voted + row.overvoted}">0</td>
             <td class="num"
                 th:classappend="${row.overvoted > 0} ? 'overvote' : ''"
                 th:text="${row.overvoted > 0 ? row.overvoted : '—'}">—</td>
+            <td class="num" th:text="${row.voted}">0</td>
           </tr>
         </tbody>
       </table>

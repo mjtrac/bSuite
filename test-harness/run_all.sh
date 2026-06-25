@@ -19,6 +19,7 @@ set -euo pipefail
 
 SEED=42
 COPIES=2
+QUICK=0
 BUILDER_HOST="http://localhost:8080"
 COUNTER_HOST="http://localhost:8081"
 BUILDER_EXPORT_DIR="${HOME}/bBuilder_ballots"  # default bBuilder output dir (~/bBuilder_ballots)
@@ -26,11 +27,12 @@ BUILDER_EXPORT_DIR="${HOME}/bBuilder_ballots"  # default bBuilder output dir (~/
 # Parse args
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --seed)    SEED="$2";         shift 2 ;;
-    --copies)  COPIES="$2";       shift 2 ;;
+    --seed)         SEED="$2";               shift 2 ;;
+    --copies)       COPIES="$2";             shift 2 ;;
     --builder)      BUILDER_HOST="$2";       shift 2 ;;
     --counter)      COUNTER_HOST="$2";       shift 2 ;;
     --builder-dir)  BUILDER_EXPORT_DIR="$2"; shift 2 ;;
+    --quick)        QUICK=1;                 shift   ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -80,7 +82,7 @@ fi
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║           bSuite Test Harness                              ║"
 echo "╠════════════════════════════════════════════════════════════╣"
-echo "║  seed=$SEED  copies=$COPIES                                ║"
+echo "║  seed=$SEED  copies=$COPIES  quick=$QUICK                  ║"
 echo "║  bBuilder: $BUILDER_HOST"
 echo "║  bCounter: $COUNTER_HOST"
 echo "╚════════════════════════════════════════════════════════════╝"
@@ -111,10 +113,19 @@ echo ""
 # ── Step 3: Mark ballots ──────────────────────────────────────────────────────
 echo "Step 3 — Marking ballot PNGs with voter scenarios"
 rm -rf marked_ballots
+MARK_EXTRA=""
+DISTORT_EXTRA=""
+if [[ "$QUICK" == "1" ]]; then
+  MARK_EXTRA="--scenarios valid_all_filled"
+  DISTORT_EXTRA="--distortions clean"
+  COPIES=1
+  echo "  ⚡ Quick mode: single scenario (valid_all_filled), clean distortion, 1 copy"
+fi
 "$PYTHON3" mark_ballots.py \
   --election-data election_data.json \
   --out-dir marked_ballots \
-  --seed "$SEED"
+  --seed "$SEED" \
+  $MARK_EXTRA
 echo ""
 
 # ── Step 4: Apply distortions ─────────────────────────────────────────────────
@@ -125,7 +136,8 @@ rm -rf images
   --out-dir images \
   --copies  "$COPIES" \
   --gt-in   marked_ballots/ground_truth.json \
-  --gt-out  images/ground_truth_all.json
+  --gt-out  images/ground_truth_all.json \
+  $DISTORT_EXTRA
 echo ""
 
 # Count images

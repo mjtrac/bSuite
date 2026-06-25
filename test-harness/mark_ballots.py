@@ -33,6 +33,8 @@ def parse_args():
     p.add_argument("--out-dir",       default="marked_ballots")
     p.add_argument("--seed",          type=int, default=42)
     p.add_argument("--dpi",           type=int, default=300)
+    p.add_argument("--scenarios",     default=None,
+                   help="Comma-separated list of scenario names to run (default: all)")
     p.add_argument("--style-config",  default="indicator_style.yaml",
                    help="YAML file specifying indicator_style: oval|arrow")
     return p.parse_args()
@@ -176,16 +178,26 @@ def draw_arrow_vote(draw: ImageDraw.ImageDraw, x, y, w, h, color=(5,5,5)):
 
 def draw_write_in_text(draw: ImageDraw.ImageDraw, x, y, w, h, name: str,
                        color=(20,20,20)):
-    """Draw handwritten-style text in a write-in region."""
-    # Use default PIL font — small but readable
+    """Draw handwritten-style text in a write-in region.
+    Fills the oval (so bCounter detects a write-in mark) and writes the
+    candidate name to the right of the oval on the write-in line.
+    """
+    # Fill the oval so bCounter's darkPct threshold is met
+    draw_x_mark(draw, x, y, w, h, color)
+    # Write the name to the right of the oval, vertically centred on it —
+    # this is where a real voter would write on the fill line
     try:
         from PIL import ImageFont
-        font = ImageFont.load_default()
+        font = ImageFont.load_default(size=max(16, h // 2))
     except Exception:
-        font = None
-    draw.text((x + 4, y + int(h*0.15)), name, fill=color, font=font)
-    # Also draw a small mark in the oval
-    draw_x_mark(draw, x, y, w, h, color)
+        try:
+            from PIL import ImageFont
+            font = ImageFont.load_default()
+        except Exception:
+            font = None
+    text_x = x + w + 8          # just to the right of the oval
+    text_y = y + int(h * 0.15)  # vertically centred on the oval
+    draw.text((text_x, text_y), name, fill=color, font=font)
 
 # ── Scenario engine ───────────────────────────────────────────────────────────
 
@@ -460,7 +472,10 @@ def main():
 
             # Apply each scenario
             stem = Path(pdf_path).stem
+            allowed = set(args.scenarios.split(",")) if args.scenarios else None
             for scenario_name, scenario in SCENARIOS.items():
+                if allowed and scenario_name not in allowed:
+                    continue
                 img  = src_image.copy().convert("RGB")
                 draw = ImageDraw.Draw(img)
 
