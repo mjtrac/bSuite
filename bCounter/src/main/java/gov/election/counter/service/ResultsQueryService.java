@@ -155,7 +155,7 @@ public class ResultsQueryService {
     @SuppressWarnings("unchecked")
     public List<Object[]> overvotedPairs() {
         return em.createQuery(
-            "SELECT DISTINCT bi.imageName, cr.contestTitle, cr.id, cr.contestType, cr.maxChoices " +
+            "SELECT DISTINCT bi.imageName, cr.contestTitle, cr.id, cr.contestType, cr.maxVotes " +
             "FROM VoteOpportunity vo " +
             "JOIN vo.ballotImage bi " +
             "JOIN vo.contest cr " +
