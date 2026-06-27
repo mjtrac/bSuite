@@ -51,15 +51,21 @@ public class BallotDimensions {
         private final double contentAreaHeightInches;
         private final List<ContestPosition> contests;
         /**
-         * Corner registration mark centre positions, page-absolute inches from (0,0).
-         * Order: TL, TR, BR, BL (clockwise from top-left).
-         * Each entry is {x, y} in inches.
+         * Content-box corner registration mark centres, page-absolute inches.
+         * Order: TL, TR, BR, BL (clockwise from top-left). Each entry is {x, y}.
          */
         private final double[][] cornerMarksInches;
         /** QR barcode centre, page-absolute inches from image top-left {x, y}. */
         private final double[]   barcodeCentreInches;
+        /**
+         * Page-level orientation mark centres, page-absolute inches.
+         * Order: PTL[0] (left), PTR[1] (right). Each entry is {x, y}.
+         * These 18x9pt rectangles sit just inside the top margin.
+         * Null for ballots generated before this feature was added.
+         */
+        private final double[][] pageMarksInches;
 
-        /** Convenience constructor without barcode centre (defaults to null). */
+        /** Convenience constructor without barcode centre or page marks. */
         public PageLayout(int pageNumber,
                           double contentAreaOffsetLeftInches,
                           double contentAreaOffsetTopInches,
@@ -69,9 +75,9 @@ public class BallotDimensions {
                           double[][] cornerMarksInches) {
             this(pageNumber, contentAreaOffsetLeftInches, contentAreaOffsetTopInches,
                  contentAreaWidthInches, contentAreaHeightInches, contests,
-                 cornerMarksInches, null);
+                 cornerMarksInches, null, null);
         }
-
+        /** Convenience constructor without page marks. */
         public PageLayout(int pageNumber,
                           double contentAreaOffsetLeftInches,
                           double contentAreaOffsetTopInches,
@@ -80,6 +86,20 @@ public class BallotDimensions {
                           List<ContestPosition> contests,
                           double[][] cornerMarksInches,
                           double[]   barcodeCentreInches) {
+            this(pageNumber, contentAreaOffsetLeftInches, contentAreaOffsetTopInches,
+                 contentAreaWidthInches, contentAreaHeightInches, contests,
+                 cornerMarksInches, barcodeCentreInches, null);
+        }
+        /** Full constructor including page-level marks. */
+        public PageLayout(int pageNumber,
+                          double contentAreaOffsetLeftInches,
+                          double contentAreaOffsetTopInches,
+                          double contentAreaWidthInches,
+                          double contentAreaHeightInches,
+                          List<ContestPosition> contests,
+                          double[][] cornerMarksInches,
+                          double[]   barcodeCentreInches,
+                          double[][] pageMarksInches) {
             this.pageNumber                  = pageNumber;
             this.contentAreaOffsetLeftInches = contentAreaOffsetLeftInches;
             this.contentAreaOffsetTopInches  = contentAreaOffsetTopInches;
@@ -88,8 +108,8 @@ public class BallotDimensions {
             this.contests                    = contests;
             this.cornerMarksInches           = cornerMarksInches;
             this.barcodeCentreInches         = barcodeCentreInches;
+            this.pageMarksInches             = pageMarksInches;
         }
-
         public int       getPageNumber()                    { return pageNumber; }
         public double    getContentAreaOffsetLeftInches()   { return contentAreaOffsetLeftInches; }
         public double    getContentAreaOffsetTopInches()    { return contentAreaOffsetTopInches; }
@@ -98,6 +118,7 @@ public class BallotDimensions {
         public List<ContestPosition> getContests()          { return contests; }
         public double[][] getCornerMarksInches()            { return cornerMarksInches; }
         public double[]   getBarcodeCentreInches()          { return barcodeCentreInches; }
+        public double[][] getPageMarksInches()              { return pageMarksInches; }
     }
 
     public static class ContestPosition {

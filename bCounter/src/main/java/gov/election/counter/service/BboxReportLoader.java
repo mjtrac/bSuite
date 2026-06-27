@@ -328,7 +328,7 @@ public class BboxReportLoader {
                 page.barcodeCentreY = doubleVal(bcp.get("y"));
             }
 
-            // Corner registration marks
+            // Content-box corner registration marks
             List<Map<String, Object>> cmList = castList(side.get("cornerMarks"));
             if (!cmList.isEmpty()) {
                 page.cornerMarks = new double[4][2];
@@ -339,6 +339,22 @@ public class BboxReportLoader {
                         if (order[oi].equals(corner)) {
                             page.cornerMarks[oi][0] = doubleVal(mk.get("x"));
                             page.cornerMarks[oi][1] = doubleVal(mk.get("y"));
+                        }
+                    }
+                }
+            }
+
+            // Page-level orientation marks (PTL, PTR at top of page)
+            List<Map<String, Object>> pmList = castList(side.get("pageMarks"));
+            if (!pmList.isEmpty()) {
+                page.pageMarks = new double[2][2];
+                String[] pmOrder = {"PTL","PTR"};
+                for (Map<String, Object> mk : pmList) {
+                    String corner = String.valueOf(mk.getOrDefault("corner",""));
+                    for (int oi = 0; oi < pmOrder.length; oi++) {
+                        if (pmOrder[oi].equals(corner)) {
+                            page.pageMarks[oi][0] = doubleVal(mk.get("x"));
+                            page.pageMarks[oi][1] = doubleVal(mk.get("y"));
                         }
                     }
                 }

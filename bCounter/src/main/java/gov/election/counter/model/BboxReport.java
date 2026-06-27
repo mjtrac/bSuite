@@ -46,11 +46,19 @@ public class BboxReport {
         public double barcodeCentreY;
         public List<ContestBox> contests = new ArrayList<>();
         /**
-         * Corner registration mark centres, page-absolute inches from (0,0).
+         * Content-box corner registration mark centres, page-absolute inches.
          * Order: TL[0], TR[1], BR[2], BL[3].  Each is {x, y}.
          * Null or empty if the report predates corner marks.
          */
-        public double[][] cornerMarks;  // [4][2]
+        public double[][] cornerMarks;   // [4][2]: TL, TR, BR, BL
+
+        /**
+         * Page-level orientation mark centres, page-absolute inches.
+         * Order: PTL[0] (left), PTR[1] (right).  Each is {x, y}.
+         * These two 18x9pt rectangles sit just inside the top margin.
+         * Null if the report predates page-level marks (older ballots).
+         */
+        public double[][] pageMarks;     // [2][2]: PTL, PTR
     }
 
     /**

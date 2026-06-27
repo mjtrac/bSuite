@@ -407,6 +407,18 @@ public class ScanController {
                             + " — " + result.errorMessage);
                         log.warn("Flagged for review: " + imageName
                             + " — " + result.errorMessage);
+                        // Rename to .review so multi-pass walk won't requeue it.
+                        // Race-condition failures are handled by retryList before
+                        // this point and never reach here with an errorMessage.
+                        try {
+                            java.nio.file.Path reviewPath = imagePath.resolveSibling(
+                                imagePath.getFileName().toString() + ".review");
+                            java.nio.file.Files.move(imagePath, reviewPath,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            log.info("Renamed to .review: {}", imagePath.getFileName());
+                        } catch (Exception renameEx) {
+                            log.warn("Could not rename to .review: {}", renameEx.getMessage());
+                        }
                         if (maxReviewBeforeStop > 0
                                 && session.reviewRequired.size() >= maxReviewBeforeStop) {
                             log.error("Stopping scan: "

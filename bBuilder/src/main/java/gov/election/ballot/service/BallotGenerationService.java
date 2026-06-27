@@ -193,9 +193,9 @@ public class BallotGenerationService {
         float bbRight  = pw - template.getMarginRightPt() - 5f;
         float bbBottom = template.getMarginBottomPt() + 5f;
 
-        // Worst-case content height (codes at top, metadata line above):
-        // used to pre-validate that no contest is too tall for any page.
-        float worstCaseBbTop = ph - template.getMarginTopPt() - 14f - HEADER_ZONE_PT
+        // Worst-case content height: use computed header zone height, not the constant.
+        float worstZoneH     = computeHeaderZoneHeight(template, pw, true);
+        float worstCaseBbTop = ph - template.getMarginTopPt() - 14f - worstZoneH
                                - (MARK_GAP + MARK_H + MARK_GAP);  // clearance for marks
 
         float colWidth  = (bbRight - bbLeft - 10f) / template.getColumns();
@@ -207,6 +207,7 @@ public class BallotGenerationService {
         Map<Integer, double[]> pageContentArea  = new java.util.LinkedHashMap<>(); // [offsetL, offsetT, w, h]
         Map<Integer, double[][]> pageCornerMarks = new java.util.LinkedHashMap<>();  // [TL,TR,BR,BL] in inches
         Map<Integer, double[]>   pageBarcodeCentre = new java.util.LinkedHashMap<>(); // [x, y] inches from image top-left
+        Map<Integer, double[][]> pagePageMarks   = new java.util.LinkedHashMap<>();  // [PTL,PTR] in inches
 
         // Pre-validate: any contest too tall for a fresh page
         float maxContentH = worstCaseBbTop - bbBottom;
@@ -232,9 +233,12 @@ public class BallotGenerationService {
             float bbTop;
 
             double[] bcCentre = new double[2];
+            double[][] pm1    = new double[2][2];
             canvas = openPage(pdf, pw, ph, pageNum, combination, template,
-                              bbLeft, bbRight, bbBottom, state, bcCentre);
+                              bbLeft, bbRight, bbBottom, state, bcCentre, pm1);
             pageBarcodeCentre.put(pageNum, bcCentre);
+            System.out.println("PM1 DEBUG page=" + pageNum + " pm1[0]=" + java.util.Arrays.toString(pm1[0]) + " pm1[1]=" + java.util.Arrays.toString(pm1[1]));
+            pagePageMarks.put(pageNum, pm1);
             bbTop    = state[0];
             float currentX = state[1];
             float currentY = state[2];
@@ -260,14 +264,16 @@ public class BallotGenerationService {
                     if (col < template.getColumns() - 1) {
                         col++;
                         currentX += colWidth;
-                        currentY  = bbTop - template.getContestTitleFontSize() - 5f;
+                        currentY  = bbTop - template.getContestTitleFontSize() - 15f;
                     } else {
                         pageNum++;
                         col = 0;
                         double[] bcCentre2 = new double[2];
+                        double[][] pm2     = new double[2][2];
                         canvas = openPage(pdf, pw, ph, pageNum, combination, template,
-                                          bbLeft, bbRight, bbBottom, state, bcCentre2);
+                                          bbLeft, bbRight, bbBottom, state, bcCentre2, pm2);
                         pageBarcodeCentre.put(pageNum, bcCentre2);
+                        pagePageMarks.put(pageNum, pm2);
                         bbTop    = state[0];
                         currentX = state[1];
                         currentY = state[2];
@@ -533,11 +539,13 @@ public class BallotGenerationService {
             // ca = [offsetLeft, offsetTop, width, height]
             double[][] cm = pageCornerMarks.getOrDefault(pn,
                 new double[][]{{0,0},{0,0},{0,0},{0,0}});
+            double[][] pm = pagePageMarks.getOrDefault(pn, null);
             pages.add(new BallotDimensions.PageLayout(pn,
                 ca.length >= 4 ? ca[0] : 0, ca.length >= 4 ? ca[1] : 0,
                 ca.length >= 4 ? ca[2] : ca[0], ca.length >= 4 ? ca[3] : ca[1],
                 java.util.Collections.unmodifiableList(entry.getValue()), cm,
-                pageBarcodeCentre.getOrDefault(pn, new double[]{0, 0})));
+                pageBarcodeCentre.getOrDefault(pn, new double[]{0, 0}),
+                pm));
         }
         layoutService.storeLayout(combination.getId(), pages);
         byte[] pdfBytes = baos.toByteArray();
@@ -718,18 +726,86 @@ public class BallotGenerationService {
     // PAGE MANAGEMENT
     // ══════════════════════════════════════════════════════════════════════
 
+
+    /**
+     * Calculates the required header zone height in points from all contributing
+     * elements: QR/barcode height, headline (with wrapping), body text paragraphs
+     * (with wrapping and blank-line separators), and padding.
+     * Returns at least HEADER_ZONE_PT to preserve a minimum header area.
+     */
+    private float computeHeaderZoneHeight(BallotDesignTemplate tmpl,
+                                           float pw, boolean codeAtRight) {
+        float minH = Math.max(HEADER_ZONE_PT, tmpl.getBarcodeHeightPt() + 8f);
+        int   qrSz      = (int) Math.min(tmpl.getBarcodeHeightPt(), HEADER_ZONE_PT - 20f);
+        float codeBlockW = qrSz + 6f + tmpl.getBarcodeWidthPt() + 8f;
+        float textW      = pw - tmpl.getMarginLeftPt() - tmpl.getMarginRightPt()
+                           - codeBlockW - 10f;
+        if (textW < 50f) textW = 50f;
+
+        float needed = 4f;
+        String headline = tmpl.getHeaderHeadline();
+        if (headline != null && !headline.isBlank()) {
+            float hSz = tmpl.getHeaderHeadlineFontSize();
+            needed += estimateWrappedLines(headline.trim(), textW, hSz)
+                      * (hSz + LINE_GAP) + 3f;
+        }
+        String body = tmpl.getHeaderBodyText();
+        if (body != null && !body.isBlank()) {
+            float bSz = tmpl.getHeaderBodyFontSize();
+            for (String para : body.split("\\n|\n")) {
+                if (para.isBlank()) {
+                    needed += bSz;
+                } else {
+                    needed += estimateWrappedLines(para.trim(), textW, bSz)
+                              * (bSz + LINE_GAP);
+                }
+            }
+        }
+        needed += 8f;
+        return Math.max(minH, needed);
+    }
+
+    /**
+     * Estimates wrapped line count for text at fontSize in a column of maxWidthPt.
+     * Uses 0.55×fontSize as average character width (Helvetica approximation).
+     */
+    private int estimateWrappedLines(String text, float maxWidthPt, float fontSize) {
+        if (text == null || text.isBlank()) return 1;
+        int charsPerLine = Math.max(1, (int)(maxWidthPt / (fontSize * 0.55f)));
+        String[] words = text.split("\s+");
+        int lines = 1, lineLen = 0;
+        for (String w : words) {
+            int wl = w.length();
+            if (lineLen > 0 && lineLen + 1 + wl > charsPerLine) {
+                lines++; lineLen = wl;
+            } else {
+                lineLen += (lineLen > 0 ? 1 : 0) + wl;
+            }
+        }
+        return lines;
+    }
+
     private PdfCanvas openPage(PdfDocument pdf, float pw, float ph, int pageNum,
                                 BallotCombination combo, BallotDesignTemplate tmpl,
                                 float bbLeft, float bbRight, float bbBottom,
                                 float[] state) throws Exception {
         return openPage(pdf, pw, ph, pageNum, combo, tmpl, bbLeft, bbRight,
-                        bbBottom, state, null);
+                        bbBottom, state, null, null);
     }
 
     private PdfCanvas openPage(PdfDocument pdf, float pw, float ph, int pageNum,
                                 BallotCombination combo, BallotDesignTemplate tmpl,
                                 float bbLeft, float bbRight, float bbBottom,
                                 float[] state, double[] barcodeCentreOut) throws Exception {
+        return openPage(pdf, pw, ph, pageNum, combo, tmpl, bbLeft, bbRight,
+                        bbBottom, state, barcodeCentreOut, null);
+    }
+
+    private PdfCanvas openPage(PdfDocument pdf, float pw, float ph, int pageNum,
+                                BallotCombination combo, BallotDesignTemplate tmpl,
+                                float bbLeft, float bbRight, float bbBottom,
+                                float[] state, double[] barcodeCentreOut,
+                                double[][] pageMarksOut) throws Exception {
 
         PdfCanvas canvas = new PdfCanvas(pdf.addNewPage(new PageSize(pw, ph)));
         // ── Barcode / code placement ─────────────────────────────────────
@@ -742,9 +818,9 @@ public class BallotGenerationService {
         boolean codeAtTop    = !bcPos.startsWith("BOTTOM");
         boolean codeAtRight  = bcPos.endsWith("RIGHT");
 
-        // Code zone height (QR height; Code128 is beside it, same height)
+        // Code zone height: large enough to hold QR code AND all header text
         int qrSz = (int) Math.min(tmpl.getBarcodeHeightPt(), HEADER_ZONE_PT - 20f);
-        float zoneH = HEADER_ZONE_PT;  // full header zone for text; QR sits within it
+        float zoneH = computeHeaderZoneHeight(tmpl, pw, codeAtRight);
 
         // Vertical position of code zone top
         float codeZoneTop, codeZoneBottom;
@@ -792,12 +868,46 @@ public class BallotGenerationService {
             textRight = pw - tmpl.getMarginRightPt() - 5f;
         }
 
+        // ── Page-level orientation marks: two 18×9pt rectangles at the top ──
+        // Sit just inside the top margin at the left and right page edges,
+        // above the metadata line.  Both are 18×9pt (same as TL content mark)
+        // so TL remains the sole asymmetric shape for orientation detection.
+        float pageMarkW  = MARK_RECT_W;           // 18pt wide
+        float pageMarkH  = MARK_H;                // 9pt tall
+        // Place marks just inside the top margin — below the margin line.
+        // In PDF coords (origin=bottom): top margin line is at ph - marginTop.
+        // Mark sits below it with a small gap: centre = ph - marginTop - MARK_GAP - markH/2.
+        // Page marks sit near the physical top of the page, not relative to the
+        // content margin — so they work correctly even with large header templates.
+        float pageMarkCY = ph - MARK_GAP - pageMarkH / 2f;  // fixed distance from page top
+        // Align horizontally with the content-box TL/TR marks (bbLeft/bbRight = margin+5pt)
+        float ptlCX = bbLeft  + pageMarkW / 2f;
+        float ptrCX = bbRight - pageMarkW / 2f;
+        canvas.setFillColor(ColorConstants.BLACK);
+        drawRectMark(canvas, ptlCX, pageMarkCY, pageMarkW, pageMarkH);  // PTL
+        drawRectMark(canvas, ptrCX, pageMarkCY, pageMarkW, pageMarkH);  // PTR
+
+        // Store page mark centres for YAML export (page-absolute inches from top-left)
+        if (pageMarksOut != null && pageMarksOut.length >= 2) {
+            log.debug("PAGE MARKS DEBUG: ph={} marginTop={} MARK_GAP={} pageMarkH={} pageMarkCY={} result={}",
+                ph, tmpl.getMarginTopPt(), MARK_GAP, pageMarkH, pageMarkCY,
+                MeasurementUtil.ptToInches(ph - pageMarkCY));
+            pageMarksOut[0] = new double[]{
+                MeasurementUtil.ptToInches(ptlCX),
+                MeasurementUtil.ptToInches(ph - pageMarkCY)
+            };
+            pageMarksOut[1] = new double[]{
+                MeasurementUtil.ptToInches(ptrCX),
+                MeasurementUtil.ptToInches(ph - pageMarkCY)
+            };
+        }
+
         // Metadata line (page 1: full detail; other pages: slim)
         if (pageNum == 1) {
-            drawBallotHeader(canvas, combo, tmpl, ph, textLeft, textRight,
+            drawBallotHeader(canvas, combo, tmpl, pw, ph, textLeft, textRight,
                              codeZoneTop, codeZoneBottom);
         } else {
-            drawSlimHeader(canvas, combo, tmpl, ph, pageNum, textLeft, textRight,
+            drawSlimHeader(canvas, combo, tmpl, pw, ph, pageNum, textLeft, textRight,
                            codeZoneTop, codeZoneBottom);
         }
 
@@ -829,7 +939,7 @@ public class BallotGenerationService {
 
         state[0] = bbTop;
         state[1] = bbLeft + 5f;
-        state[2] = bbTop - tmpl.getContestTitleFontSize() - 5f;
+        state[2] = bbTop - tmpl.getContestTitleFontSize() - 15f;  // 5pt baseline + 10pt header gap
         state[3] = bbBottom2;   // actual bottom (may be above margin when codes are at bottom)
         return canvas;
     }
@@ -1009,18 +1119,26 @@ public class BallotGenerationService {
      * The header zone text (headline + body) is placed in that area.
      */
     private void drawBallotHeader(PdfCanvas canvas, BallotCombination combo,
-                                   BallotDesignTemplate tmpl, float ph,
+                                   BallotDesignTemplate tmpl, float pw, float ph,
                                    float textLeft, float textRight,
                                    float zoneTop, float zoneBottom) throws Exception {
-        // Single-line metadata above the zone (always full-width, above the codes)
+        // Single-line metadata above the zone — centred between page margins
+        // so it clears the new page-level orientation marks at left and right edges.
         String party = combo.getParty() != null ? combo.getParty().getName() : "Nonpartisan";
         String hdr   = String.format("%s  |  %s  |  %s  |  %s  |  %s",
             combo.getRegion().getJurisdiction().getName(), combo.getRegion().getName(),
             party, combo.getBallotType().getName(), combo.getElection().getName());
-        canvas.setFillColor(ColorConstants.BLACK)
-              .beginText().setFontAndSize(font(false, false), tmpl.getHeaderFontSize())
-              .moveText(tmpl.getMarginLeftPt() + 18f, ph - tmpl.getMarginTopPt() + 4f)
-              .showText(hdr).endText();
+        {
+            PdfFont hdrFont = font(false, false);
+            float   hdrSz   = tmpl.getHeaderFontSize();
+            float   hdrW    = hdrFont.getWidth(hdr, hdrSz);
+            float   centreX = (pw - hdrW) / 2f;
+            float   hdrY    = ph - tmpl.getMarginTopPt() + 4f;
+            canvas.setFillColor(ColorConstants.BLACK)
+                  .beginText().setFontAndSize(hdrFont, hdrSz)
+                  .moveText(centreX, hdrY)
+                  .showText(hdr).endText();
+        }
         // Headline + body instruction text in the zone, on the side away from the codes
         drawHeaderZoneText(canvas, combo, tmpl, textLeft, textRight, zoneTop, zoneBottom);
     }
@@ -1029,15 +1147,21 @@ public class BallotGenerationService {
      * Slim header for page 2+: election name and page number only, on the side away from codes.
      */
     private void drawSlimHeader(PdfCanvas canvas, BallotCombination combo,
-                                 BallotDesignTemplate tmpl, float ph, int page,
+                                 BallotDesignTemplate tmpl, float pw, float ph, int page,
                                  float textLeft, float textRight,
                                  float zoneTop, float zoneBottom) throws Exception {
-        // Brief metadata line above zone
-        canvas.setFillColor(ColorConstants.BLACK)
-              .beginText().setFontAndSize(font(false, false), tmpl.getHeaderFontSize())
-              .moveText(tmpl.getMarginLeftPt() + 18f, ph - tmpl.getMarginTopPt() + 4f)
-              .showText(combo.getElection().getName() + "   —   Page " + page)
-              .endText();
+        // Brief metadata line above zone — centred between page margins
+        {
+            PdfFont slimFont = font(false, false);
+            float   slimSz   = tmpl.getHeaderFontSize();
+            String  slimTxt  = combo.getElection().getName() + "   —   Page " + page;
+            float   slimW    = slimFont.getWidth(slimTxt, slimSz);
+            float   slimX    = (pw - slimW) / 2f;
+            canvas.setFillColor(ColorConstants.BLACK)
+                  .beginText().setFontAndSize(slimFont, slimSz)
+                  .moveText(slimX, ph - tmpl.getMarginTopPt() + 4f)
+                  .showText(slimTxt).endText();
+        }
         // Also draw a scaled-down instruction zone on page 2+ (page number encoded in QR)
         drawHeaderZoneText(canvas, combo, tmpl, textLeft, textRight, zoneTop, zoneBottom);
     }

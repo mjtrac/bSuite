@@ -171,6 +171,21 @@ public class ExportService {
             }
             sideMap.put("cornerMarks", cornerMarkList);
 
+            // Page-level marks (PTL, PTR at top of page)
+            double[][] pm = page.getPageMarksInches();
+            if (pm != null && pm.length >= 2) {
+                String[] pmNames = {"PTL", "PTR"};
+                List<Map<String, Object>> pmList = new ArrayList<>();
+                for (int mi = 0; mi < 2; mi++) {
+                    Map<String, Object> mk = new LinkedHashMap<>();
+                    mk.put("corner", pmNames[mi]);
+                    mk.put("x", fmt(pm[mi][0], unit));
+                    mk.put("y", fmt(pm[mi][1], unit));
+                    pmList.add(mk);
+                }
+                sideMap.put("pageMarks", pmList);
+            }
+
             // Barcode centre (QR code position for scanner-alignment compensation)
             double[] bc = page.getBarcodeCentreInches();
             if (bc != null && bc.length >= 2) {

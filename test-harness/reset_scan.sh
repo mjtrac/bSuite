@@ -73,7 +73,35 @@ else
 fi
 
 echo ""
-echo "✓ Reset complete."
+# 4. Restore .review files to .png
+review_count=$(find "$IMAGES_DIR" -name "*.review" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$review_count" -gt 0 ]; then
+    echo ""
+    echo "Step 4 — Restoring $review_count .review file(s) to .png..."
+    find "$IMAGES_DIR" -name "*.review" -exec sh -c 'mv "$1" "${1%.review}"' _ {} \;
+    echo "  Restored $review_count file(s)"
+fi
+
+# 5. Restart bCounter
 echo ""
-echo "⚠  Restart bCounter before scanning (the DB file was deleted)."
-echo "   Then: python3 run_counter.py --images images --yaml-dir ~/bBuilder_ballots"
+echo "Step 5 — Restarting bCounter..."
+BCOUNTER_PORT=8081
+pid=$(lsof -ti tcp:$BCOUNTER_PORT 2>/dev/null || true)
+if [ -n "$pid" ]; then
+    kill "$pid" 2>/dev/null || true
+    echo "  Stopped bCounter (pid $pid)"
+    sleep 3
+fi
+nohup bash -c "cd $BCOUNTER_DIR && ./mvnw -q spring-boot:run > $BCOUNTER_DIR/bCounter.log 2>&1" &
+echo "  bCounter starting (log: bCounter/bCounter.log)"
+printf "  Waiting for bCounter"
+for i in $(seq 1 30); do
+    sleep 2
+    if curl -s -o /dev/null http://localhost:$BCOUNTER_PORT/login 2>/dev/null; then
+        echo " ready"
+        break
+    fi
+    printf "."
+done
+echo ""
+echo "✓ Reset complete — ready to run ./run_all.sh"

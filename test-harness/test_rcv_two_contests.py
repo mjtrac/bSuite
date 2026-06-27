@@ -380,7 +380,7 @@ def main():
     print(f"  ✓ Combination {combo['id']} and template {tmpl['id']} created")
 
     # ── Determine vote distribution (used in Steps 2 and 3) ─────────────────
-    votes = {"A": 8, "B": 4, "C": 3, "D": 1}  # gives 2-round IRV: maj=9, A starts at 8
+    votes = {"A": 7, "B": 5, "C": 4, "D": 2}  # gives 3-round IRV: maj=10, D elim→A=9, C elim→A=13
     total_votes = sum(votes.values())           # 16
     majority_needed = total_votes // 2 + 1      # 9
 
@@ -464,11 +464,8 @@ def main():
         yaml_data[yf.stem] = data
 
     # ── Apply marks to ballot images ─────────────────────────────────────────
-    # Build vote patterns for 16 ballots:
-    #   8 × A-only (rank 1 = A)
-    #   4 × B-first (rank 1 = B, rank 2 = A)
-    #   3 × C-first (rank 1 = C, rank 2 = A)
-    #   1 × D-first (rank 1 = D, rank 2 = A)
+    # Build vote patterns from the computed votes dict.
+    # All B/C/D voters give A as their second choice so all transfers go to A.
     vote_patterns = (
         [{"Candidate A": 1}] * votes["A"] +
         [{"Candidate B": 1, "Candidate A": 2}] * votes["B"] +

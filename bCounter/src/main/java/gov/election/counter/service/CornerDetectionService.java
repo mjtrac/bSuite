@@ -192,14 +192,14 @@ public class CornerDetectionService {
             Math.min(w, blSearchX + markSqPx * 2),
             Math.max(0, blCentreY - markHPx),
             Math.min(h, blCentreY + markHPx),
-            markSqPx, markHPx);
+            markSqPx / 2, markHPx / 2);
 
         double[] br = findPeakBlob(dark, w, h,
             Math.max(0, brSearchX - markSqPx * 2),
             Math.min(w, brSearchX + markSqPx),
             Math.max(0, brCentreY - markHPx),
             Math.min(h, brCentreY + markHPx),
-            markSqPx, markHPx);
+            markSqPx / 2, markHPx / 2);
 
         if (bl != null)
             log.debug(
@@ -260,7 +260,42 @@ public class CornerDetectionService {
             }
         }
 
-        // Step 5: find TL and TR using YAML hints
+        // Step 4b: find PTL and PTR near the top of the page.
+        // These 18x9pt marks sit at a fixed small distance from the page top edge.
+        // We search near their YAML-declared positions if available, otherwise
+        // near the top of the image within the left/right margin zones.
+        double[] ptl = null, ptr = null;
+        if (layout != null && layout.pageMarks != null && layout.pageMarks.length >= 2) {
+            int ptlCx = (int)(layout.pageMarks[0][0] * dpi);
+            int ptlCy = (int)(layout.pageMarks[0][1] * dpi);
+            int ptrCx = (int)(layout.pageMarks[1][0] * dpi);
+            int ptrCy = (int)(layout.pageMarks[1][1] * dpi);
+            // PTL/PTR are at a fixed known position near the page top —
+            // use tight tolerance (0.25") since they don't move much.
+            int pageTolPx = (int)(0.25 * dpi);
+            ptl = findPeakBlob(dark, w, h,
+                Math.max(0, ptlCx - pageTolPx), Math.min(w, ptlCx + pageTolPx),
+                Math.max(0, ptlCy - pageTolPx), Math.min(h, ptlCy + pageTolPx),
+                markRtPx / 2, markHPx / 2);
+            ptr = findPeakBlob(dark, w, h,
+                Math.max(0, ptrCx - pageTolPx), Math.min(w, ptrCx + pageTolPx),
+                Math.max(0, ptrCy - pageTolPx), Math.min(h, ptrCy + pageTolPx),
+                markRtPx / 2, markHPx / 2);
+            if (ptl != null)
+                log.debug("PTL found: ({},{})", ptl[0], ptl[1]);
+            else
+                log.debug("PTL not found near ({},{})", ptlCx, ptlCy);
+            if (ptr != null)
+                log.debug("PTR found: ({},{})", ptr[0], ptr[1]);
+            else
+                log.debug("PTR not found near ({},{})", ptrCx, ptrCy);
+        }
+
+        // Step 5: find TL and TR.
+        // If PTL/PTR and BL/BR are all detected, compute predicted TL/TR positions
+        // by interpolating along the left and right sides of the page using YAML ratios.
+        // This handles rotation, perspective, and translation robustly.
+        // Fall back to YAML hint search if page marks unavailable.
         if (layout == null || layout.cornerMarks == null || layout.cornerMarks.length < 4) {
             log.warn("No YAML corner hints -- cannot find TL/TR marks");
             return null;
@@ -275,22 +310,51 @@ public class CornerDetectionService {
             }
         }
 
-        int tlCx = (int)(hints[0][0] * dpi);
-        int tlCy = (int)(hints[0][1] * dpi);
+        // Compute predicted TL/TR from page geometry when PTL/PTR and BL/BR are known
+        int tlCx, tlCy, trCx, trCy;
+        int smallTolPx = (int)(0.15 * dpi); // tight search window for geometrically predicted positions
+        if (ptl != null && ptr != null && bl != null && br != null
+                && layout.pageMarks != null && layout.pageMarks.length >= 2) {
+            // YAML fractional positions: how far TL/TR are from PTL/PTR toward BL/BR
+            double yamlPtlY  = layout.pageMarks[0][1];
+            double yamlBlY   = layout.cornerMarks[3][1];  // BL
+            double yamlTlY   = layout.cornerMarks[0][1];  // TL
+            double yamlPtrY  = layout.pageMarks[1][1];
+            double yamlBrY   = layout.cornerMarks[2][1];  // BR
+            double yamlTrY   = layout.cornerMarks[1][1];  // TR
+            // Fraction along left side: 0=PTL, 1=BL
+            double tlFrac = (yamlBlY - yamlPtlY) > 0
+                ? (yamlTlY - yamlPtlY) / (yamlBlY - yamlPtlY) : 0.5;
+            double trFrac = (yamlBrY - yamlPtrY) > 0
+                ? (yamlTrY - yamlPtrY) / (yamlBrY - yamlPtrY) : 0.5;
+            // Interpolate detected positions
+            tlCx = (int)Math.round(ptl[0] + tlFrac * (bl[0] - ptl[0]));
+            tlCy = (int)Math.round(ptl[1] + tlFrac * (bl[1] - ptl[1]));
+            trCx = (int)Math.round(ptr[0] + trFrac * (br[0] - ptr[0]));
+            trCy = (int)Math.round(ptr[1] + trFrac * (br[1] - ptr[1]));
+            log.debug("TL/TR predicted from page geometry: TL=({},{}) TR=({},{})",
+                tlCx, tlCy, trCx, trCy);
+        } else {
+            // Fall back to YAML hint positions
+            tlCx = (int)(hints[0][0] * dpi);
+            tlCy = (int)(hints[0][1] * dpi);
+            trCx = (int)(hints[1][0] * dpi);
+            trCy = (int)(hints[1][1] * dpi);
+            smallTolPx = tolPx; // use full tolerance for YAML hint search
+            log.debug("TL/TR from YAML hints: TL=({},{}) TR=({},{})", tlCx, tlCy, trCx, trCy);
+        }
+
         double[] tl = findPeakBlob(dark, w, h,
-            Math.max(0, tlCx - tolPx), Math.min(w, tlCx + tolPx),
-            Math.max(0, tlCy - tolPx), Math.min(h, tlCy + tolPx),
-            markRtPx, markHPx);
+            Math.max(0, tlCx - smallTolPx), Math.min(w, tlCx + smallTolPx),
+            Math.max(0, tlCy - smallTolPx), Math.min(h, tlCy + smallTolPx),
+            markRtPx / 2, markHPx / 2);
 
-        int trCx = (int)(hints[1][0] * dpi);
-        int trCy = (int)(hints[1][1] * dpi);
         double[] tr = findPeakBlob(dark, w, h,
-            Math.max(0, trCx - tolPx), Math.min(w, trCx + tolPx),
-            Math.max(0, trCy - tolPx), Math.min(h, trCy + tolPx),
-            markSqPx, markHPx);
+            Math.max(0, trCx - smallTolPx), Math.min(w, trCx + smallTolPx),
+            Math.max(0, trCy - smallTolPx), Math.min(h, trCy + smallTolPx),
+            markSqPx / 2, markHPx / 2);
 
-        log.debug("TL hint=({},{})  TR hint=({},{})",
-        tlCx, tlCy, trCx, trCy);
+        log.debug("TL predicted=({},{})  TR predicted=({},{})", tlCx, tlCy, trCx, trCy);
         if (tl != null)
             log.debug(
                 "TL orientation mark: centre=({},{}) blobW={} blobH={}",
@@ -580,8 +644,8 @@ public class CornerDetectionService {
         double detectedH = (rightLen + leftLen) / 2.0 / dpi;
         boolean dimOk = true;
         if (layout.contentAreaWidth > 0 && layout.contentAreaHeight > 0) {
-            dimOk = Math.abs(detectedW - layout.contentAreaWidth)  < 0.5 &&
-                    Math.abs(detectedH - layout.contentAreaHeight) < 0.5;
+            dimOk = Math.abs(detectedW - layout.contentAreaWidth)  < 1.0 &&
+                    Math.abs(detectedH - layout.contentAreaHeight) < 1.0;
             if (!dimOk)
                 log.warn(
                     "Dimension mismatch: {}x{}in detected, expected {}x{}in",

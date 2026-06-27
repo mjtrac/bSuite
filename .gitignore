@@ -32,3 +32,29 @@ bBuilder/*.xml
 # Log files
 *.log
 logs/
+
+# bCounter runtime output files
+bCounter/ballot_manifest.csv
+bCounter/cvr_export.csv
+bCounter/overvote_report.txt
+bCounter/rcv_report.html
+bCounter/results_report.html
+bCounter/review_required.txt
+bCounter/counter_results.db
+bCounter/counter_results.db-shm
+bCounter/counter_results.db-wal
+bCounter/bCounter.log
+bCounter/counter_audit.log
+bCounter/writein_*.png
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Test harness generated content
+test-harness/images/
+test-harness/marked_ballots/
+test-harness/election_data.json
+
+# bBuilder generated ballots
+bBuilder_ballots/
