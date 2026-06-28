@@ -41,7 +41,7 @@ def parse_args():
     p.add_argument("--dpi",      type=int, default=300)
     p.add_argument("--distortions", default=None,
                    help="Comma-separated list of distortion names to apply (default: all)")
-    p.add_argument("--copies",   type=int, default=3,
+    p.add_argument("--copies",   type=int, default=1,
                    help="How many copies of each variant to produce")
     p.add_argument("--gt-in",    default="marked_ballots/ground_truth.json")
     p.add_argument("--gt-out",   default="images/ground_truth_all.json")
@@ -198,7 +198,6 @@ def main():
         # Load image as OpenCV array
         pil_img = Image.open(src_path).convert("RGB")
         cv_img  = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-
         for dist_name, dist_fn in distortions.items():
             sub_folder = DIST_FOLDERS[dist_name]
             dest_dir = out_dir / precinct_folder / sub_folder

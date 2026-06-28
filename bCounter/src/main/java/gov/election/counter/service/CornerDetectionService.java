@@ -312,7 +312,7 @@ public class CornerDetectionService {
 
         // Compute predicted TL/TR from page geometry when PTL/PTR and BL/BR are known
         int tlCx, tlCy, trCx, trCy;
-        int smallTolPx = (int)(0.15 * dpi); // tight search window for geometrically predicted positions
+        int smallTolPx = (int)(0.20 * dpi); // search window for geometrically predicted positions
         if (ptl != null && ptr != null && bl != null && br != null
                 && layout.pageMarks != null && layout.pageMarks.length >= 2) {
             // YAML fractional positions: how far TL/TR are from PTL/PTR toward BL/BR
@@ -644,8 +644,8 @@ public class CornerDetectionService {
         double detectedH = (rightLen + leftLen) / 2.0 / dpi;
         boolean dimOk = true;
         if (layout.contentAreaWidth > 0 && layout.contentAreaHeight > 0) {
-            dimOk = Math.abs(detectedW - layout.contentAreaWidth)  < 1.0 &&
-                    Math.abs(detectedH - layout.contentAreaHeight) < 1.0;
+            dimOk = Math.abs(detectedW - layout.contentAreaWidth)  < 1.2 &&
+                    Math.abs(detectedH - layout.contentAreaHeight) < 1.2;
             if (!dimOk)
                 log.warn(
                     "Dimension mismatch: {}x{}in detected, expected {}x{}in",
