@@ -129,6 +129,77 @@ public class ResultsQueryService {
         return toRows4(jpql);
     }
 
+    // ── Scribble detection summary ────────────────────────────────────────────
+
+    /** DTO for a single scribble-flagged ballot. */
+    public static class ScribbleRow {
+        public final long   imageId;
+        public final String imageName;
+        public final String imagePath;
+        public final int    scribblePixels;
+        public final String barcodeData;
+        public final String outlineImagePath;   // null if not generated
+
+        public ScribbleRow(long imageId, String imageName, String imagePath,
+                           int scribblePixels, String barcodeData,
+                           String outlineImagePath) {
+            this.imageId          = imageId;
+            this.imageName        = imageName;
+            this.imagePath        = imagePath;
+            this.scribblePixels   = scribblePixels;
+            this.barcodeData      = barcodeData;
+            this.outlineImagePath = outlineImagePath;
+        }
+        public long   getImageId()           { return imageId; }
+        public String getImageName()         { return imageName; }
+        public String getImagePath()         { return imagePath; }
+        public int    getScribblePixels()    { return scribblePixels; }
+        public String getBarcodeData()       { return barcodeData; }
+        public String getOutlineImagePath()  { return outlineImagePath; }
+        public boolean isHasOutline()        { return outlineImagePath != null
+                                                    && !outlineImagePath.isBlank(); }
+    }
+
+    /**
+     * Returns all ballot images flagged by scribble detection,
+     * ordered by suspicious pixel count descending (worst first).
+     * Requires scribbleFlagged/scribblePixels/scribbleOutlinePath fields
+     * on BallotImage.
+     */
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public List<ScribbleRow> scribbledBallots() {
+        String jpql = """
+            SELECT i.id, i.imageName, i.imagePath, i.scribblePixels,
+                   COALESCE(b.rawData, ''), i.scribbleOutlinePath
+            FROM BallotImage i
+            LEFT JOIN i.barcode b
+            WHERE i.scribbleFlagged = true
+            ORDER BY i.scribblePixels DESC
+            """;
+        List<Object[]> raw = em.createQuery(jpql).getResultList();
+        List<ScribbleRow> rows = new ArrayList<>();
+        for (Object[] r : raw)
+            rows.add(new ScribbleRow(
+                ((Number) r[0]).longValue(),
+                str(r[1]), str(r[2]),
+                r[3] != null ? ((Number) r[3]).intValue() : 0,
+                str(r[4]),
+                r[5] != null ? r[5].toString() : null));
+        return rows;
+    }
+
+    @Transactional(readOnly = true)
+    public long totalScribbled() {
+        try {
+            return (long) em.createQuery(
+                "SELECT COUNT(i) FROM BallotImage i WHERE i.scribbleFlagged = true")
+                .getSingleResult();
+        } catch (Exception e) {
+            return 0L;   // field not yet in schema — degrade gracefully
+        }
+    }
+
     // ── Summary counts ────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)

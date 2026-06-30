@@ -56,6 +56,18 @@
     </div>
     <div id="lastFile" style="font-size:.8rem; color:#777; text-align:center; min-height:1.2em;"></div>
 
+    <!-- Batch comment -->
+    <div style="margin-bottom:1rem;">
+      <label for="batchComment"
+             style="display:block;font-size:.85rem;font-weight:bold;margin-bottom:.3rem;">
+        Batch Comment <span style="font-weight:normal;color:#777;">(optional — cleared after each scan)</span>
+      </label>
+      <textarea id="batchComment" rows="2"
+                placeholder="e.g. Precinct 4 morning batch, box 3 of 5"
+                style="width:100%;padding:.45rem;border:1px solid #ccc;border-radius:4px;
+                       font-size:.9rem;resize:vertical;font-family:sans-serif;"></textarea>
+    </div>
+
     <!-- Controls -->
     <div style="text-align:center; margin-top:1.2rem;">
       <button id="btnScan" class="btn-scan" onclick="startScan()">Start Scan</button>
@@ -86,10 +98,20 @@
 let polling = null;
 
 function startScan() {
-  fetch('/scan/start', { method: 'POST' })
+  const comment = document.getElementById('batchComment').value.trim();
+  const params  = new URLSearchParams();
+  if (comment) params.append('comment', comment);
+
+  fetch('/scan/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params.toString()
+  })
     .then(r => r.json())
     .then(d => {
       if (d.status === 'started') {
+        // Clear comment immediately — it has been accepted for this batch
+        document.getElementById('batchComment').value = '';
         setRunning(true);
         polling = setInterval(pollStatus, 1000);
       } else {

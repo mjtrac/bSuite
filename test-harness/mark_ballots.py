@@ -167,6 +167,73 @@ def draw_messy(draw: ImageDraw.ImageDraw, x, y, w, h, color=(20,20,20)):
     overflow = int(min(w,h) * 0.4)
     draw.ellipse([x-overflow, y-overflow, x+w+overflow, y+h+overflow], fill=color)
 
+def draw_scribble_line(draw: ImageDraw.ImageDraw,
+                       boxes: list[dict],
+                       img_width: int,
+                       img_height: int,
+                       dpi: int,
+                       color=(20, 20, 20)):
+    """
+    Draw a 4-pt thick, 600-pixel horizontal line somewhere inside the
+    contest area but clear of all indicator bounding boxes.
+
+    Strategy: scan candidate Y positions (in 10-pixel steps) and find
+    the first row that has at least 600 px of horizontal clearance from
+    all indicator boxes, with 5 px vertical margin above and below.
+    Falls back to drawing near the top of the content area if no such
+    gap is found (should not happen on a normal ballot).
+    """
+    LINE_LEN   = 600   # pixels
+    LINE_WIDTH = 4     # pt / pixels
+    V_MARGIN   = 5     # vertical clearance above and below each box
+    H_MARGIN   = 10    # horizontal clearance from left/right edge
+
+    # Build a set of (x0, x1, y0, y1) exclusion zones from all indicators
+    zones = [(b["x"], b["x"] + b["w"],
+              b["y"] - V_MARGIN, b["y"] + b["h"] + V_MARGIN)
+             for b in boxes]
+
+    # Content area bounds from box positions
+    ca_left  = min(b["x"] for b in boxes) if boxes else H_MARGIN
+    ca_right = max(b["x"] + b["w"] for b in boxes) if boxes else img_width - H_MARGIN
+    ca_top   = min(b["y"] for b in boxes) if boxes else 0
+    ca_bot   = max(b["y"] + b["h"] for b in boxes) if boxes else img_height
+
+    line_x0 = ca_left + H_MARGIN
+    line_x1 = line_x0 + LINE_LEN
+
+    # Scan Y rows inside the content area looking for a clear horizontal band
+    chosen_y = None
+    for y in range(ca_top, ca_bot, 10):
+        # Check that no indicator zone overlaps this Y band
+        clear = True
+        for (bx0, bx1, by0, by1) in zones:
+            if by0 <= y <= by1:
+                # This Y row is inside a box — skip
+                clear = False
+                break
+        if not clear:
+            continue
+        # Also check that the horizontal span [line_x0, line_x1] doesn't
+        # overlap any box at this Y level
+        for (bx0, bx1, by0, by1) in zones:
+            if by0 <= y <= by1 and not (line_x1 < bx0 or line_x0 > bx1):
+                clear = False
+                break
+        if clear and line_x1 <= ca_right:
+            chosen_y = y
+            break
+
+    if chosen_y is None:
+        # Fallback: draw just above the first box
+        chosen_y = ca_top - 20
+        if chosen_y < V_MARGIN:
+            chosen_y = ca_bot + 20  # below all boxes
+
+    draw.line([(line_x0, chosen_y), (line_x1, chosen_y)],
+              fill=color, width=LINE_WIDTH)
+    return line_x0, chosen_y, line_x1, chosen_y
+
 def draw_arrow_vote(draw: ImageDraw.ImageDraw, x, y, w, h, color=(5,5,5)):
     """Fill the central zone of an arrow indicator (between the two triangles).
     The analyser detects any dark pixel in a zone 1/4 the box size centred on the box.
@@ -320,7 +387,22 @@ SCENARIOS = {
         "Measure A — Infrastructure Bond": {"Yes": "vote"},
     },
 
-    # ── RCV split scenarios ──────────────────────────────────────────────────
+    # Scenario 8: scribble test — valid votes + an extraneous line in the
+    # contest area outside all indicator boxes.  Exercises scribble detection.
+    # The line is drawn in the main loop (not via apply_scenario) because it
+    # needs access to all box positions to avoid indicator regions.
+    "scribble_test": {
+        "President of the United States": {"Alexandria Washington (Rank 1)": "rank:1",
+                                            "Benjamin Adams (Rank 2)":       "rank:2"},
+        "Representative in Congress":     {"Alice Smith":           "vote"},
+        "State Senator":                  {"Patricia Chen":         "vote"},
+        "City Council Member":            {"Anna Park":      "vote",
+                                           "Brian Foster":   "vote",
+                                           "Carmen Lopez":   "vote"},
+        "School Board Member":            {"Patricia Chen":  "vote"},
+        "Mayor":                          {"Bill de Blasio": "vote"},
+        "Measure A — Infrastructure Bond":{"Yes":            "vote"},
+    },
     # Three equal-copy scenarios giving different rank-1 preferences for the
     # President ranked-choice contest.  With equal copies:
     #   Round 1: Benjamin leads, Alexandria second, Carolina last (fewest rank-1)
@@ -481,12 +563,23 @@ def main():
 
                 truth = apply_scenario(draw, boxes, scenario, rng, global_style)
 
+                # For the scribble_test scenario, add an extra line in the
+                # contest area outside all indicator boxes.
+                scribble_coords = None
+                if scenario_name == "scribble_test":
+                    sx0, sy0, sx1, sy1 = draw_scribble_line(
+                        draw, boxes, img.width, img.height, args.dpi)
+                    scribble_coords = {"x0": sx0, "y0": sy0,
+                                       "x1": sx1, "y1": sy1}
+                    print(f"    ✎ Scribble line drawn at y={sy0} "
+                          f"({sx0},{sy0})→({sx1},{sy1})")
+
                 fname = f"{stem}__{scenario_name}.png"
                 fpath = out / precinct.replace(" ", "_") / fname
                 fpath.parent.mkdir(parents=True, exist_ok=True)
                 img.save(str(fpath), dpi=(args.dpi, args.dpi))
 
-                all_ground_truth[str(fpath)] = {
+                gt_entry = {
                     "combo_id":    combo_id,
                     "precinct":    precinct,
                     "party":       party,
@@ -494,6 +587,10 @@ def main():
                     "yaml_source": yaml_path,
                     "indicators":  truth,
                 }
+                if scribble_coords:
+                    gt_entry["scribble_line"] = scribble_coords
+
+                all_ground_truth[str(fpath)] = gt_entry
                 voted = sum(1 for t in truth if t["counted_as"] == "VOTED")
                 print(f"    ✓ {fname}  ({voted}/{len(truth)} marked)")
 

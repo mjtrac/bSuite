@@ -46,6 +46,9 @@ public class ScannerConfig {
     @Value("${scanner.filename.prefix:ballot_scan_}")
     public String filenamePrefix;
 
+    @Value("${scanner.batch-log.dir:}")
+    public String batchLogDir;
+
     @Value("${app.login-title:bScanner — Election Ballot Scanner}")
     public String loginTitle;
 }

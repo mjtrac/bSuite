@@ -37,6 +37,8 @@
          sec:authorize="hasAnyRole('ADMIN','DATA_ENTRY')">Design Templates</a>
       <a th:href="@{/print}"
          sec:authorize="hasAnyRole('ADMIN','PRINTER')">Print Ballot</a>
+      <a th:href="@{/print/generate-all}"
+         sec:authorize="hasAnyRole('ADMIN','PRINTER')">Generate All</a>
     </span>
 
     <span class="nav-group" sec:authorize="hasRole('ADMIN')">

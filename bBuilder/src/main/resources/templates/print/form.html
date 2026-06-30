@@ -46,6 +46,33 @@
       <input type="number" id="copies" value="1" min="1" max="500"/>
     </label>
 
+    <!-- Printer options -->
+    <div style="margin:.75rem 0;padding:.75rem 1rem;background:#f0fdf4;
+                border:1px solid #86efac;border-radius:6px">
+      <div style="font-weight:600;font-size:.9rem;color:#166534;margin-bottom:.5rem">
+        &#128438; Print Options
+        <span style="font-weight:400;color:#555">(optional)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+        <input type="checkbox" id="printNow" onchange="togglePrinter(this)"/>
+        <label for="printNow" style="margin:0;font-weight:400;font-size:.9rem">
+          Send to printer immediately after generating
+        </label>
+      </div>
+      <div id="printerSelector" style="display:none;margin-top:.4rem">
+        <label for="printerName" style="font-size:.85rem">Printer (on server)</label>
+        <select id="printerName"
+                style="width:100%;max-width:400px;padding:.35rem .5rem;
+                       border:1px solid #ccc;border-radius:4px;font-size:.9rem">
+          <option value="">— loading printers… —</option>
+        </select>
+        <p style="font-size:.75rem;color:#555;margin:.3rem 0 0">
+          &#9432; These are printers on the <strong>server machine</strong>,
+          not your browser's printers.
+        </p>
+      </div>
+    </div>
+
     <div class="form-actions">
       <div class="form-group" th:if="${languages != null and !languages.isEmpty()}"
            style="margin:.75rem 0">
@@ -83,6 +110,42 @@
       </button>
     </div>
   </dialog>
+
+  <script>
+    let printersLoaded = false;
+
+    function togglePrinter(cb) {
+      document.getElementById('printerSelector').style.display =
+        cb.checked ? 'block' : 'none';
+      if (cb.checked && !printersLoaded) loadPrinters();
+    }
+
+    function loadPrinters() {
+      fetch('/print/printers', { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => {
+          const select = document.getElementById('printerName');
+          select.innerHTML = '';
+          if (!data.printers || data.printers.length === 0) {
+            select.innerHTML =
+              '<option value="">— no printers found on server —</option>';
+            return;
+          }
+          data.printers.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            if (p === data.defaultPrinter) opt.selected = true;
+            select.appendChild(opt);
+          });
+          printersLoaded = true;
+        })
+        .catch(() => {
+          document.getElementById('printerName').innerHTML =
+            '<option value="">— could not load printers —</option>';
+        });
+    }
+  </script>
 
   <script src="/js/generate-ballot.js"></script>
 

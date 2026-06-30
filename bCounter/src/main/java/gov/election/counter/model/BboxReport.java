@@ -134,6 +134,17 @@ public class BboxReport {
         public double contentAreaWidth;
         public double contentAreaHeight;
 
+        /** Scribble detection: count of dark pixels outside the normative mask. */
+        public int     scribblePixels  = 0;
+
+        /** True if scribblePixels >= scanner.scribble-threshold-px. */
+        public boolean scribbleFlagged = false;
+
+        /** Absolute path to the red-outlined copy of the warped image,
+         *  saved only when scribbleFlagged is true and
+         *  scanner.scribble-outline-images=true.  Null otherwise. */
+        public String  scribbleOutlinePath = null;
+
         /** Convenience: number of indicators counted as marked. */
         public int markedCount() {
             int n = 0; for (MarkingResult m : markings) if (m.marked) n++; return n;

@@ -84,7 +84,97 @@ public class ResultsController {
         if (!model.containsAttribute("reportPending"))
             model.addAttribute("reportPending", !reportExists && scanning);
 
+        // Check whether rcv_report.html has been written
+        java.nio.file.Path rcvFile = java.nio.file.Paths.get(
+            voteTally.getReportOutputDir(), "rcv_report.html");
+        boolean rcvExists = java.nio.file.Files.exists(rcvFile);
+        model.addAttribute("rcvExists", rcvExists);
+
+        // Scribble detection summary
+        try {
+            long scribbledCount = queryService.totalScribbled();
+            model.addAttribute("scribbledCount", scribbledCount);
+            java.nio.file.Path scribbleFile = java.nio.file.Paths.get(
+                voteTally.getReportOutputDir(), "scribble_report.html");
+            model.addAttribute("scribbleReportExists",
+                java.nio.file.Files.exists(scribbleFile));
+        } catch (Exception e) {
+            model.addAttribute("scribbledCount", 0L);
+            model.addAttribute("scribbleReportExists", false);
+        }
+
         return "results";
+    }
+
+    /** Serves the raw scribble_report.html for embedding in the results page. */
+    @GetMapping(value = "/scribble-report",
+                produces = org.springframework.http.MediaType.TEXT_HTML_VALUE)
+    @org.springframework.web.bind.annotation.ResponseBody
+    public org.springframework.http.ResponseEntity<String> scribbleReport() {
+        java.nio.file.Path scribbleFile = java.nio.file.Paths.get(
+            voteTally.getReportOutputDir(), "scribble_report.html");
+        if (!java.nio.file.Files.exists(scribbleFile))
+            return org.springframework.http.ResponseEntity.notFound().build();
+        try {
+            String html = java.nio.file.Files.readString(scribbleFile);
+            return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.TEXT_HTML)
+                .body(html);
+        } catch (java.io.IOException e) {
+            return org.springframework.http.ResponseEntity
+                .internalServerError().build();
+        }
+    }
+
+    /**
+     * Serves the red-outlined scribble image for a given ballot image id,
+     * for inline embedding (thumbnail/full view) in scribble_report.html.
+     */
+    @GetMapping("/scribble-image")
+    public org.springframework.http.ResponseEntity<byte[]> scribbleImage(
+            @org.springframework.web.bind.annotation.RequestParam Long id) {
+        String outlinePath = queryService.scribbledBallots().stream()
+            .filter(r -> r.getImageId() == id)
+            .map(ResultsQueryService.ScribbleRow::getOutlineImagePath)
+            .findFirst()
+            .orElse(null);
+
+        if (outlinePath == null || outlinePath.isBlank())
+            return org.springframework.http.ResponseEntity.notFound().build();
+
+        java.nio.file.Path file = java.nio.file.Paths.get(outlinePath);
+        if (!java.nio.file.Files.exists(file))
+            return org.springframework.http.ResponseEntity.notFound().build();
+
+        try {
+            byte[] bytes = java.nio.file.Files.readAllBytes(file);
+            return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.IMAGE_PNG)
+                .cacheControl(org.springframework.http.CacheControl.noCache())
+                .body(bytes);
+        } catch (java.io.IOException e) {
+            return org.springframework.http.ResponseEntity.internalServerError().build();
+        }
+    }
+
+    /** Serves the raw rcv_report.html for embedding in the results page. */
+    @GetMapping(value = "/rcv-report",
+                produces = org.springframework.http.MediaType.TEXT_HTML_VALUE)
+    @org.springframework.web.bind.annotation.ResponseBody
+    public org.springframework.http.ResponseEntity<String> rcvReport() {
+        java.nio.file.Path rcvFile = java.nio.file.Paths.get(
+            voteTally.getReportOutputDir(), "rcv_report.html");
+        if (!java.nio.file.Files.exists(rcvFile))
+            return org.springframework.http.ResponseEntity.notFound().build();
+        try {
+            String html = java.nio.file.Files.readString(rcvFile);
+            return org.springframework.http.ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.TEXT_HTML)
+                .body(html);
+        } catch (java.io.IOException e) {
+            return org.springframework.http.ResponseEntity
+                .internalServerError().build();
+        }
     }
 
     /** Group a flat VoteRow list by contest, preserving insertion order. */

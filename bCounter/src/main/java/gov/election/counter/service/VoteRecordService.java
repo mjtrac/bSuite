@@ -133,6 +133,9 @@ public class VoteRecordService {
         img.setCanonicalWidth((int)Math.round(contentAreaWidth  * warpDpi));
         img.setCanonicalHeight((int)Math.round(contentAreaHeight * warpDpi));
         img.setBarcode(barcode);
+        img.setScribbleFlagged(result.scribbleFlagged);
+        img.setScribblePixels(result.scribblePixels);
+        img.setScribbleOutlinePath(result.scribbleOutlinePath);
         if (corners != null && corners.length == 4) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 4; i++) {

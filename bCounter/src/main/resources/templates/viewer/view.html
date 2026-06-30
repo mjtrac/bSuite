@@ -195,6 +195,9 @@
       <span th:text="${position}">1</span>
       of
       <span th:text="${total}">?</span>
+      <span th:if="${filterActive}"
+            style="color:#3b82f6;font-size:.72rem"
+            th:title="${filterDesc}">(filtered)</span>
     </span>
     <a href="#"
        th:class="${nextId == null ? 'nav-btn disabled' : 'nav-btn'}"

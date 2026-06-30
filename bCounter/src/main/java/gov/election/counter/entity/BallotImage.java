@@ -62,6 +62,19 @@ public class BallotImage {
     @Column(name = "corner_marks", length = 200)
     private String cornerMarks;
 
+    /** Whether scribble detection flagged this ballot. */
+    @Column(name = "scribble_flagged")
+    private boolean scribbleFlagged;
+
+    /** Count of dark pixels outside the normative mask. */
+    @Column(name = "scribble_pixels")
+    private int scribblePixels;
+
+    /** Absolute path to the red-outlined copy of the warped image,
+     *  or null if not flagged / outline drawing disabled. */
+    @Column(name = "scribble_outline_path", length = 2000)
+    private String scribbleOutlinePath;
+
     /** The barcode record for this image. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "barcode_id")
@@ -92,6 +105,12 @@ public class BallotImage {
     public void            setCanonicalHeight(int v) { this.canonicalHeight = v; }
     public String          getCornerMarks() { return cornerMarks; }
     public void            setCornerMarks(String v) { this.cornerMarks = v; }
+    public boolean         getScribbleFlagged()      { return scribbleFlagged; }
+    public void            setScribbleFlagged(boolean v) { this.scribbleFlagged = v; }
+    public int             getScribblePixels()       { return scribblePixels; }
+    public void            setScribblePixels(int v)  { this.scribblePixels = v; }
+    public String          getScribbleOutlinePath()  { return scribbleOutlinePath; }
+    public void            setScribbleOutlinePath(String v) { this.scribbleOutlinePath = v; }
     public BarcodeRecord   getBarcode()     { return barcode; }
     public void            setBarcode(BarcodeRecord v) { this.barcode = v; }
 }

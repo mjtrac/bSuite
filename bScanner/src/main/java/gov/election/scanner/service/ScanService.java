@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
+import java.io.*;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -21,7 +21,8 @@ import java.util.concurrent.Executors;
 public class ScanService {
 
     private static final Logger log = LoggerFactory.getLogger(ScanService.class);
-    private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    private static final DateTimeFormatter TS      = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    private static final DateTimeFormatter LOG_TS  = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final ScannerConfig config;
     private final ScanSession   session = new ScanSession();
@@ -40,19 +41,27 @@ public class ScanService {
     /**
      * Start a scan asynchronously.
      * Returns immediately; poll getSession() for progress.
+     *
+     * @param comment operator comment for this batch — stored in the batch log
+     *                and cleared from the session once the batch completes.
      */
-    public synchronized void startScan() {
+    public synchronized void startScan(String comment) {
         if (session.scanning) {
             throw new IllegalStateException("Scan already in progress");
         }
         session.reset();
         session.scanning  = true;
         session.startedAt = System.currentTimeMillis();
+        session.comment   = (comment != null) ? comment : "";
         executor.submit(this::runScan);
     }
 
+    /** Convenience overload for callers that don't pass a comment. */
+    public synchronized void startScan() {
+        startScan("");
+    }
+
     public synchronized void stopScan() {
-        // Mark as stop-requested; the running process will be interrupted
         session.scanning = false;
         session.error    = "Scan stopped by operator";
     }
@@ -60,6 +69,7 @@ public class ScanService {
     // ── Internal scan runner ──────────────────────────────────────────────────
 
     private void runScan() {
+        String batchComment = session.comment;   // snapshot before reset
         try {
             // Ensure output directory exists
             Path outDir = Path.of(config.outputDir);
@@ -113,6 +123,9 @@ public class ScanService {
                     session.imagesScanned, outDir);
             }
 
+            // Write batch log entry
+            writeBatchLog(batchComment, after, ts);
+
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             session.error = "Scan interrupted";
@@ -120,11 +133,73 @@ public class ScanService {
             session.error = e.getMessage();
             log.error("Scan failed: {}", e.getMessage(), e);
         } finally {
-            session.scanning     = false;
-            session.complete     = true;
-            session.completedAt  = System.currentTimeMillis();
+            session.scanning    = false;
+            session.complete    = true;
+            session.completedAt = System.currentTimeMillis();
+            session.comment     = "";   // clear comment after batch completes
         }
     }
+
+    // ── Batch log ─────────────────────────────────────────────────────────────
+
+    /**
+     * Appends a record to the batch log file for this scan.
+     *
+     * Format (plain text, human-readable):
+     *
+     *   ── Batch 20260630_134523 ──────────────────────────────────────
+     *   Timestamp : 2026-06-30 13:45:23
+     *   Operator  : (from session if available)
+     *   Comment   : Precinct 4 morning batch, box 3 of 5
+     *   Images    : 47
+     *   Files:
+     *     ballot_scan_20260630_134523_0001.png
+     *     ballot_scan_20260630_134523_0002.png
+     *     ...
+     *
+     * The log file is named batch_log.txt and placed in scanner.batch-log.dir
+     * (application.properties), which defaults to scanner.output.dir if not set.
+     */
+    private void writeBatchLog(String comment, Set<Path> files, String ts) {
+        try {
+            String logDir = (config.batchLogDir != null && !config.batchLogDir.isBlank())
+                ? config.batchLogDir
+                : config.outputDir;
+
+            Path logFile = Path.of(logDir, "batch_log.txt");
+            Files.createDirectories(logFile.getParent());
+
+            String timestamp = LocalDateTime.now().format(LOG_TS);
+            List<String> sortedNames = files.stream()
+                .map(p -> p.getFileName().toString())
+                .sorted()
+                .toList();
+
+            try (PrintWriter pw = new PrintWriter(
+                    new FileWriter(logFile.toFile(), true /* append */))) {
+
+                pw.printf("%n── Batch %s ────────────────────────────────────────%n", ts);
+                pw.printf("Timestamp : %s%n", timestamp);
+                if (comment != null && !comment.isBlank()) {
+                    pw.printf("Comment   : %s%n", comment);
+                }
+                pw.printf("Images    : %d%n", sortedNames.size());
+                if (!sortedNames.isEmpty()) {
+                    pw.println("Files:");
+                    for (String name : sortedNames) {
+                        pw.printf("  %s%n", name);
+                    }
+                }
+            }
+
+            log.info("Batch log updated: {}", logFile.toAbsolutePath());
+
+        } catch (IOException e) {
+            log.warn("Could not write batch log: {}", e.getMessage());
+        }
+    }
+
+    // ── Monitor / image detection ─────────────────────────────────────────────
 
     private void monitorOutput(Path outDir, Set<Path> before) {
         try {
@@ -172,19 +247,13 @@ public class ScanService {
     }
 
     private List<String> buildNaps2Command(Path outDir, String prefix) {
-        // NAPS2 8.x console mode syntax:
-        // naps2 console --source duplex --dpi 300 --output /path/prefix_$(nnnn).png
-        // Source values: glass | feeder | duplex (duplex implies feeder + both sides)
         List<String> cmd = new ArrayList<>();
         cmd.add(config.naps2Path);
         cmd.add("console");
-        // Profile or device selection
         if (config.naps2Profile != null && !config.naps2Profile.isBlank()) {
-            // When using a profile, let it control source/dpi — don't override
             cmd.add("--profile");
             cmd.add(config.naps2Profile);
         } else {
-            // No profile — pass source and dpi explicitly
             cmd.add("--source");
             if (config.duplex && config.source.equalsIgnoreCase("feeder")) {
                 cmd.add("duplex");
@@ -200,13 +269,11 @@ public class ScanService {
         }
         cmd.add("--verbose");
         cmd.add("--output");
-        // NAPS2 uses $(nnnn) for zero-padded auto-incrementing page numbers
         cmd.add(outDir.resolve(prefix + "$(nnnn).png").toString());
         return cmd;
     }
 
     private List<String> buildScanimageCommand(Path outDir, String prefix) {
-        // scanimage -d <device> --resolution 300 --format=png --batch=prefix_%04d.png
         List<String> cmd = new ArrayList<>();
         cmd.add(config.scanimagePath);
         cmd.add("--resolution");
@@ -223,7 +290,7 @@ public class ScanService {
         if (config.customCommand == null || config.customCommand.isBlank()) {
             throw new IllegalStateException("Custom command not configured");
         }
-        String outPath = outDir.resolve(prefix).toString();
+        String outPath  = outDir.resolve(prefix).toString();
         String expanded = config.customCommand.replace("{output}", outPath);
         return List.of("/bin/sh", "-c", expanded);
     }

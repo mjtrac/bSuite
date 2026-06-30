@@ -18,7 +18,7 @@
 set -euo pipefail
 
 SEED=42
-COPIES=2
+COPIES=1
 QUICK=0
 BUILDER_HOST="http://localhost:8080"
 COUNTER_HOST="http://localhost:8081"

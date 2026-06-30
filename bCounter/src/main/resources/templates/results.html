@@ -89,6 +89,39 @@
     <a href="/scan" class="btn" style="background:#1a6a6a">&#9654; Continue Scanning</a>
   </div>
 
+  <!-- ── RCV quick-link bar ──────────────────────────────────────────────── -->
+  <div th:if="${rcvExists}"
+       style="background:#f0f9ff;border:1px solid #0284c7;border-radius:6px;
+              padding:.6rem 1.25rem;margin-bottom:.75rem;display:flex;
+              align-items:center;gap:1.25rem;font-size:.9rem;color:#0c4a6e">
+    <span>&#127760; Ranked-Choice results available:</span>
+    <a href="#rcv-results"
+       style="color:#0284c7;font-weight:600;text-decoration:none">
+      &#8595; Jump to RCV Runoffs
+    </a>
+    <a href="/rcv-report" target="_blank"
+       style="color:#0284c7;font-weight:600;text-decoration:none">
+      &#8599; Open full RCV report
+    </a>
+  </div>
+
+  <!-- ── Scribble quick-link bar ───────────────────────────────────────────── -->
+  <div th:if="${scribbleReportExists and scribbledCount > 0}"
+       style="background:#fef3c7;border:1px solid #d97706;border-radius:6px;
+              padding:.6rem 1.25rem;margin-bottom:1.5rem;display:flex;
+              align-items:center;gap:1.25rem;font-size:.9rem;color:#92400e">
+    <span>&#9998; <strong th:text="${scribbledCount}">0</strong>
+      ballot(s) flagged with unexpected marks:</span>
+    <a href="#scribble-results"
+       style="color:#92400e;font-weight:600;text-decoration:none">
+      &#8595; Jump to Scribble Report
+    </a>
+    <a href="/scribble-report" target="_blank"
+       style="color:#92400e;font-weight:600;text-decoration:none">
+      &#8599; Open full report
+    </a>
+  </div>
+
   <!-- Summary -->
   <div class="summary-row">
     <div class="summary-box">
@@ -102,6 +135,12 @@
     <div class="summary-box">
       <div class="big overvote" th:text="${overvotedCount}">0</div>
       <div class="lbl">Overvoted Ballots</div>
+    </div>
+    <div class="summary-box" th:if="${scribbledCount > 0}"
+         style="background:#fef3c7;border:1px solid #d97706">
+      <div class="big" th:text="${scribbledCount}"
+           style="color:#92400e">0</div>
+      <div class="lbl" style="color:#92400e">Scribbled Ballots</div>
     </div>
   </div>
 
@@ -211,6 +250,40 @@
     </div>
   </th:block>
 
+  <!-- ── Scribble Report (embedded) ───────────────────────────────────────── -->
+  <div th:if="${scribbleReportExists and scribbledCount > 0}"
+       id="scribble-results" style="margin-top:2.5rem">
+    <h2 style="display:flex;align-items:center;gap:1rem;color:#92400e;
+               border-bottom-color:#d97706">
+      &#9998; Scribbled Ballots
+      <a href="/scribble-report" target="_blank"
+         style="font-size:.8rem;font-weight:400;color:#92400e;text-decoration:none">
+        &#8599; Open full report
+      </a>
+    </h2>
+    <div id="scribble-embed"
+         style="border:1px solid #fde68a;border-radius:6px;padding:.5rem;
+                min-height:80px;color:#92400e;font-size:.85rem">
+      Loading…
+    </div>
+  </div>
+
+  <!-- ── RCV Runoff Results ──────────────────────────────────────────────── -->
+  <div th:if="${rcvExists}" id="rcv-results" style="margin-top:2.5rem">
+    <h2 style="display:flex;align-items:center;gap:1rem">
+      Ranked-Choice Runoffs
+      <a href="/rcv-report" target="_blank"
+         style="font-size:.8rem;font-weight:400;color:#0284c7;text-decoration:none">
+        &#8599; Open full report
+      </a>
+    </h2>
+    <div id="rcv-embed"
+         style="border:1px solid #e5e5e5;border-radius:6px;padding:.5rem;
+                min-height:80px;color:#555;font-size:.85rem">
+      Loading…
+    </div>
+  </div>
+
   <!-- Actions -->
   <div style="margin-top:2rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:center">
     <a href="/scan" th:if="${hasMore}" class="btn" style="background:#1a6a6a">
@@ -244,6 +317,40 @@
     }
     checkScanStatus();
     setInterval(checkScanStatus, 5000);
+
+    function autoSizeFrame(frame) { }      // no longer used — kept for safety
+    function autoSizeRcvFrame(frame) { }   // no longer used
+
+    function fetchEmbed(url, targetId, errorColor) {
+      var el = document.getElementById(targetId);
+      if (!el) return;
+      fetch(url, { credentials: 'include' })
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.text();
+        })
+        .then(function(html) {
+          // Strip <html>/<head>/<body> wrapper tags if present,
+          // keeping only the inner content so styles don't bleed.
+          html = html
+            .replace(/<html[^>]*>/gi, '')
+            .replace(/<\/html>/gi, '')
+            .replace(/<head[\s\S]*?<\/head>/gi, '')
+            .replace(/<body[^>]*>/gi, '')
+            .replace(/<\/body>/gi, '');
+          el.innerHTML = html;
+        })
+        .catch(function(err) {
+          el.innerHTML = '<em style="color:' + errorColor + '">Could not load report: '
+            + err.message + '</em>';
+        });
+    }
+
+    // Load embedded sections after page is ready
+    document.addEventListener('DOMContentLoaded', function() {
+      fetchEmbed('/scribble-report', 'scribble-embed', '#92400e');
+      fetchEmbed('/rcv-report',      'rcv-embed',      '#555');
+    });
   </script>
 </body>
 </html>

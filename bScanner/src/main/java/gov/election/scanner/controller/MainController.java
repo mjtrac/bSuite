@@ -28,8 +28,8 @@ public class MainController {
     @GetMapping("/")
     public String home(Model model) {
         ScanSession s = scanService.getSession();
-        model.addAttribute("session",   s);
-        model.addAttribute("config",    config);
+        model.addAttribute("session",    s);
+        model.addAttribute("config",     config);
         model.addAttribute("loginTitle", config.loginTitle);
         return "index";
     }
@@ -38,9 +38,10 @@ public class MainController {
 
     @PostMapping("/scan/start")
     @ResponseBody
-    public Map<String, Object> startScan() {
+    public Map<String, Object> startScan(
+            @RequestParam(required = false, defaultValue = "") String comment) {
         try {
-            scanService.startScan();
+            scanService.startScan(comment.trim());
             return Map.of("status", "started");
         } catch (IllegalStateException e) {
             return Map.of("status", "error", "message", e.getMessage());

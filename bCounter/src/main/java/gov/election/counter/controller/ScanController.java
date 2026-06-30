@@ -71,15 +71,18 @@ public class ScanController {
     }
 
     private final VoteRecordService  voteRecord;
+    private final ScribbleDetectionService scribbleDetection;
 
     public ScanController(BboxReportLoader loader, ScannerService scanner,
                           VoteTallyService voteTally, AuditLogService auditLog,
-                          VoteRecordService voteRecord) {
+                          VoteRecordService voteRecord,
+                          ScribbleDetectionService scribbleDetection) {
         this.loader       = loader;
         this.scanner      = scanner;
         this.voteTally    = voteTally;
         this.auditLog     = auditLog;
         this.voteRecord   = voteRecord;
+        this.scribbleDetection = scribbleDetection;
         // Use Spring's SimpleAsyncTaskExecutor so beans called from the
         // background scan thread (e.g. VoteRecordService) have a proper
         // Spring application context and @Transactional support.
@@ -345,6 +348,12 @@ public class ScanController {
         AtomicInteger nextIndex = new AtomicInteger(passStartIdx);
         ConcurrentLinkedQueue<Object[]> completedQueue = new ConcurrentLinkedQueue<>();
         java.util.List<Object[]> retryList = new java.util.ArrayList<>();
+        // Separate from retryList (which retries DB persist races): this list
+        // holds images whose scanOne() call itself threw a transient
+        // ConcurrentModificationException, so they need to be RE-SCANNED
+        // (not just re-persisted) once worker contention has cleared.
+        java.util.List<Object[]> scanRetryList =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
         List<Future<?>> futures = new ArrayList<>();
         for (int t = 0; t < nThreads; t++) {
@@ -357,13 +366,20 @@ public class ScanController {
                     try {
                         ScanResult result = scanner.scanOne(imagePath, session);
                         completedQueue.add(new Object[]{imagePath, result, idx});
+                    } catch (java.util.ConcurrentModificationException cme) {
+                        // Transient race from concurrent access to shared layout data.
+                        // Queue for a same-pass re-scan once worker contention clears,
+                        // rather than immediately flagging for manual review.
+                        log.warn("CME scanning " + imagePath.getFileName()
+                            + " — queuing for re-scan after main pass", cme);
+                        scanRetryList.add(new Object[]{imagePath, idx});
                     } catch (Exception e) {
                         String msg = e.getMessage() != null ? e.getMessage()
                                    : e.getClass().getSimpleName();
                         log.error("Worker exception on " + imagePath.getFileName()
-                            + ": " + e.getClass().getName() + ": " + msg);
+                            + ": " + e.getClass().getName() + ": " + msg, e);
                         if (e.getCause() != null)
-                            log.error("  Caused by: " + e.getCause());
+                            log.error("  Caused by:", e.getCause());
                         ScanResult err = new ScanResult();
                         err.imagePath    = imagePath.toString();
                         err.imageName    = imagePath.getFileName().toString();
@@ -513,6 +529,74 @@ public class ScanController {
             for (Future<?> f : futures) {
                 try { f.get(); } catch (Exception ignored) {}
             }
+
+            // ── Re-scan images that hit a transient ConcurrentModificationException ──
+            // All worker threads are now idle (joined above), so whatever shared
+            // state caused the race is no longer being mutated concurrently.
+            // Re-scan single-threaded on this (background) thread, then persist
+            // exactly like a normal successful scan.
+            if (!scanRetryList.isEmpty()) {
+                log.info("Re-scanning " + scanRetryList.size()
+                    + " image(s) that hit ConcurrentModificationException");
+                for (Object[] retryItem : scanRetryList) {
+                    Path retryPath = (Path) retryItem[0];
+                    String imageName = retryPath.getFileName().toString();
+                    ScanResult result;
+                    try {
+                        result = scanner.scanOne(retryPath, session);
+                    } catch (Exception e2) {
+                        String msg = e2.getMessage() != null ? e2.getMessage()
+                                   : e2.getClass().getSimpleName();
+                        log.error("Re-scan still failed for " + imageName
+                            + ": " + e2.getClass().getName() + ": " + msg, e2);
+                        result = new ScanResult();
+                        result.imagePath    = retryPath.toString();
+                        result.imageName    = imageName;
+                        result.errorMessage = "Re-scan failed: " + msg;
+                    }
+
+                    session.currentImagePath = retryPath.toString();
+                    session.currentIndex     = ++written;
+                    session.results.add(result);
+                    auditLog.log("SCAN", username, imageName);
+
+                    if (result.errorMessage != null) {
+                        session.reviewRequired.add(retryPath.toAbsolutePath().toString()
+                            + " — " + result.errorMessage);
+                        log.warn("Flagged for review after re-scan: " + imageName
+                            + " — " + result.errorMessage);
+                        try {
+                            java.nio.file.Path reviewPath = retryPath.resolveSibling(
+                                imageName + ".review");
+                            java.nio.file.Files.move(retryPath, reviewPath,
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            log.info("Renamed to .review: {}", imageName);
+                        } catch (Exception renameEx) {
+                            log.warn("Could not rename to .review: {}", renameEx.getMessage());
+                        }
+                    } else {
+                        try {
+                            gov.election.counter.service.CornerDetectionService.Point2D[] rc = null;
+                            if (result.cornersFound) {
+                                rc = new gov.election.counter.service.CornerDetectionService.Point2D[]{
+                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
+                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
+                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
+                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                                };
+                            }
+                            voteRecord.persist(result, retryPath, session.threshold,
+                                rc, result.contentAreaWidth, result.contentAreaHeight,
+                                result.warpDpi > 0 ? result.warpDpi : session.dpi, session);
+                            log.info("Re-scan succeeded: " + imageName);
+                        } catch (Exception ex) {
+                            log.error("Persist failed after re-scan for " + imageName
+                                + ": " + ex.getMessage());
+                        }
+                    }
+                }
+            }
+
             // Drain any items that arrived after the writer loop exited
             Object[] item;
             while ((item = completedQueue.poll()) != null) {
@@ -690,6 +774,7 @@ public class ScanController {
         httpSession.removeAttribute(SESSION_KEY);
         // Clear all DB data
         voteRecord.clearAllData();
+        scribbleDetection.clearAll();
         ra.addFlashAttribute("info", "All election data has been cleared. Ready for a new election.");
         return "redirect:/";
     }

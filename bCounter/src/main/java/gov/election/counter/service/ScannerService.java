@@ -62,19 +62,22 @@ public class ScannerService {
     private final MarkerAnalysisService  markerAnalysis;
     private final CoordinateDebugService coordinateDebug;
     private final BboxReportLoader       loader;
+    private final ScribbleDetectionService scribbleDetection;
 
     public ScannerService(BarcodeReaderService barcodeReader,
                           CornerDetectionService cornerDetector,
                           HomographyService homographyService,
                           MarkerAnalysisService markerAnalysis,
                           CoordinateDebugService coordinateDebug,
-                          BboxReportLoader loader) {
+                          BboxReportLoader loader,
+                          ScribbleDetectionService scribbleDetection) {
         this.barcodeReader    = barcodeReader;
         this.cornerDetector   = cornerDetector;
         this.homographyService = homographyService;
         this.markerAnalysis   = markerAnalysis;
         this.coordinateDebug  = coordinateDebug;
         this.loader           = loader;
+        this.scribbleDetection = scribbleDetection;
     }
 
     public ScanResult scanOne(Path imagePath, ScanSession session) {
@@ -302,6 +305,28 @@ public class ScannerService {
                 + e.getMessage();
             log.error("[" + result.imageName + "] " + result.errorMessage);
             return result;
+        }
+
+        // ── Scribble detection ──────────────────────────────────────────────
+        // Requires the full-page warp; skipped in patch-warp mode.
+        if (scribbleDetection.isEnabled()) {
+            if (patchWarp) {
+                log.debug("[{}] Scribble detection skipped: patch-warp mode active",
+                    result.imageName);
+            } else {
+                ScribbleDetectionService.ScribbleResult scribble =
+                    scribbleDetection.analyse(warped, result.barcodeData, layout,
+                        warpDpi, imagePath);
+                result.scribblePixels      = scribble.suspiciousPixels();
+                result.scribbleFlagged     = scribble.flagged();
+                result.scribbleOutlinePath = scribble.outlineImagePath();
+                if (scribble.flagged()) {
+                    log.warn("[{}] Scribble flag: {} suspicious pixels{}",
+                        result.imageName, scribble.suspiciousPixels(),
+                        scribble.outlineImagePath() != null
+                            ? " — outline: " + scribble.outlineImagePath() : "");
+                }
+            }
         }
 
         // ── Adjusted YAML (debug mode) ──────────────────────────────────────

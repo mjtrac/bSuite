@@ -15,6 +15,8 @@ public class ScanSession {
     public volatile String  lastFile      = null;
     public volatile long    startedAt     = 0;
     public volatile long    completedAt   = 0;
+    /** Operator comment for the current batch; cleared after scan completes. */
+    public volatile String  comment       = "";
 
     public void reset() {
         scanning      = false;
@@ -24,5 +26,6 @@ public class ScanSession {
         lastFile      = null;
         startedAt     = 0;
         completedAt   = 0;
+        comment       = "";
     }
 }

@@ -179,6 +179,12 @@ public class VoteTallyService {
         } catch (Exception ex) {
             log.warn("Arlo export failed: {}", ex.getMessage(), ex);
         }
+        // Scribble report — only written if any ballots were flagged
+        try {
+            writeScribbleReport();
+        } catch (Exception ex) {
+            log.warn("Could not write scribble report: {}", ex.getMessage(), ex);
+        }
     }
 
     /**
@@ -724,6 +730,112 @@ public class VoteTallyService {
             log.info("Results report written: " + out.toAbsolutePath());
         } catch (Exception ex) {
             log.warn("Could not write results_report.html: " + ex.getMessage());
+        }
+    }
+
+    // ── Scribble report ───────────────────────────────────────────────────────
+
+    /**
+     * Writes scribble_report.html to the report output directory.
+     * Lists every ballot flagged by ScribbleDetectionService, ordered by
+     * suspicious pixel count descending (worst first), with a link to
+     * view each ballot in bViewer.
+     *
+     * File is only written if at least one ballot was flagged.
+     * Called from processFinalTally() at the end of a complete scan.
+     */
+    private void writeScribbleReport() {
+        List<ResultsQueryService.ScribbleRow> rows;
+        try {
+            rows = resultsQuery.scribbledBallots();
+        } catch (Exception ex) {
+            log.debug("Scribble report skipped (scribble detection not active?): {}",
+                ex.getMessage());
+            return;
+        }
+        if (rows.isEmpty()) {
+            log.info("No scribbled ballots detected — scribble_report.html not written");
+            return;
+        }
+
+        Path out = Paths.get(reportOutputDir, "scribble_report.html");
+        String ts = java.time.LocalDateTime.now()
+            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        try (PrintWriter pw = new PrintWriter(Files.newBufferedWriter(out))) {
+            pw.println("<!DOCTYPE html><html lang=\"en\"><head>");
+            pw.println("<meta charset=\"UTF-8\"/>");
+            pw.printf("<title>Scribble Report — %s</title>%n", h(ts));
+            pw.println("<style>");
+            pw.println("  body  { font-family: Arial, sans-serif; font-size: 11pt;");
+            pw.println("          max-width: 960px; margin: 2rem auto; color: #111; }");
+            pw.println("  h1    { font-size: 16pt; border-bottom: 2px solid #92400e;");
+            pw.println("          padding-bottom:.4rem; color:#92400e; }");
+            pw.println("  .meta { color:#555; font-size:10pt; margin-bottom:1.5rem; }");
+            pw.println("  .warn { background:#fef3c7; border:1px solid #d97706;");
+            pw.println("          border-radius:5px; padding:.6rem 1rem;");
+            pw.println("          margin-bottom:1.5rem; color:#92400e; }");
+            pw.println("  table { border-collapse:collapse; width:100%; }");
+            pw.println("  th    { text-align:left; background:#92400e; color:#fff;");
+            pw.println("          padding:.3rem .6rem; font-size:10pt; }");
+            pw.println("  td    { padding:.3rem .6rem; border-bottom:1px solid #ddd;");
+            pw.println("          vertical-align:top; }");
+            pw.println("  tr:last-child td { border-bottom:2px solid #92400e; }");
+            pw.println("  .num  { text-align:right; font-variant-numeric:tabular-nums; }");
+            pw.println("  .name { font-family:monospace; font-size:9.5pt; }");
+            pw.println("  .view { font-size:9pt; white-space:nowrap; }");
+            pw.println("  .thumb img { max-width:140px; max-height:100px;");
+            pw.println("               border:1px solid #d97706; border-radius:3px; }");
+            pw.println("  .no-thumb { color:#aaa; font-size:9pt; font-style:italic; }");
+            pw.println("  @media print { a { color:#92400e; } }");
+            pw.println("</style></head><body>");
+
+            pw.printf("<h1>&#9998; Scribble Report</h1>%n");
+            pw.printf("<p class=\"meta\">Generated: %s</p>%n", h(ts));
+            pw.printf("<div class=\"warn\">%n");
+            pw.printf("  <strong>%d ballot(s) flagged</strong> with unexpected marks " +
+                      "outside vote indicator regions.%n", rows.size());
+            pw.printf("  Red boxes (where shown) outline the suspicious mark(s) " +
+                      "on the corrected ballot image.%n");
+            pw.printf("</div>%n");
+
+            pw.println("<table>");
+            pw.println("  <tr>");
+            pw.println("    <th>#</th>");
+            pw.println("    <th>Outline</th>");
+            pw.println("    <th>Image Name</th>");
+            pw.println("    <th>Barcode</th>");
+            pw.println("    <th class=\"num\">Suspicious Pixels</th>");
+            pw.println("    <th>View</th>");
+            pw.println("  </tr>");
+
+            int rank = 1;
+            for (ResultsQueryService.ScribbleRow row : rows) {
+                pw.printf("  <tr>%n");
+                pw.printf("    <td class=\"num\">%d</td>%n", rank++);
+                if (row.isHasOutline()) {
+                    pw.printf("    <td class=\"thumb\">" +
+                              "<a href=\"/scribble-image?id=%d\" target=\"_blank\">" +
+                              "<img src=\"/scribble-image?id=%d\" alt=\"scribble outline\"/>" +
+                              "</a></td>%n", row.getImageId(), row.getImageId());
+                } else {
+                    pw.printf("    <td class=\"no-thumb\">(no outline saved)</td>%n");
+                }
+                pw.printf("    <td class=\"name\">%s</td>%n", h(row.getImageName()));
+                pw.printf("    <td class=\"name\">%s</td>%n", h(row.getBarcodeData()));
+                pw.printf("    <td class=\"num\">%,d</td>%n", row.getScribblePixels());
+                pw.printf("    <td class=\"view\"><a href=\"http://localhost:8081/viewer/view" +
+                          "?id=%d\" target=\"_blank\">&#128269; View in viewer</a></td>%n",
+                          row.getImageId());
+                pw.println("  </tr>");
+            }
+            pw.println("</table>");
+            pw.println("</body></html>");
+
+            log.info("Scribble report written ({} flagged): {}", rows.size(),
+                out.toAbsolutePath());
+        } catch (IOException ex) {
+            log.warn("Could not write scribble_report.html: {}", ex.getMessage());
         }
     }
 

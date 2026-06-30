@@ -142,6 +142,12 @@
           <span th:if="${r.errorMessage != null}" class="badge badge-err">Error</span>
           <span th:if="${!r.cornersFound and r.errorMessage == null}" class="badge badge-warn">Approx corners</span>
           <span th:if="${r.cornersFound}" class="badge badge-ok">Corners OK</span>
+          <span th:if="${r.scribbleFlagged}"
+                class="badge"
+                style="background:#fef3c7;color:#92400e;border:1px solid #d97706"
+                th:title="${r.scribblePixels + ' suspicious pixels'}">
+            &#9998; Scribble
+          </span>
         </div>
         <div th:if="${r.errorMessage != null}" style="color:var(--red);font-size:.82rem"
              th:text="${r.errorMessage}"></div>
@@ -151,6 +157,11 @@
           Page: <span th:text="${r.pageNumber}">1</span>
           &nbsp;|&nbsp;
           Marked: <span th:text="${r.markedCount()} + '/' + ${r.markings.size()}">—</span>
+          <span th:if="${r.scribbleFlagged}">
+            &nbsp;|&nbsp;
+            Scribble: <span th:text="${r.scribblePixels + ' px'}"
+                            style="color:#92400e;font-weight:600"></span>
+          </span>
         </div>
         <div th:if="${!r.markings.isEmpty()}"
              style="margin-top:.5rem;font-size:.82rem">
