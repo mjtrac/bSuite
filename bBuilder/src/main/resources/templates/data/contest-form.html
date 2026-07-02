@@ -72,6 +72,14 @@
       </label>
     </div>
 
+    <div style="margin-top:.5rem;max-width:200px">
+      <label>Display Order
+        <small style="font-weight:normal;color:#666">(lower = earlier on ballot)</small>
+        <input type="number" name="displayOrder"
+               th:value="${contest.displayOrder}" min="0"/>
+      </label>
+    </div>
+
     <!-- ── Voting Method ──────────────────────────────────────────── -->
     <fieldset class="voting-method-fieldset">
       <legend>Voting Method *</legend>
@@ -119,13 +127,6 @@
           <small style="font-weight:normal;color:#666">(0 = unlimited)</small>
           <input type="number" name="maxRankChoices"
                  th:value="${contest.maxRankChoices}" min="0"/>
-        </label>
-      </div>
-      <div style="flex:1;min-width:140px">
-        <label>Display Order
-          <small style="font-weight:normal;color:#666">(lower = earlier on ballot)</small>
-          <input type="number" name="displayOrder"
-                 th:value="${contest.displayOrder}" min="0"/>
         </label>
       </div>
     </div>

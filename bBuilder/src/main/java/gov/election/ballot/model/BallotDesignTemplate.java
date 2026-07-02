@@ -58,6 +58,19 @@ public class BallotDesignTemplate {
         OVAL, CHECKBOX, ARROW, NUMBER_FIELD
     }
 
+    /**
+     * Font family used for all text on the ballot.
+     * Only the 14 standard PDF fonts are used — no embedding required.
+     */
+    public enum FontFamily {
+        HELVETICA  ("Helvetica — clean sans-serif (default)"),
+        TIMES      ("Times Roman — traditional serif"),
+        COURIER    ("Courier — monospace");
+
+        public final String label;
+        FontFamily(String label) { this.label = label; }
+    }
+
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -66,6 +79,26 @@ public class BallotDesignTemplate {
 
     @Enumerated(EnumType.STRING)
     private PaperSize paperSize = PaperSize.LETTER_8_5x11;
+
+    /** Primary font family — used for all text types unless altFont is checked. */
+    @Enumerated(EnumType.STRING)
+    private FontFamily fontFamilyPrimary   = FontFamily.HELVETICA;
+
+    /** Alternate font family — used for text types where the altFont flag is true. */
+    @Enumerated(EnumType.STRING)
+    private FontFamily fontFamilyAlternate = FontFamily.TIMES;
+
+    // ── Per-text-type alternate-font flags ────────────────────────────────
+    // false = use fontFamilyPrimary; true = use fontFamilyAlternate
+    private boolean groupingLabelAltFont = false;
+    private boolean contestTitleAltFont  = false;
+    private boolean instructionAltFont   = false;
+    private boolean preambleAltFont      = false;
+    private boolean candidateNameAltFont = false;
+    private boolean prefixSuffixAltFont  = false;
+    private boolean candidateNoteAltFont = false;
+    private boolean postambleAltFont     = false;
+    private boolean headerAltFont        = false;
 
     @Enumerated(EnumType.STRING)
     private VoteIndicatorStyle voteIndicatorStyle = VoteIndicatorStyle.OVAL;
@@ -135,6 +168,51 @@ public class BallotDesignTemplate {
 
     private boolean multiSheet = false;
 
+    // ── Ranked-choice layout options ──────────────────────────
+    /**
+     * When true, indicators appear to the RIGHT of the candidate name,
+     * with rank-1 box closest to the name (natural left-to-right reading:
+     * name → rank-1 → rank-2 → … → rank-N).
+     * When false (default), indicators appear to the LEFT of the name
+     * in the traditional layout (rank-N … rank-2 → rank-1 → name).
+     */
+    private boolean rcvIndicatorsRight = false;
+
+    /**
+     * When true, draw small rank-number labels (e.g. "1", "2", "3") centered
+     * above each rank box on the FIRST candidate row of each ranked-choice
+     * contest.  Helps voters understand the box sequence without reading
+     * the full instruction.
+     */
+    private boolean rcvShowRankNumbers = false;
+
+    /**
+     * Font size (pt) for the rank-number labels drawn above the rank boxes.
+     * Only used when rcvShowRankNumbers is true.
+     */
+    private float rcvRankNumberFontPt = 7f;
+
+    /**
+     * Stroke width (pt) for all vote indicators (oval, checkbox, RCV boxes).
+     * Default 0.25 pt — thin enough to be clear but not contribute dark pixels
+     * that confuse optical scan sampling.
+     */
+    private float   indicatorLineWidthPt = 0.25f;
+
+    /**
+     * When true, vote indicators are drawn with a dashed stroke.
+     * Dashing makes it visually clear the indicator is a pre-printed guide
+     * rather than a voter mark.  Default true.
+     */
+    private boolean indicatorDashed = true;
+
+    /**
+     * Stroke width (pt) for ranked-choice indicator boxes specifically.
+     * Overrides indicatorLineWidthPt for RCV boxes only.
+     * Default 0.5 pt — slightly heavier than ovals since boxes need clear edges.
+     */
+    private float   rcvBoxLineWidthPt = 0.5f;
+
     // ── Header zone text (editable) ───────────────────────────
     /**
      * Large bold headline printed at the top of the header zone,
@@ -171,6 +249,31 @@ public class BallotDesignTemplate {
 
     public PaperSize getPaperSize() { return paperSize; }
     public void setPaperSize(PaperSize p) { this.paperSize = p; }
+
+    public FontFamily getFontFamilyPrimary()              { return fontFamilyPrimary   != null ? fontFamilyPrimary   : FontFamily.HELVETICA; }
+    public void       setFontFamilyPrimary(FontFamily f)  { this.fontFamilyPrimary   = f; }
+    public FontFamily getFontFamilyAlternate()            { return fontFamilyAlternate != null ? fontFamilyAlternate : FontFamily.TIMES; }
+    public void       setFontFamilyAlternate(FontFamily f){ this.fontFamilyAlternate = f; }
+
+    // alt-font flags
+    public boolean isGroupingLabelAltFont()          { return groupingLabelAltFont; }
+    public void    setGroupingLabelAltFont(boolean v){ this.groupingLabelAltFont = v; }
+    public boolean isContestTitleAltFont()           { return contestTitleAltFont; }
+    public void    setContestTitleAltFont(boolean v) { this.contestTitleAltFont  = v; }
+    public boolean isInstructionAltFont()            { return instructionAltFont; }
+    public void    setInstructionAltFont(boolean v)  { this.instructionAltFont   = v; }
+    public boolean isPreambleAltFont()               { return preambleAltFont; }
+    public void    setPreambleAltFont(boolean v)     { this.preambleAltFont      = v; }
+    public boolean isCandidateNameAltFont()          { return candidateNameAltFont; }
+    public void    setCandidateNameAltFont(boolean v){ this.candidateNameAltFont = v; }
+    public boolean isPrefixSuffixAltFont()           { return prefixSuffixAltFont; }
+    public void    setPrefixSuffixAltFont(boolean v) { this.prefixSuffixAltFont  = v; }
+    public boolean isCandidateNoteAltFont()          { return candidateNoteAltFont; }
+    public void    setCandidateNoteAltFont(boolean v){ this.candidateNoteAltFont = v; }
+    public boolean isPostambleAltFont()              { return postambleAltFont; }
+    public void    setPostambleAltFont(boolean v)    { this.postambleAltFont     = v; }
+    public boolean isHeaderAltFont()                 { return headerAltFont; }
+    public void    setHeaderAltFont(boolean v)       { this.headerAltFont        = v; }
 
     public VoteIndicatorStyle getVoteIndicatorStyle() { return voteIndicatorStyle; }
     public void setVoteIndicatorStyle(VoteIndicatorStyle v) { this.voteIndicatorStyle = v; }
@@ -264,14 +367,59 @@ public class BallotDesignTemplate {
     public boolean isMultiSheet() { return multiSheet; }
     public void    setMultiSheet(boolean v) { this.multiSheet = v; }
 
+    // rcv layout
+    public boolean isRcvIndicatorsRight()       { return rcvIndicatorsRight; }
+    public void    setRcvIndicatorsRight(boolean v)   { this.rcvIndicatorsRight = v; }
+    public boolean isRcvShowRankNumbers()       { return rcvShowRankNumbers; }
+    public void    setRcvShowRankNumbers(boolean v)   { this.rcvShowRankNumbers = v; }
+    public float   getRcvRankNumberFontPt()     { return rcvRankNumberFontPt; }
+    public void    setRcvRankNumberFontPt(float v)    { this.rcvRankNumberFontPt = v; }
+    public float   getRcvBoxLineWidthPt()             { return rcvBoxLineWidthPt; }
+    public void    setRcvBoxLineWidthPt(float v)      { this.rcvBoxLineWidthPt = v; }
+    public float   getIndicatorLineWidthPt()          { return indicatorLineWidthPt > 0 ? indicatorLineWidthPt : 0.25f; }
+    public void    setIndicatorLineWidthPt(float v)   { this.indicatorLineWidthPt = v; }
+    public boolean isIndicatorDashed()                { return indicatorDashed; }
+    public void    setIndicatorDashed(boolean v)      { this.indicatorDashed = v; }
+
     /**
-     * Returns the iText font name for a given bold/italic combination.
-     * Standard Helvetica family covers all four variants.
+     * Returns the iText font name using primary or alternate family.
+     * @param altFont true = use fontFamilyAlternate, false = use fontFamilyPrimary
      */
-    public static String fontName(boolean bold, boolean italic) {
-        if (bold && italic) return com.itextpdf.io.font.constants.StandardFonts.HELVETICA_BOLDOBLIQUE;
-        if (bold)           return com.itextpdf.io.font.constants.StandardFonts.HELVETICA_BOLD;
-        if (italic)         return com.itextpdf.io.font.constants.StandardFonts.HELVETICA_OBLIQUE;
-        return com.itextpdf.io.font.constants.StandardFonts.HELVETICA;
+    public String fontName(boolean bold, boolean italic, boolean altFont) {
+        FontFamily fam = altFont ? getFontFamilyAlternate() : getFontFamilyPrimary();
+        return fontNameForFamily(bold, italic, fam);
+    }
+
+    /** Convenience overload — always uses primary font family. */
+    public String fontName(boolean bold, boolean italic) {
+        return fontName(bold, italic, false);
+    }
+
+    private static String fontNameForFamily(boolean bold, boolean italic, FontFamily fam) {
+        return switch (fam) {
+            case TIMES -> {
+                if (bold && italic) yield com.itextpdf.io.font.constants.StandardFonts.TIMES_BOLDITALIC;
+                if (bold)           yield com.itextpdf.io.font.constants.StandardFonts.TIMES_BOLD;
+                if (italic)         yield com.itextpdf.io.font.constants.StandardFonts.TIMES_ITALIC;
+                yield com.itextpdf.io.font.constants.StandardFonts.TIMES_ROMAN;
+            }
+            case COURIER -> {
+                if (bold && italic) yield com.itextpdf.io.font.constants.StandardFonts.COURIER_BOLDOBLIQUE;
+                if (bold)           yield com.itextpdf.io.font.constants.StandardFonts.COURIER_BOLD;
+                if (italic)         yield com.itextpdf.io.font.constants.StandardFonts.COURIER_OBLIQUE;
+                yield com.itextpdf.io.font.constants.StandardFonts.COURIER;
+            }
+            default -> {  // HELVETICA
+                if (bold && italic) yield com.itextpdf.io.font.constants.StandardFonts.HELVETICA_BOLDOBLIQUE;
+                if (bold)           yield com.itextpdf.io.font.constants.StandardFonts.HELVETICA_BOLD;
+                if (italic)         yield com.itextpdf.io.font.constants.StandardFonts.HELVETICA_OBLIQUE;
+                yield com.itextpdf.io.font.constants.StandardFonts.HELVETICA;
+            }
+        };
+    }
+
+    /** Static version for callers without a template instance. */
+    public static String fontName(boolean bold, boolean italic, FontFamily family) {
+        return fontNameForFamily(bold, italic, family != null ? family : FontFamily.HELVETICA);
     }
 }

@@ -18,6 +18,7 @@ package gov.election.ballot.controller;
 
 import gov.election.ballot.model.Jurisdiction;
 import gov.election.ballot.model.Party;
+import gov.election.ballot.repository.BallotCombinationRepository;
 import gov.election.ballot.repository.JurisdictionRepository;
 import gov.election.ballot.repository.PartyRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -31,12 +32,16 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @PreAuthorize("hasAnyRole('ADMIN','DATA_ENTRY')")
 public class PartyController {
 
-    private final PartyRepository        partyRepo;
-    private final JurisdictionRepository jurisdictionRepo;
+    private final PartyRepository             partyRepo;
+    private final JurisdictionRepository      jurisdictionRepo;
+    private final BallotCombinationRepository combinationRepo;
 
-    public PartyController(PartyRepository partyRepo, JurisdictionRepository jurisdictionRepo) {
-        this.partyRepo        = partyRepo;
+    public PartyController(PartyRepository partyRepo,
+                           JurisdictionRepository jurisdictionRepo,
+                           BallotCombinationRepository combinationRepo) {
+        this.partyRepo       = partyRepo;
         this.jurisdictionRepo = jurisdictionRepo;
+        this.combinationRepo  = combinationRepo;
     }
 
     @GetMapping
@@ -100,15 +105,25 @@ public class PartyController {
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        Party p = partyRepo.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Party not found: " + id));
+        Party p = partyRepo.findById(id).orElse(null);
+        if (p == null) {
+            ra.addFlashAttribute("error", "Party not found (already deleted?).");
+            return "redirect:/data/parties";
+        }
+        String name = p.getName();
         try {
+            var combos = combinationRepo.findByPartyId(id);
+            if (!combos.isEmpty()) {
+                combinationRepo.deleteAll(combos);
+            }
             partyRepo.delete(p);
-            ra.addFlashAttribute("success", "Deleted party \"" + p.getName() + "\".");
+            ra.addFlashAttribute("success",
+                "Deleted party \"" + name + "\"" +
+                (combos.isEmpty() ? "." :
+                 " and " + combos.size() + " ballot combination(s) that referenced it."));
         } catch (Exception e) {
             ra.addFlashAttribute("error",
-                "Cannot delete \"" + p.getName() + "\": ballot combinations reference it. " +
-                "Remove those ballot combinations first.");
+                "Could not delete \"" + name + "\": " + e.getMessage());
         }
         return "redirect:/data/parties";
     }

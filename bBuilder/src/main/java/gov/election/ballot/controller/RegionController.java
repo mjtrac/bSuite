@@ -18,6 +18,7 @@ package gov.election.ballot.controller;
 
 import gov.election.ballot.model.Jurisdiction;
 import gov.election.ballot.model.Region;
+import gov.election.ballot.repository.BallotCombinationRepository;
 import gov.election.ballot.repository.JurisdictionRepository;
 import gov.election.ballot.repository.RegionRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,13 +45,16 @@ import java.util.List;
 @PreAuthorize("hasAnyRole('ADMIN','DATA_ENTRY')")
 public class RegionController {
 
-    private final RegionRepository       regionRepo;
-    private final JurisdictionRepository jurisdictionRepo;
+    private final RegionRepository            regionRepo;
+    private final JurisdictionRepository      jurisdictionRepo;
+    private final BallotCombinationRepository combinationRepo;
 
     public RegionController(RegionRepository regionRepo,
-                            JurisdictionRepository jurisdictionRepo) {
+                            JurisdictionRepository jurisdictionRepo,
+                            BallotCombinationRepository combinationRepo) {
         this.regionRepo       = regionRepo;
         this.jurisdictionRepo = jurisdictionRepo;
+        this.combinationRepo  = combinationRepo;
     }
 
     @GetMapping
@@ -178,16 +182,25 @@ public class RegionController {
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        Region region = regionRepo.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Region not found: " + id));
+        Region region = regionRepo.findById(id).orElse(null);
+        if (region == null) {
+            ra.addFlashAttribute("error", "Region not found (already deleted?).");
+            return "redirect:/data/regions";
+        }
+        String name = region.getName();
         try {
+            var combos = combinationRepo.findByRegionIdOrderByElectionId(id);
+            if (!combos.isEmpty()) {
+                combinationRepo.deleteAll(combos);
+            }
             regionRepo.delete(region);
-            ra.addFlashAttribute("success", "Deleted region \"" + region.getName() + "\".");
+            ra.addFlashAttribute("success",
+                "Deleted region \"" + name + "\"" +
+                (combos.isEmpty() ? "." :
+                 " and " + combos.size() + " ballot combination(s) that referenced it."));
         } catch (Exception e) {
             ra.addFlashAttribute("error",
-                "Cannot delete \"" + region.getName() + "\": it is referenced by " +
-                "ballot combinations, contest assignments, or PrecinctGroup member lists. " +
-                "Remove those references first.");
+                "Could not delete \"" + name + "\": " + e.getMessage());
         }
         return "redirect:/data/regions";
     }

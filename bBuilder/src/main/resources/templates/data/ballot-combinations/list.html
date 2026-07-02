@@ -39,10 +39,10 @@
     </thead>
     <tbody>
       <tr th:each="c : ${combinations}">
-        <td th:text="${c.election.name}"></td>
-        <td th:text="${c.region.name}"></td>
+        <td th:text="${c.election != null ? c.election.name : '(election deleted)'}"></td>
+        <td th:text="${c.region != null ? c.region.name : '(region deleted)'}"></td>
         <td th:text="${c.party != null ? c.party.name : 'Nonpartisan / General'}"></td>
-        <td th:text="${c.ballotType.name}"></td>
+        <td th:text="${c.ballotType != null ? c.ballotType.name : '(type deleted)'}"></td>
         <td class="actions">
           <a th:href="@{'/data/ballot-combinations/' + ${c.id} + '/edit'}" class="btn btn-sm">Edit</a>
           <form method="post"

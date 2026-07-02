@@ -46,33 +46,6 @@
       <input type="number" id="copies" value="1" min="1" max="500"/>
     </label>
 
-    <!-- Printer options -->
-    <div style="margin:.75rem 0;padding:.75rem 1rem;background:#f0fdf4;
-                border:1px solid #86efac;border-radius:6px">
-      <div style="font-weight:600;font-size:.9rem;color:#166534;margin-bottom:.5rem">
-        &#128438; Print Options
-        <span style="font-weight:400;color:#555">(optional)</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
-        <input type="checkbox" id="printNow" onchange="togglePrinter(this)"/>
-        <label for="printNow" style="margin:0;font-weight:400;font-size:.9rem">
-          Send to printer immediately after generating
-        </label>
-      </div>
-      <div id="printerSelector" style="display:none;margin-top:.4rem">
-        <label for="printerName" style="font-size:.85rem">Printer (on server)</label>
-        <select id="printerName"
-                style="width:100%;max-width:400px;padding:.35rem .5rem;
-                       border:1px solid #ccc;border-radius:4px;font-size:.9rem">
-          <option value="">— loading printers… —</option>
-        </select>
-        <p style="font-size:.75rem;color:#555;margin:.3rem 0 0">
-          &#9432; These are printers on the <strong>server machine</strong>,
-          not your browser's printers.
-        </p>
-      </div>
-    </div>
-
     <div class="form-actions">
       <div class="form-group" th:if="${languages != null and !languages.isEmpty()}"
            style="margin:.75rem 0">
@@ -85,69 +58,57 @@
           </option>
         </select>
       </div>
+
+      <!-- Optional direct printing -->
+      <div style="margin:.75rem 0">
+        <label style="display:inline-flex;align-items:center;gap:.5rem;font-weight:normal">
+          <input type="checkbox" id="enablePrinter"/>
+          Send directly to printer
+        </label>
+        <div id="printerSection" style="display:none;margin-top:.5rem">
+          <select id="printerSelect" style="min-width:280px">
+            <option value="">— loading printers… —</option>
+          </select>
+          <small style="display:block;color:#666;margin-top:.25rem">
+            Printers registered with the system print spooler (CUPS / Windows).
+          </small>
+        </div>
+      </div>
+
       <button class="btn" id="generateBtn">Generate PDF</button>
     </div>
   </div>
 
-  <!-- Files-written dialog -->
-  <dialog id="filesDialog" tabindex="-1" style="
-      border:1px solid #b0c4de;border-radius:8px;padding:1.5rem 2rem;
-      max-width:700px;width:90%;box-shadow:0 4px 24px rgba(0,0,0,.2)">
-    <h3 style="margin:0 0 1rem;color:#1a2744">&#10003; Ballot files written</h3>
-    <p style="margin:0 0 .75rem;font-size:.9rem;color:#444">
-      The following files have been written to disk:
-    </p>
-    <ul id="filesDialogList" style="
-        margin:.5rem 0 1rem 1.25rem;font-family:monospace;font-size:.82rem;
-        color:#1a2744;line-height:1.8;word-break:break-all"></ul>
-    <p style="margin:.5rem 0 0;font-size:.8rem;color:#888">
-      Press <kbd style="font-family:monospace;background:#eee;padding:1px 5px;
-      border:1px solid #ccc;border-radius:3px">Esc</kbd> or click OK to dismiss.
-    </p>
-    <div style="text-align:right;margin-top:.75rem">
-      <button class="btn" id="filesDialogOk">
-        OK
-      </button>
+  <!-- Files-written overlay (plain div — avoids Chrome/Safari focus-trap bug with dialog) -->
+  <div id="filesDialog" style="
+      display:none;position:fixed;inset:0;z-index:9999;
+      background:rgba(0,0,0,.45);
+      align-items:center;justify-content:center">
+    <div style="
+        background:#fff;border:1px solid #b0c4de;border-radius:8px;
+        padding:1.5rem 2rem;max-width:700px;width:90%;
+        box-shadow:0 4px 24px rgba(0,0,0,.35)">
+      <h3 style="margin:0 0 1rem;color:#1a2744">&#10003; Ballot files written</h3>
+      <p style="margin:0 0 .75rem;font-size:.9rem;color:#444">
+        The following files have been written to disk:
+      </p>
+      <ul id="filesDialogList" style="
+          margin:.5rem 0 1rem 1.25rem;font-family:monospace;font-size:.82rem;
+          color:#1a2744;line-height:1.8;word-break:break-all"></ul>
+      <p id="printerNote" style="margin:.5rem 0 0;font-size:.85rem;color:#27ae60;display:none">
+        &#10003; Sent to printer.
+      </p>
+      <p style="margin:.5rem 0 0;font-size:.8rem;color:#888">
+        Press <kbd style="font-family:monospace;background:#eee;padding:1px 5px;
+        border:1px solid #ccc;border-radius:3px">Esc</kbd> or click OK to dismiss.
+      </p>
+      <div style="text-align:right;margin-top:.75rem">
+        <button class="btn" id="filesDialogOk">OK</button>
+      </div>
     </div>
-  </dialog>
+  </div>
 
-  <script>
-    let printersLoaded = false;
-
-    function togglePrinter(cb) {
-      document.getElementById('printerSelector').style.display =
-        cb.checked ? 'block' : 'none';
-      if (cb.checked && !printersLoaded) loadPrinters();
-    }
-
-    function loadPrinters() {
-      fetch('/print/printers', { credentials: 'include' })
-        .then(r => r.json())
-        .then(data => {
-          const select = document.getElementById('printerName');
-          select.innerHTML = '';
-          if (!data.printers || data.printers.length === 0) {
-            select.innerHTML =
-              '<option value="">— no printers found on server —</option>';
-            return;
-          }
-          data.printers.forEach(p => {
-            const opt = document.createElement('option');
-            opt.value = p;
-            opt.textContent = p;
-            if (p === data.defaultPrinter) opt.selected = true;
-            select.appendChild(opt);
-          });
-          printersLoaded = true;
-        })
-        .catch(() => {
-          document.getElementById('printerName').innerHTML =
-            '<option value="">— could not load printers —</option>';
-        });
-    }
-  </script>
-
-  <script src="/js/generate-ballot.js"></script>
+  <script th:src="@{/js/generate-ballot.js(v=20260702)}"></script>
 
 
 </main>

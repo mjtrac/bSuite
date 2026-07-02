@@ -27,6 +27,10 @@ public interface BallotCombinationRepository extends JpaRepository<BallotCombina
 
     List<BallotCombination> findByElectionId(Long electionId);
 
+    List<BallotCombination> findByPartyId(Long partyId);
+
+    List<BallotCombination> findByBallotTypeId(Long ballotTypeId);
+
     /** Look up a specific ballot variant — used to avoid duplicate combinations. */
     Optional<BallotCombination> findByRegionIdAndPartyIdAndBallotTypeIdAndElectionId(
         Long regionId, Long partyId, Long ballotTypeId, Long electionId);

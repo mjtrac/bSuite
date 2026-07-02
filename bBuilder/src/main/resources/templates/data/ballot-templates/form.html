@@ -61,13 +61,40 @@
       </label>
     </fieldset>
 
-    <!-- Columns and Margins -->
-    <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:.5rem">
+      <label style="flex:1;min-width:220px">Primary Font
+        <select name="fontFamilyPrimary">
+          <option th:each="ff : ${fontFamilies}"
+                  th:value="${ff.name()}"
+                  th:text="${ff.label}"
+                  th:selected="${template.fontFamilyPrimary == ff}">
+          </option>
+        </select>
+        <small style="color:#666">Used for all text types unless Alt is checked.</small>
+      </label>
+      <label style="flex:1;min-width:220px">Alternate Font
+        <select name="fontFamilyAlternate">
+          <option th:each="ff : ${fontFamilies}"
+                  th:value="${ff.name()}"
+                  th:text="${ff.label}"
+                  th:selected="${template.fontFamilyAlternate == ff}">
+          </option>
+        </select>
+        <small style="color:#666">Used for text types where Alt is checked below.</small>
+      </label>
+    </div>
+
+    <!-- Columns -->
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:.5rem">
       <label style="flex:0 0 110px">Columns
         <input type="number" name="columns"
                th:value="${template.columns != 0 ? template.columns : 3}"
                min="1" max="5"/>
       </label>
+    </div>
+
+    <!-- Margins -->
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
       <label style="flex:0 0 130px">Margin Top (pt)
         <input type="number" name="marginTopPt"
                th:value="${template.marginTopPt != 0 ? template.marginTopPt : 36}"
@@ -95,16 +122,18 @@
     <h3 style="margin-top:1.5rem;margin-bottom:.5rem;border-bottom:1px solid #ddd;padding-bottom:.35rem">
       Font Sizes and Styles
     </h3>
-    <p class="help-text">For each text type: size in points, and optional Bold / Italic styling.
-       Checking both produces bold-italic.</p>
+    <p class="help-text">For each text type: size in points, Bold / Italic styling, and whether to use
+       the <strong>Alt</strong> (alternate) font family instead of the primary.</p>
 
     <table style="width:100%;border-collapse:collapse;margin-bottom:1rem">
       <thead>
         <tr style="background:#f5f5f5;font-size:.85rem">
-          <th style="text-align:left;padding:.4rem .6rem;border:1px solid #ddd;width:30%">Text Type</th>
-          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:18%">Size (pt)</th>
-          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:12%">Bold</th>
-          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:12%">Italic</th>
+          <th style="text-align:left;padding:.4rem .6rem;border:1px solid #ddd;width:27%">Text Type</th>
+          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:16%">Size (pt)</th>
+          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:10%">Bold</th>
+          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:10%">Italic</th>
+          <th style="text-align:center;padding:.4rem .6rem;border:1px solid #ddd;width:10%"
+              title="Check to use the Alternate font family for this text type">Alt</th>
           <th style="text-align:left;padding:.4rem .6rem;border:1px solid #ddd">Example / When used</th>
         </tr>
       </thead>
@@ -124,6 +153,10 @@
           <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
             <input type="checkbox" name="groupingLabelItalic" value="true"
                    th:checked="${template.groupingLabelItalic}"/>
+          </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="groupingLabelAltFont" value="true"
+                   th:checked="${template.isGroupingLabelAltFont}"/>
           </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Section header above a contest: "FEDERAL OFFICES", "STATE MEASURES"
@@ -145,6 +178,10 @@
             <input type="checkbox" name="contestTitleItalic" value="true"
                    th:checked="${template.contestTitleItalic}"/>
           </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="contestTitleAltFont" value="true"
+                   th:checked="${template.isContestTitleAltFont}"/>
+          </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Contest name: "U.S. Representative, District 2", "Measure A"
           </td>
@@ -164,6 +201,10 @@
           <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
             <input type="checkbox" name="instructionItalic" value="true"
                    th:checked="${template.instructionItalic}"/>
+          </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="instructionAltFont" value="true"
+                   th:checked="${template.isInstructionAltFont}"/>
           </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Voting instruction: "Vote for one", "Rank up to three candidates"
@@ -185,6 +226,10 @@
             <input type="checkbox" name="preambleItalic" value="true"
                    th:checked="${template.preambleItalic}"/>
           </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="preambleAltFont" value="true"
+                   th:checked="${template.isPreambleAltFont}"/>
+          </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Text between instruction and first candidate; e.g. statutory description
           </td>
@@ -204,6 +249,10 @@
           <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
             <input type="checkbox" name="candidateNameItalic" value="true"
                    th:checked="${template.candidateNameItalic}"/>
+          </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="candidateNameAltFont" value="true"
+                   th:checked="${template.isCandidateNameAltFont}"/>
           </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Each candidate or option name: "Alice Johnson", "YES", "Write-In"
@@ -225,6 +274,10 @@
             <input type="checkbox" name="prefixSuffixItalic" value="true"
                    th:checked="${template.prefixSuffixItalic}"/>
           </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="prefixSuffixAltFont" value="true"
+                   th:checked="${template.isPrefixSuffixAltFont}"/>
+          </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Text before/after candidate name on same line: "★", "Incumbent:", "Write-In"
           </td>
@@ -244,6 +297,10 @@
           <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
             <input type="checkbox" name="candidateNoteItalic" value="true"
                    th:checked="${template.candidateNoteItalic}"/>
+          </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="candidateNoteAltFont" value="true"
+                   th:checked="${template.isCandidateNoteAltFont}"/>
           </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Explanatory note below the name: "Incumbent since 2018", "Appointed by Board"
@@ -265,6 +322,10 @@
             <input type="checkbox" name="postambleItalic" value="true"
                    th:checked="${template.postambleItalic}"/>
           </td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="postambleAltFont" value="true"
+                   th:checked="${template.isPostambleAltFont}"/>
+          </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             Text after last candidate: write-in reminder, footnote, disclaimer
           </td>
@@ -279,6 +340,10 @@
           </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">—</td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">—</td>
+          <td style="padding:.4rem .6rem;border:1px solid #ddd;text-align:center">
+            <input type="checkbox" name="headerAltFont" value="true"
+                   th:checked="${template.isHeaderAltFont()}"/>
+          </td>
           <td style="padding:.4rem .6rem;border:1px solid #ddd;font-size:.85rem;color:#555">
             One-line ballot metadata at the top of the page
           </td>
@@ -340,20 +405,89 @@ To vote, completely fill in the {indicatorName} next to your choice.'}">
              min="6" max="18" step="0.5"/>
     </label>
 
-    <label>Barcode Position
-      <select name="barcodePosition">
-        <option th:each="pos : ${ {'TOP_RIGHT','TOP_LEFT','BOTTOM_RIGHT','BOTTOM_LEFT'} }"
-                th:value="${pos}" th:text="${pos}"
-                th:selected="${template.barcodePosition == pos}">
-        </option>
-      </select>
-    </label>
+    <!-- Barcode position is always TOP_RIGHT — hardcoded for scanning reliability -->
+    <input type="hidden" name="barcodePosition" value="TOP_RIGHT"/>
 
     <div class="checkbox-row">
       <input type="checkbox" id="multiSheet" name="multiSheet" value="true"
              th:checked="${template.multiSheet}"/>
       <label for="multiSheet" style="font-weight:normal">
         Multi-sheet ballot — print "Sheet N of M" on each sheet
+      </label>
+    </div>
+
+    <!-- ── Indicator Layout ───────────────────────────────────────────────── -->
+    <h3 style="margin-top:1.5rem;margin-bottom:.5rem;border-bottom:1px solid #ddd;padding-bottom:.35rem">
+      Indicator Layout
+    </h3>
+    <p class="help-text">
+      These options apply to <strong>all contest types</strong> (plurality, approval, and ranked-choice).
+    </p>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="rcvIndicatorsRight" name="rcvIndicatorsRight" value="true"
+             th:checked="${template.rcvIndicatorsRight}"/>
+      <label for="rcvIndicatorsRight" style="font-weight:normal">
+        <strong>Indicators on the right</strong> — candidate name right-justified
+        with a small gap before the vote indicator(s) to the right.
+        Default: indicators on the left, name to the right.
+      </label>
+    </div>
+
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.75rem;align-items:flex-end">
+      <label style="flex:0 0 210px">
+        Indicator Line Width (pt)
+        <small style="display:block;color:#666">Applies to ovals, checkboxes, and RCV boxes.
+          0.25 = very thin (default); 0.5 = light; 1.0 = standard</small>
+        <input type="number" name="indicatorLineWidthPt" style="width:80px"
+               th:value="${template.indicatorLineWidthPt != 0 ? template.indicatorLineWidthPt : 0.25}"
+               min="0.1" max="2" step="0.05"/>
+      </label>
+      <label style="flex:0 0 210px">
+        RCV Box Line Width (pt)
+        <small style="display:block;color:#666">Overrides above for ranked-choice boxes only.
+          0.5 = light (default); 1.0 = standard</small>
+        <input type="number" name="rcvBoxLineWidthPt" style="width:80px"
+               th:value="${template.rcvBoxLineWidthPt != 0 ? template.rcvBoxLineWidthPt : 0.5}"
+               min="0.1" max="2" step="0.25"/>
+      </label>
+    </div>
+
+    <div class="checkbox-row" style="margin-top:.6rem">
+      <input type="checkbox" id="indicatorDashed" name="indicatorDashed" value="true"
+             th:checked="${template.indicatorDashed}"/>
+      <label for="indicatorDashed" style="font-weight:normal">
+        <strong>Dashed indicator outlines</strong> — draws ovals, checkboxes and RCV boxes
+        with a dashed stroke so they are visually distinct from voter marks.
+        Uncheck for solid outlines.
+      </label>
+    </div>
+
+    <!-- ── Ranked-Choice Options ─────────────────────────────────────────── -->
+    <h3 style="margin-top:1.5rem;margin-bottom:.5rem;border-bottom:1px solid #ddd;padding-bottom:.35rem">
+      Ranked-Choice Options
+    </h3>
+    <p class="help-text">
+      These options apply only to contests with voting method RANKED_CHOICE.
+    </p>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="rcvShowRankNumbers" name="rcvShowRankNumbers" value="true"
+             th:checked="${template.rcvShowRankNumbers}"/>
+      <label for="rcvShowRankNumbers" style="font-weight:normal">
+        <strong>Show rank numbers above boxes</strong> — prints small numbers
+        ("1", "2", …) centered above each rank box on the first candidate row,
+        so voters can identify the box sequence at a glance.
+      </label>
+    </div>
+
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.75rem;align-items:flex-end">
+      <label style="flex:0 0 180px">
+        Rank Number Font Size (pt)
+        <small style="display:block;color:#666">Only used when rank numbers are shown</small>
+        <input type="number" name="rcvRankNumberFontPt" style="width:80px"
+               th:value="${template.rcvRankNumberFontPt != 0 ? template.rcvRankNumberFontPt : 7}"
+               min="4" max="12" step="0.5"/>
       </label>
     </div>
 
