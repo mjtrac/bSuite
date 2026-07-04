@@ -12,7 +12,7 @@ import gov.election.counter.model.BboxReport.ContestBox;
 import gov.election.counter.model.BboxReport.IndicatorBox;
 import gov.election.counter.model.BboxReport.PageLayout;
 import gov.election.counter.model.ScanSession;
-import gov.election.counter.service.CornerDetectionService.Point2D;
+import gov.election.counter.service.Point2D;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -53,8 +53,8 @@ public class ScannerService {
     /** Standard DPI values to snap to when using the heuristic. */
     private static final int[] STANDARD_DPIS = {72, 96, 150, 200, 300, 400, 600};
 
-    private final BarcodeReaderService   barcodeReader;
-    private final CornerDetectionService cornerDetector;
+    private final BallotIdentifierService barcodeReader;
+    private final BallotCornerDetectorService cornerDetector;
     private final HomographyService      homographyService;
 
     @org.springframework.beans.factory.annotation.Value("${scanner.patch-warp:false}")
@@ -62,22 +62,19 @@ public class ScannerService {
     private final MarkerAnalysisService  markerAnalysis;
     private final CoordinateDebugService coordinateDebug;
     private final BboxReportLoader       loader;
-    private final ScribbleDetectionService scribbleDetection;
 
-    public ScannerService(BarcodeReaderService barcodeReader,
-                          CornerDetectionService cornerDetector,
+    public ScannerService(BallotIdentifierService barcodeReader,
+                          BallotCornerDetectorService cornerDetector,
                           HomographyService homographyService,
                           MarkerAnalysisService markerAnalysis,
                           CoordinateDebugService coordinateDebug,
-                          BboxReportLoader loader,
-                          ScribbleDetectionService scribbleDetection) {
+                          BboxReportLoader loader) {
         this.barcodeReader    = barcodeReader;
         this.cornerDetector   = cornerDetector;
         this.homographyService = homographyService;
         this.markerAnalysis   = markerAnalysis;
         this.coordinateDebug  = coordinateDebug;
         this.loader           = loader;
-        this.scribbleDetection = scribbleDetection;
     }
 
     public ScanResult scanOne(Path imagePath, ScanSession session) {
@@ -104,16 +101,20 @@ public class ScannerService {
         log.debug("[{}] imageDpi={}  size={}x{}",
         result.imageName, imageDpi, image.getWidth(), image.getHeight());
 
-        // ── Decode barcode ──────────────────────────────────────────────────
-        // Decode barcode and capture pixel position for corner hint adjustment
-        double[] barcodePos   = barcodeReader.decodeWithPosition(image);
-        String barcodeData    = barcodeReader.decode(image);
-        result.barcodeData    = barcodeData != null ? barcodeData : "(not decoded)";
-        result.barcodeDecoded = barcodeData != null;
-        result.pageNumber     = barcodeReader.parsePageNumber(barcodeData);
-        double detectedBcX    = barcodePos != null ? barcodePos[0] : -1;
-        double detectedBcY    = barcodePos != null ? barcodePos[1] : -1;
-        // yamlReportPath updated after per-ballot load below; log after layout selection
+        // ── Identify ballot ─────────────────────────────────────────────────
+        // Use the injected BallotIdentifierService (default: ZXing barcode reader;
+        // may be replaced with OCR, template matching, or composite strategy).
+        BallotIdentifierService.BallotIdentification ballotId =
+            barcodeReader.identify(image);
+        String barcodeData    = ballotId.decoded() ? ballotId.barcodeData() : null;
+        result.barcodeData    = ballotId.barcodeData();
+        result.barcodeDecoded = ballotId.decoded();
+        result.pageNumber     = ballotId.pageNumber();
+        double detectedBcX    = ballotId.positionX();
+        double detectedBcY    = ballotId.positionY();
+        log.debug("[{}] Ballot ID: {} via {} (decoded={})",
+            result.imageName, result.barcodeData,
+            ballotId.method(), result.barcodeDecoded);
 
         // ── Select page layout ──────────────────────────────────────────────
         // Load the layout specific to this ballot's barcode combination so that
@@ -138,8 +139,12 @@ public class ScannerService {
         PageLayout layout = layouts.stream()
             .filter(p -> p.pageNumber == result.pageNumber)
             .findFirst()
-            .orElseGet(() -> layouts.isEmpty() ? null : layouts.get(0));
+            .orElse(null);
         if (layout == null) {
+            // No layout matched the scanned page number.
+            // Do NOT fall back to layouts.get(0) — that would silently apply
+            // a different ballot's layout (e.g. Precinct 3 indicators on a
+            // Precinct 1 image), creating spurious vote_opportunity rows.
             result.errorMessage = "No layout data for barcode " + barcodeData
                 + " page " + result.pageNumber;
             return result;
@@ -198,37 +203,46 @@ public class ScannerService {
         // After a 180° flip, re-read the barcode from the corrected image and
         // reload the YAML layout so all subsequent processing uses the right data.
         if (result.wasRotated) {
-            String flippedBarcode = barcodeReader.decode(image);
-            if (flippedBarcode != null && !flippedBarcode.isBlank()
-                    && !flippedBarcode.equals(barcodeData)) {
-                log.debug("[{}] Re-read barcode after flip: {} -> {}",
-        result.imageName, barcodeData, flippedBarcode);
-                barcodeData               = flippedBarcode;
-                result.barcodeData        = flippedBarcode;
+            BallotIdentifierService.BallotIdentification flippedId =
+                barcodeReader.identifyRotated(image);
+            if (flippedId.decoded()
+                    && !flippedId.barcodeData().equals(barcodeData)) {
+                log.debug("[{}] Re-identified after flip: {} -> {} via {}",
+                    result.imageName, barcodeData,
+                    flippedId.barcodeData(), flippedId.method());
+                barcodeData               = flippedId.barcodeData();
+                result.barcodeData        = flippedId.barcodeData();
                 result.barcodeDecoded     = true;
-                result.pageNumber         = barcodeReader.parsePageNumber(flippedBarcode);
+                result.pageNumber         = flippedId.pageNumber();
                 // Reload layout for the corrected barcode
                 if (session.reportFolder != null && !session.reportFolder.isBlank()) {
                     try {
                         List<PageLayout> flippedLayouts = loader.loadForBarcode(
-                            java.nio.file.Paths.get(session.reportFolder), flippedBarcode);
+                            java.nio.file.Paths.get(session.reportFolder), flippedId.barcodeData());
                         if (!flippedLayouts.isEmpty()) {
                             final List<PageLayout> fl = flippedLayouts;
                             layout = fl.stream()
                                 .filter(p -> p.pageNumber == result.pageNumber)
                                 .findFirst()
-                                .orElse(fl.get(0));
+                                .orElse(null);
+                            if (layout == null) {
+                                log.warn("[{}] No layout matched page {} after flip — skipping",
+                                    result.imageName, result.pageNumber);
+                                result.errorMessage = "No layout for page "
+                                    + result.pageNumber + " after upside-down correction";
+                                return result;
+                            }
                             log.debug("[{}] Reloaded layout after flip: {}",
-        result.imageName,
+                                result.imageName,
                                 layout.sourceFile != null ? layout.sourceFile : "(unknown)");
                         }
                     } catch (Exception e) {
                         log.warn("loadForBarcode after flip failed:" + e.getMessage());
                     }
                 }
-            } else if (flippedBarcode != null) {
+            } else if (flippedId.decoded()) {
                 log.debug("[{}] Barcode unchanged after flip: {}",
-        result.imageName, flippedBarcode);
+        result.imageName, flippedId.barcodeData());
             } else {
                 log.warn("[{}] Could not re-read barcode after flip",
         result.imageName);
@@ -305,28 +319,6 @@ public class ScannerService {
                 + e.getMessage();
             log.error("[" + result.imageName + "] " + result.errorMessage);
             return result;
-        }
-
-        // ── Scribble detection ──────────────────────────────────────────────
-        // Requires the full-page warp; skipped in patch-warp mode.
-        if (scribbleDetection.isEnabled()) {
-            if (patchWarp) {
-                log.debug("[{}] Scribble detection skipped: patch-warp mode active",
-                    result.imageName);
-            } else {
-                ScribbleDetectionService.ScribbleResult scribble =
-                    scribbleDetection.analyse(warped, result.barcodeData, layout,
-                        warpDpi, imagePath);
-                result.scribblePixels      = scribble.suspiciousPixels();
-                result.scribbleFlagged     = scribble.flagged();
-                result.scribbleOutlinePath = scribble.outlineImagePath();
-                if (scribble.flagged()) {
-                    log.warn("[{}] Scribble flag: {} suspicious pixels{}",
-                        result.imageName, scribble.suspiciousPixels(),
-                        scribble.outlineImagePath() != null
-                            ? " — outline: " + scribble.outlineImagePath() : "");
-                }
-            }
         }
 
         // ── Adjusted YAML (debug mode) ──────────────────────────────────────

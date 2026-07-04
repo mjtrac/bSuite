@@ -291,10 +291,21 @@ public class TestApiController {
 
         String ind = body.getOrDefault("indicatorType", "OVAL").toString();
         t.setVoteIndicatorStyle(BallotDesignTemplate.VoteIndicatorStyle.valueOf(ind));
-        if (body.containsKey("headerHeadline"))
-            t.setHeaderHeadline(body.get("headerHeadline").toString());
-        if (body.containsKey("headerBodyText"))
-            t.setHeaderBodyText(body.get("headerBodyText").toString());
+        if (body.containsKey("headerHtml"))
+            t.setHeaderHtml(body.get("headerHtml").toString());
+        else if (body.containsKey("headerHeadline") || body.containsKey("headerBodyText")) {
+            // Legacy support: convert old headline+body to HTML
+            String headline = body.getOrDefault("headerHeadline", "OFFICIAL BALLOT").toString();
+            String bodyTxt  = body.getOrDefault("headerBodyText", "").toString();
+            String html = "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">"
+                + "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">" + headline + "</p>";
+            for (String para : bodyTxt.split("\\n|\\\\n")) {
+                if (!para.isBlank())
+                    html += "<p style=\"font-size:9pt;margin:0 0 2px 0\">" + para + "</p>";
+            }
+            html += "</div>";
+            t.setHeaderHtml(html);
+        }
 
         // Optional layout overrides
         if (body.containsKey("marginTopPt"))

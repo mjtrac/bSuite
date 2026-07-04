@@ -5,7 +5,7 @@ package gov.election.counter.service;
 
 import gov.election.counter.entity.*;
 import gov.election.counter.service.HomographyService;
-import gov.election.counter.service.CornerDetectionService.Point2D;
+import gov.election.counter.service.Point2D;
 import gov.election.counter.entity.VoteOpportunity.VoteStatus;
 import gov.election.counter.model.BboxReport.*;
 import gov.election.counter.model.ScanSession;
@@ -85,7 +85,7 @@ public class VoteRecordService {
      * @param threshold darkness threshold used for this scan
      */
     public PersistStatus persist(ScanResult result, Path imagePath, int threshold,
-                         CornerDetectionService.Point2D[] corners,
+                         Point2D[] corners,
                          double contentAreaWidth, double contentAreaHeight,
                          int warpDpi, ScanSession session) {
         if (result == null) return PersistStatus.ERROR;
@@ -102,7 +102,7 @@ public class VoteRecordService {
     }
 
     private PersistStatus doPersist(ScanResult result, Path imagePath, int threshold,
-                            CornerDetectionService.Point2D[] corners,
+                            Point2D[] corners,
                             double contentAreaWidth, double contentAreaHeight,
                             int warpDpi, ScanSession session) {
 
@@ -133,9 +133,6 @@ public class VoteRecordService {
         img.setCanonicalWidth((int)Math.round(contentAreaWidth  * warpDpi));
         img.setCanonicalHeight((int)Math.round(contentAreaHeight * warpDpi));
         img.setBarcode(barcode);
-        img.setScribbleFlagged(result.scribbleFlagged);
-        img.setScribblePixels(result.scribblePixels);
-        img.setScribbleOutlinePath(result.scribbleOutlinePath);
         if (corners != null && corners.length == 4) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < 4; i++) {

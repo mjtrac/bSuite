@@ -91,9 +91,6 @@ public class ScanController {
 
     // ── Configuration form ─────────────────────────────────────────────────────
 
-    @org.springframework.beans.factory.annotation.Value("${data.database.dir:${user.home}/bSuite_data/db}")
-    private String databaseDir;
-
     @GetMapping("/")
     public String index(HttpSession httpSession, Model model) {
         ScanSession session = getOrCreate(httpSession);
@@ -101,7 +98,7 @@ public class ScanController {
         model.addAttribute("hasSession", session.isStarted());
         // Show viewer link if a previous scan DB exists
         java.nio.file.Path dbPath = java.nio.file.Paths.get(
-            databaseDir, "counter_results.db");
+            System.getProperty("user.dir"), "counter_results.db");
         model.addAttribute("dbExists", java.nio.file.Files.exists(dbPath));
         model.addAttribute("viewerUrl", "http://localhost:${viewer.server.port:8082}/viewer/");
         return "index";
@@ -409,13 +406,13 @@ public class ScanController {
                 auditLog.log("SCAN", username, imageName);
 
                 try {
-                    gov.election.counter.service.CornerDetectionService.Point2D[] corners = null;
+                    gov.election.counter.service.Point2D[] corners = null;
                     if (result.cornersFound) {
-                        corners = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                        corners = new gov.election.counter.service.Point2D[]{
+                            new gov.election.counter.service.Point2D(result.bboxTLx, result.bboxTLy),
+                            new gov.election.counter.service.Point2D(result.bboxTRx, result.bboxTRy),
+                            new gov.election.counter.service.Point2D(result.bboxBRx, result.bboxBRy),
+                            new gov.election.counter.service.Point2D(result.bboxBLx, result.bboxBLy),
                         };
                     }
                     if (result.errorMessage != null) {
@@ -497,13 +494,13 @@ public class ScanController {
                     Path retryPath = (Path) retryItem[0];
                     ScanResult retryResult = (ScanResult) retryItem[1];
                     try {
-                        gov.election.counter.service.CornerDetectionService.Point2D[] rc = null;
+                        gov.election.counter.service.Point2D[] rc = null;
                         if (retryResult.cornersFound) {
-                            rc = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxTLx, retryResult.bboxTLy),
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxTRx, retryResult.bboxTRy),
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxBRx, retryResult.bboxBRy),
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxBLx, retryResult.bboxBLy),
+                            rc = new gov.election.counter.service.Point2D[]{
+                                new gov.election.counter.service.Point2D(retryResult.bboxTLx, retryResult.bboxTLy),
+                                new gov.election.counter.service.Point2D(retryResult.bboxTRx, retryResult.bboxTRy),
+                                new gov.election.counter.service.Point2D(retryResult.bboxBRx, retryResult.bboxBRy),
+                                new gov.election.counter.service.Point2D(retryResult.bboxBLx, retryResult.bboxBLy),
                             };
                         }
                         var retryStatus = voteRecord.persist(
@@ -576,13 +573,13 @@ public class ScanController {
                         }
                     } else {
                         try {
-                            gov.election.counter.service.CornerDetectionService.Point2D[] rc = null;
+                            gov.election.counter.service.Point2D[] rc = null;
                             if (result.cornersFound) {
-                                rc = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                                rc = new gov.election.counter.service.Point2D[]{
+                                    new gov.election.counter.service.Point2D(result.bboxTLx, result.bboxTLy),
+                                    new gov.election.counter.service.Point2D(result.bboxTRx, result.bboxTRy),
+                                    new gov.election.counter.service.Point2D(result.bboxBRx, result.bboxBRy),
+                                    new gov.election.counter.service.Point2D(result.bboxBLx, result.bboxBLy),
                                 };
                             }
                             voteRecord.persist(result, retryPath, session.threshold,
@@ -609,13 +606,13 @@ public class ScanController {
                 auditLog.log("SCAN", username, imageName);
                 log.warn("Late-arriving result processed in drain: {}", imageName);
                 try {
-                    gov.election.counter.service.CornerDetectionService.Point2D[] corners = null;
+                    gov.election.counter.service.Point2D[] corners = null;
                     if (result.cornersFound) {
-                        corners = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                        corners = new gov.election.counter.service.Point2D[]{
+                            new gov.election.counter.service.Point2D(result.bboxTLx, result.bboxTLy),
+                            new gov.election.counter.service.Point2D(result.bboxTRx, result.bboxTRy),
+                            new gov.election.counter.service.Point2D(result.bboxBRx, result.bboxBRy),
+                            new gov.election.counter.service.Point2D(result.bboxBLx, result.bboxBLy),
                         };
                     }
                     voteRecord.persist(result, imagePath, session.threshold,

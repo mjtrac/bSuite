@@ -197,7 +197,7 @@ public class BallotDesignTemplate {
      * Default 0.25 pt — thin enough to be clear but not contribute dark pixels
      * that confuse optical scan sampling.
      */
-    private float   indicatorLineWidthPt = 0.25f;
+    private float   indicatorLineWidthPt = 0.5f;
 
     /**
      * When true, vote indicators are drawn with a dashed stroke.
@@ -215,29 +215,35 @@ public class BallotDesignTemplate {
 
     // ── Header zone text (editable) ───────────────────────────
     /**
-     * Large bold headline printed at the top of the header zone,
-     * next to the barcodes. Defaults to "OFFICIAL BALLOT".
-     * May be left blank to suppress the headline.
+     * HTML content for the header zone — the area to the left of the barcodes
+     * at the top of each ballot page (excluding the single metadata line and
+     * the orientation marks, which are always drawn automatically).
+     *
+     * Full HTML + inline CSS is supported via iText html2pdf.
+     * Images may be embedded as data URIs: {@code <img src="data:image/png;base64,..."/>}
+     *
+     * Tokens replaced at print time:
+     *   {electionName}     — election name
+     *   {jurisdictionName} — jurisdiction name
+     *   {regionName}       — precinct/region name
+     *   {partyName}        — party name (or "Nonpartisan")
+     *   {ballotTypeName}   — ballot type name
+     *   {indicatorName}    — oval / box / arrow / number box
+     *   {pageNum}          — page number
      */
     @Column(columnDefinition = "TEXT")
-    private String headerHeadline = "OFFICIAL BALLOT";
+    private String headerHtml = DEFAULT_HEADER_HTML;
 
-    private float headerHeadlineFontSize = 13f;
-
-    /**
-     * Smaller body text printed beneath the headline in the header zone.
-     * Use \n to separate paragraphs.  Supports the tokens:
-     *   {electionName}    — replaced with the election name
-     *   {jurisdictionName}— replaced with the jurisdiction name
-     *   {indicatorName}   — replaced with oval/box/arrow/number box
-     * Defaults to a standard "How to vote" instruction block.
-     */
-    @Column(columnDefinition = "TEXT")
-    private String headerBodyText =
-        "{jurisdictionName}\n{electionName}\n\nHOW TO VOTE:\n" +
-        "To vote, completely fill in the {indicatorName} next to your choice.";
-
-    private float headerBodyFontSize = 9f;
+    /** Default HTML matches the previous headline + body text defaults. */
+    public static final String DEFAULT_HEADER_HTML =
+        "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">" +
+        "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">OFFICIAL BALLOT</p>" +
+        "<p style=\"font-size:9pt;margin:0 0 2px 0\">{jurisdictionName}</p>" +
+        "<p style=\"font-size:9pt;margin:0 0 6px 0\">{electionName}</p>" +
+        "<p style=\"font-size:9pt;font-weight:bold;margin:0 0 2px 0\">HOW TO VOTE:</p>" +
+        "<p style=\"font-size:9pt;margin:0\">To vote, completely fill in the " +
+        "{indicatorName} next to your choice.</p>" +
+        "</div>";
 
     // ── Getters & Setters ─────────────────────────────────────
 
@@ -347,14 +353,10 @@ public class BallotDesignTemplate {
     public void    setPostambleItalic(boolean v)     { this.postambleItalic = v; }
 
     // header zone text
-    public String getHeaderHeadline()           { return headerHeadline; }
-    public void   setHeaderHeadline(String v)        { this.headerHeadline = v; }
-    public float  getHeaderHeadlineFontSize()   { return headerHeadlineFontSize; }
-    public void   setHeaderHeadlineFontSize(float v) { this.headerHeadlineFontSize = v; }
-    public String getHeaderBodyText()           { return headerBodyText; }
-    public void   setHeaderBodyText(String v)        { this.headerBodyText = v; }
-    public float  getHeaderBodyFontSize()       { return headerBodyFontSize; }
-    public void   setHeaderBodyFontSize(float v)     { this.headerBodyFontSize = v; }
+    public String getHeaderHtml() {
+        return headerHtml != null ? headerHtml : DEFAULT_HEADER_HTML;
+    }
+    public void setHeaderHtml(String v) { this.headerHtml = v; }
 
     // barcode
     public String getBarcodePosition() { return barcodePosition; }
@@ -376,7 +378,7 @@ public class BallotDesignTemplate {
     public void    setRcvRankNumberFontPt(float v)    { this.rcvRankNumberFontPt = v; }
     public float   getRcvBoxLineWidthPt()             { return rcvBoxLineWidthPt; }
     public void    setRcvBoxLineWidthPt(float v)      { this.rcvBoxLineWidthPt = v; }
-    public float   getIndicatorLineWidthPt()          { return indicatorLineWidthPt > 0 ? indicatorLineWidthPt : 0.25f; }
+    public float   getIndicatorLineWidthPt()          { return indicatorLineWidthPt > 0 ? indicatorLineWidthPt : 0.5f; }
     public void    setIndicatorLineWidthPt(float v)   { this.indicatorLineWidthPt = v; }
     public boolean isIndicatorDashed()                { return indicatorDashed; }
     public void    setIndicatorDashed(boolean v)      { this.indicatorDashed = v; }

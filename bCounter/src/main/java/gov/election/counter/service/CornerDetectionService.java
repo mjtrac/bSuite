@@ -5,6 +5,8 @@
  */
 package gov.election.counter.service;
 
+import gov.election.counter.service.Point2D;
+
 import gov.election.counter.model.BboxReport.PageLayout;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -47,8 +49,9 @@ import org.slf4j.LoggerFactory;
  *   Every ballot logs: line y-centre, endpoints, all four mark centres,
  *   and whether the ballot was flipped.
  */
+@org.springframework.context.annotation.Primary
 @Service
-public class CornerDetectionService {
+public class CornerDetectionService implements BallotCornerDetectorService {
 
     private static final Logger log =
         LoggerFactory.getLogger(CornerDetectionService.class);
@@ -56,7 +59,7 @@ public class CornerDetectionService {
     @Value("${corner.detection.force-bottom-edge-fallback:false}")
     private boolean forceBottomEdgeFallback;
 
-    public record Point2D(double x, double y) {}
+    // Point2D is now a top-level class: gov.election.counter.service.Point2D
 
     // Mark dimensions in inches (from BallotGenerationService: 9pt and 18pt)
     private static final double MARK_H_IN      = 9.0  / 72.0;   // ~0.125"
@@ -89,6 +92,7 @@ public class CornerDetectionService {
     // -------------------------------------------------------------------------
 
     /** Overload without barcode offset. */
+    @Override
     public Point2D[] findContentBoxCorners(BufferedImage[] imageHolder,
                                             int dpi,
                                             double expectedWidthIn,
@@ -98,6 +102,7 @@ public class CornerDetectionService {
             expectedHeightIn, layout, 0, 0);
     }
 
+    @Override
     public Point2D[] findContentBoxCorners(BufferedImage[] imageHolder,
                                             int dpi,
                                             double expectedWidthIn,

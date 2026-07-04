@@ -7,7 +7,7 @@ package gov.election.counter.service;
 
 import gov.election.counter.model.BboxReport.*;
 import gov.election.counter.model.ScanSession;
-import gov.election.counter.service.CornerDetectionService.Point2D;
+import gov.election.counter.service.Point2D;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;

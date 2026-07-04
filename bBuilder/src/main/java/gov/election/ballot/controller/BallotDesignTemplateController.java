@@ -117,10 +117,7 @@ public class BallotDesignTemplateController {
             @RequestParam(defaultValue = "false") boolean candidateNoteItalic,
             @RequestParam(defaultValue = "false") boolean postambleItalic,
             // header zone text
-            @RequestParam(required = false)           String  headerHeadline,
-            @RequestParam(defaultValue = "13")        float   headerHeadlineFontSize,
-            @RequestParam(required = false)           String  headerBodyText,
-            @RequestParam(defaultValue = "9")         float   headerBodyFontSize,
+            @RequestParam(required = false)           String  headerHtml,
             // misc
             @RequestParam(defaultValue = "TOP_RIGHT") String  barcodePosition,
             @RequestParam(defaultValue = "false")     boolean multiSheet,
@@ -139,8 +136,8 @@ public class BallotDesignTemplateController {
             @RequestParam(defaultValue = "false")     boolean rcvShowRankNumbers,
             @RequestParam(defaultValue = "7")         float   rcvRankNumberFontPt,
             @RequestParam(defaultValue = "0.5")       float   rcvBoxLineWidthPt,
-            @RequestParam(defaultValue = "0.25")      float   indicatorLineWidthPt,
-            @RequestParam(defaultValue = "true")      boolean indicatorDashed,
+            @RequestParam(defaultValue = "0.5")       float   indicatorLineWidthPt,
+            @RequestParam(defaultValue = "false")     boolean indicatorDashed,
             Model model,
             RedirectAttributes ra) {
 
@@ -209,10 +206,9 @@ public class BallotDesignTemplateController {
         t.setPostambleItalic(postambleItalic);
         // misc
         // header zone text (null/blank = use built-in default)
-        t.setHeaderHeadline(headerHeadline);
-        t.setHeaderHeadlineFontSize(headerHeadlineFontSize > 0 ? headerHeadlineFontSize : 13f);
-        t.setHeaderBodyText(headerBodyText);
-        t.setHeaderBodyFontSize(headerBodyFontSize > 0 ? headerBodyFontSize : 9f);
+        t.setHeaderHtml(headerHtml != null && !headerHtml.isBlank()
+            ? headerHtml
+            : BallotDesignTemplate.DEFAULT_HEADER_HTML);
         t.setBarcodePosition(barcodePosition);
         t.setMultiSheet(multiSheet);
         try { t.setFontFamilyPrimary(BallotDesignTemplate.FontFamily.valueOf(fontFamilyPrimary)); }
@@ -232,7 +228,7 @@ public class BallotDesignTemplateController {
         t.setRcvShowRankNumbers(rcvShowRankNumbers);
         t.setRcvRankNumberFontPt(rcvRankNumberFontPt > 0 ? rcvRankNumberFontPt : 7f);
         t.setRcvBoxLineWidthPt(rcvBoxLineWidthPt > 0 ? rcvBoxLineWidthPt : 0.5f);
-        t.setIndicatorLineWidthPt(indicatorLineWidthPt > 0 ? indicatorLineWidthPt : 0.25f);
+        t.setIndicatorLineWidthPt(indicatorLineWidthPt > 0 ? indicatorLineWidthPt : 0.5f);
         t.setIndicatorDashed(indicatorDashed);
 
         BallotDesignTemplate saved = templateRepo.save(t);

@@ -30,8 +30,9 @@ import org.slf4j.LoggerFactory;
  * The barcode data format is:
  *   JurisdictionId|RegionId|PartyId|BallotTypeId|ElectionId|PageNum
  */
+@org.springframework.context.annotation.Primary
 @Service
-public class BarcodeReaderService {
+public class BarcodeReaderService implements BallotIdentifierService {
 
     private static final Logger log =
         LoggerFactory.getLogger(BarcodeReaderService.class);
@@ -44,12 +45,30 @@ public class BarcodeReaderService {
             BarcodeFormat.CODE_39)
     );
 
+    // ── BallotIdentifierService implementation ─────────────────────────────────
+
     /**
-     * Attempts to decode the QR or barcode in the image.
-     *
-     * @param image grayscale or colour BufferedImage
-     * @return decoded string, or null if no code found
+     * Implements {@link BallotIdentifierService#identify} using ZXing barcode
+     * detection.  Tries multiple pre-processing strategies before giving up.
      */
+    @Override
+    public BallotIdentification identify(BufferedImage image) {
+        double[] pos  = decodeWithPosition(image);
+        String   data = decode(image);
+        if (data != null && !data.isBlank()) {
+            String method = "BARCODE_QR";  // most common; Code-128 also handled
+            return BallotIdentification.of(data, parsePageNumber(data),
+                                           pos[0], pos[1], method);
+        }
+        return BallotIdentification.notDecoded();
+    }
+
+    @Override
+    public BallotIdentification identifyRotated(BufferedImage rotatedImage) {
+        return identify(rotatedImage);
+    }
+
+    // ── Existing ZXing methods (unchanged) ────────────────────────────────────
     /**
      * Decode the barcode and return {data, centreX, centreY} in image pixels.
      * centreX/Y are the detected QR centre; both -1 if not found or no position.

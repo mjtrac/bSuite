@@ -352,58 +352,97 @@
       </tbody>
     </table>
 
-    <!-- ── Header zone text ──────────────────────────────────────────── -->
+    <!-- ── Header zone HTML ──────────────────────────────────────────────── -->
     <h3 style="margin-top:1.5rem;margin-bottom:.5rem;border-bottom:1px solid #ddd;padding-bottom:.35rem">
-      Header Zone Text
+      Header Zone Content
     </h3>
     <p class="help-text">
-      The text printed to the right of the barcodes at the top of each ballot.
-      The <strong>headline</strong> is large and bold (e.g. "OFFICIAL BALLOT").
-      The <strong>body text</strong> can span multiple paragraphs — use a literal
-      backslash-n (<code>
-</code>) between paragraphs.
-      Supported tokens replaced automatically at print time:
-      <code>{electionName}</code>, <code>{jurisdictionName}</code>,
-      <code>{indicatorName}</code> (oval / box / arrow / number box).
+      Full HTML + inline CSS for the area to the left of the barcodes.
+      Images can be embedded as data URIs:
+      <code>&lt;img src="data:image/png;base64,..."&gt;</code><br/>
+      Tokens replaced at print time:
+      <code>{electionName}</code> <code>{jurisdictionName}</code>
+      <code>{regionName}</code> <code>{partyName}</code>
+      <code>{ballotTypeName}</code> <code>{indicatorName}</code>
+      <code>{pageNum}</code>
     </p>
 
-    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-end">
-      <label style="flex:2;min-width:280px">
-        Headline
-        <small>(large bold text; blank = suppress headline)</small>
-        <input type="text" name="headerHeadline"
-               th:value="${template.headerHeadline != null ? template.headerHeadline : 'OFFICIAL BALLOT'}"
-               maxlength="200"
-               placeholder="e.g. OFFICIAL BALLOT"/>
-      </label>
-      <label style="flex:0 0 120px">Headline Size (pt)
-        <input type="number" name="headerHeadlineFontSize" style="width:80px"
-               th:value="${template.headerHeadlineFontSize != 0 ? template.headerHeadlineFontSize : 13}"
-               min="8" max="30" step="0.5"/>
-      </label>
-    </div>
+    <details style="margin-bottom:.5rem">
+      <summary style="cursor:pointer;font-size:.85rem;color:#475569">
+        &#9432; Example snippets — click to insert
+      </summary>
+      <div style="font-size:.8rem;margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.5rem">
+        <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
+          onclick="insertHeaderSnippet('default')">Default (headline + instructions)</button>
+        <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
+          onclick="insertHeaderSnippet('twocol')">Two columns (image + text)</button>
+        <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
+          onclick="insertHeaderSnippet('minimal')">Minimal (election name only)</button>
+        <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
+          onclick="insertHeaderSnippet('table')">Table layout</button>
+      </div>
+    </details>
 
-    <label style="margin-top:.75rem">
-      Body Text
-      <small>paragraphs separated by <code>
-</code>; tokens: <code>{electionName}</code>
-        <code>{jurisdictionName}</code> <code>{indicatorName}</code></small>
-      <textarea name="headerBodyText" rows="5"
-                th:text="${template.headerBodyText != null
-                           ? template.headerBodyText
-                           : '{jurisdictionName}
-{electionName}
+    <textarea id="headerHtmlArea" name="headerHtml" rows="12"
+              style="font-family:monospace;font-size:.8rem;width:100%;
+                     border:1px solid #ccc;border-radius:4px;padding:.5rem"
+              th:text="${template.headerHtml != null
+                         ? template.headerHtml
+                         : T(gov.election.ballot.model.BallotDesignTemplate).DEFAULT_HEADER_HTML}">
+    </textarea>
+    <p style="font-size:.75rem;color:#666;margin-top:.25rem">
+      Leave blank to use the default (Official Ballot + How to Vote instructions).
+      The barcode, orientation marks, and metadata line above are always drawn
+      automatically regardless of this content.
+    </p>
 
-HOW TO VOTE:
-To vote, completely fill in the {indicatorName} next to your choice.'}">
-      </textarea>
-    </label>
-
-    <label style="max-width:180px">Body Text Size (pt)
-      <input type="number" name="headerBodyFontSize" style="width:80px"
-             th:value="${template.headerBodyFontSize != 0 ? template.headerBodyFontSize : 9}"
-             min="6" max="18" step="0.5"/>
-    </label>
+    <script>
+    var HEADER_SNIPPETS = {
+      'default':
+        '<div style="font-family:Helvetica,Arial,sans-serif;padding:4px 0">\n' +
+        '  <p style="font-size:13pt;font-weight:bold;margin:0 0 4px 0">OFFICIAL BALLOT</p>\n' +
+        '  <p style="font-size:9pt;margin:0 0 2px 0">{jurisdictionName}</p>\n' +
+        '  <p style="font-size:9pt;margin:0 0 6px 0">{electionName}</p>\n' +
+        '  <p style="font-size:9pt;font-weight:bold;margin:0 0 2px 0">HOW TO VOTE:</p>\n' +
+        '  <p style="font-size:9pt;margin:0">To vote, completely fill in the {indicatorName} next to your choice.</p>\n' +
+        '</div>',
+      'twocol':
+        '<table style="width:100%;border-collapse:collapse;font-family:Helvetica,Arial,sans-serif">\n' +
+        '  <tr>\n' +
+        '    <td style="width:60pt;vertical-align:middle;padding-right:6pt">\n' +
+        '      <img src="data:image/png;base64,REPLACE_WITH_BASE64" style="max-width:54pt;max-height:54pt"/>\n' +
+        '    </td>\n' +
+        '    <td style="vertical-align:top">\n' +
+        '      <p style="font-size:13pt;font-weight:bold;margin:0 0 3pt 0">OFFICIAL BALLOT</p>\n' +
+        '      <p style="font-size:9pt;margin:0">{jurisdictionName} | {electionName}</p>\n' +
+        '      <p style="font-size:9pt;margin:4pt 0 0 0">Fill the {indicatorName} completely next to your choice.</p>\n' +
+        '    </td>\n' +
+        '  </tr>\n' +
+        '</table>',
+      'minimal':
+        '<div style="font-family:Helvetica,Arial,sans-serif;padding:4px 0">\n' +
+        '  <p style="font-size:11pt;font-weight:bold;margin:0 0 3px 0">OFFICIAL BALLOT</p>\n' +
+        '  <p style="font-size:9pt;margin:0">{electionName}</p>\n' +
+        '</div>',
+      'table':
+        '<table style="width:100%;border-collapse:collapse;font-family:Helvetica,Arial,sans-serif;font-size:9pt">\n' +
+        '  <tr><td colspan="2" style="font-size:13pt;font-weight:bold;padding-bottom:4pt">OFFICIAL BALLOT</td></tr>\n' +
+        '  <tr>\n' +
+        '    <td style="width:50%;vertical-align:top;padding-right:6pt">\n' +
+        '      <strong>{jurisdictionName}</strong><br/>{electionName}\n' +
+        '    </td>\n' +
+        '    <td style="vertical-align:top">\n' +
+        '      <strong>HOW TO VOTE:</strong><br/>\n' +
+        '      Fill the {indicatorName} next to your choice.\n' +
+        '    </td>\n' +
+        '  </tr>\n' +
+        '</table>'
+    };
+    function insertHeaderSnippet(key) {
+      var ta = document.getElementById('headerHtmlArea');
+      if (ta) ta.value = HEADER_SNIPPETS[key] || '';
+    }
+    </script>
 
     <!-- Barcode position is always TOP_RIGHT — hardcoded for scanning reliability -->
     <input type="hidden" name="barcodePosition" value="TOP_RIGHT"/>
@@ -440,7 +479,7 @@ To vote, completely fill in the {indicatorName} next to your choice.'}">
         <small style="display:block;color:#666">Applies to ovals, checkboxes, and RCV boxes.
           0.25 = very thin (default); 0.5 = light; 1.0 = standard</small>
         <input type="number" name="indicatorLineWidthPt" style="width:80px"
-               th:value="${template.indicatorLineWidthPt != 0 ? template.indicatorLineWidthPt : 0.25}"
+               th:value="${template.indicatorLineWidthPt != 0 ? template.indicatorLineWidthPt : 0.5}"
                min="0.1" max="2" step="0.05"/>
       </label>
       <label style="flex:0 0 210px">
