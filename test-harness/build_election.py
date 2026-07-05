@@ -543,13 +543,21 @@ def build(client, out_path):
     # ── Ballot design template 1: standard 8.5×14, 3 columns ─────────────────
     print("\n── Creating ballot templates ─────────────────────────────────")
     tmpl = client.post("template", {
-        "electionId":    elec["id"],
-        "paperSize":     "LEGAL_8_5x14",
-        "columns":       3,
-        "indicatorType": "OVAL",
-        "headerHeadline": "OFFICIAL TEST BALLOT",
-        "headerBodyText": ("OFFICIAL BALLOT — Test General Election 2026\n"
-                           "To vote, completely fill in the oval next to your choice."),
+        "electionId":      elec["id"],
+        "paperSize":       "LEGAL_8_5x14",
+        "columns":         3,
+        "indicatorType":   "OVAL",
+        "barcodeHeightPt": 72,    # 1" QR code — no linear barcode
+        "barcodeWidthPt":  0,
+        "headerHtml": (
+            "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">"
+            "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">OFFICIAL TEST BALLOT</p>"
+            "<p style=\"font-size:9pt;margin:0 0 2px 0\">{jurisdictionName}</p>"
+            "<p style=\"font-size:9pt;margin:0 0 6px 0\">{electionName}</p>"
+            "<p style=\"font-size:9pt;margin:0\">To vote, completely fill in the "
+            "{indicatorName} next to your choice.</p>"
+            "</div>"
+        ),
     })
     print(f"  ✓ Template 1: 8.5×14 legal, 3 columns (id={tmpl['id']})")
 
@@ -584,8 +592,17 @@ def build(client, out_path):
         "instructionFontSize":  8,           # smaller than default 9
         "headerFontSize":       8,
         "contestTitleBold":     True,
-        "headerHeadline":       "OFFICIAL BALLOT — LARGE HEADER TEST",
-        "headerBodyText":       LARGE_HEADER_TEXT,
+        "barcodeHeightPt":       72,
+        "barcodeWidthPt":        0,
+        "headerHtml": (
+            "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">"
+            "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">OFFICIAL BALLOT — LARGE HEADER TEST</p>"
+            + "".join(
+                f"<p style=\"font-size:9pt;margin:0 0 2px 0\">{para}</p>"
+                for para in LARGE_HEADER_TEXT.strip().split("\n") if para.strip()
+            )
+            + "</div>"
+        ),
     })
     print(f"  ✓ Template 2: 8.5×14, 2 columns, 3-inch header, custom fonts (id={tmpl2['id']})")
 

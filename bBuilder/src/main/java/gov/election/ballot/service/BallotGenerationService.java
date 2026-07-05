@@ -340,8 +340,16 @@ public class BallotGenerationService {
                 final float CBOX_TOP_PAD    = 3f;
                 final float CBOX_BOTTOM_PAD = 4f;
                 float titleFontSize = template.getContestTitleFontSize();
+                // Use actual font ascender (distance from baseline to cap-top)
+                // rather than the approximate 0.75 factor, so indicator Y positions
+                // in the YAML are not shifted by approximation error.
+                PdfFont titleFont = font(template.isContestTitleBold(),
+                                         template.isContestTitleItalic(),
+                                         template.isContestTitleAltFont());
+                float titleAscender = titleFont.getFontProgram().getFontMetrics()
+                                          .getTypoAscender() * titleFontSize / 1000f;
                 float cboxT  = contestStartY;
-                currentY     = cboxT - CBOX_TOP_PAD - titleFontSize * 0.75f;
+                currentY     = cboxT - CBOX_TOP_PAD - titleAscender;
                 drawnBottom  = currentY;
 
                 // ── Contest title ─────────────────────────────────────────
@@ -556,12 +564,21 @@ public class BallotGenerationService {
                                                      : (rank == 2 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP));
                         }
                     } else {
-                        final float INDICATOR_INSET_START = 2f;
+                        // Inset the sampling region from the oval border on all sides.
+                        // INSET_START applies to the left edge and top edge.
+                        // INSET_END applies to the right edge and bottom edge.
+                        // At 300 DPI, 1pt = 4.17px. The oval stroke is 0.5pt (~2px).
+                        // 3pt inset gives ~1pt clearance beyond the stroke on top/left.
+                        final float INDICATOR_INSET_START = 3f;
                         final float INDICATOR_INSET_END   = 3f;
-                        double indOffLeft = MeasurementUtil.ptToInches(indX      + INDICATOR_INSET_START);
-                        double indOffTop  = MeasurementUtil.ptToInches(ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
-                        double indW_in    = MeasurementUtil.ptToInches(drawnIndW - INDICATOR_INSET_START - INDICATOR_INSET_END);
-                        double indH_in    = MeasurementUtil.ptToInches(OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
+                        double indOffLeft = MeasurementUtil.ptToInches(
+                            indX + INDICATOR_INSET_START);
+                        double indOffTop  = MeasurementUtil.ptToInches(
+                            ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
+                        double indW_in    = MeasurementUtil.ptToInches(
+                            drawnIndW - INDICATOR_INSET_START - INDICATOR_INSET_END);
+                        double indH_in    = MeasurementUtil.ptToInches(
+                            OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
                         candPositions.add(new BallotDimensions.CandidatePosition(
                             candidate.getId(), candidate.getRecordName(),
                             candidate.isWriteIn(),
@@ -945,10 +962,9 @@ public class BallotGenerationService {
 
         PdfCanvas canvas = new PdfCanvas(pdf.addNewPage(new PageSize(pw, ph)));
         // ── Barcode / code placement ─────────────────────────────────────
-        // Every side gets its own uniquely-encoded QR + Code128 pair (with pageNum).
-        // Codes are placed side-by-side (QR left, Code128 right) in the zone
-        // indicated by barcodePosition.  The content bounding box is shrunk on the
-        // appropriate side so it always clears the codes.
+        // Every side gets its own uniquely-encoded QR code (with pageNum).
+        // The QR code is right-justified at the margin within the header zone.
+        // No linear barcode is drawn — QR alone provides reliable identification.
         String bcPos  = tmpl.getBarcodePosition() != null
                         ? tmpl.getBarcodePosition() : "TOP_LEFT";
         boolean codeAtTop    = !bcPos.startsWith("BOTTOM");
@@ -1134,42 +1150,33 @@ public class BallotGenerationService {
     // ══════════════════════════════════════════════════════════════════════
 
     /**
-     * Draws QR code and Code128 barcode side-by-side in the code zone.
-     * QR is always on the left of the pair; Code128 is to its right.
-     * The pair is placed flush against the left or right page margin
-     * depending on codeAtRight.
+     * Draws a QR code only — right-justified at the right margin when codeAtRight,
+     * or left-justified at the left margin otherwise.
+     * No linear barcode is drawn; the QR code alone is used for identification.
      *
-     * Returns float[4] = {pairLeft, pairRight, zoneTop, zoneBottom}
-     * so the caller can position text on the opposite side.
+     * Returns float[4] = {codeLeft, codeRight, zoneTop, codeBottom}
+     * so the caller can position header text on the opposite side.
      */
     private float[] drawBarcodesSideBySide(PdfCanvas canvas, String data,
                                             BallotDesignTemplate tmpl,
                                             float pw, float ph,
                                             boolean codeAtRight,
                                             float zoneTop, int qrSz) throws Exception {
-        int bcWidth  = (int) tmpl.getBarcodeWidthPt();
-        int bcHeight = qrSz;   // make barcode same height as QR for clean alignment
-        float gap    = 6f;     // gap between QR and Code128
-        float pairW  = qrSz + gap + bcWidth;
-
-        float pairLeft;
+        // QR code only — right-justified at the margin (or left-justified if codeAtRight=false)
+        float codeLeft;
         if (codeAtRight) {
-            pairLeft = pw - tmpl.getMarginRightPt() - 5f - pairW;
+            codeLeft = pw - tmpl.getMarginRightPt() - 5f - qrSz;
         } else {
-            pairLeft = tmpl.getMarginLeftPt() + 5f;
+            codeLeft = tmpl.getMarginLeftPt() + 5f;
         }
 
-        float codeY  = zoneTop - 4f - qrSz;  // top-aligned within zone
+        float codeY = zoneTop - 4f - qrSz;  // top-aligned within zone
 
         MultiFormatWriter writer = new MultiFormatWriter();
-        // QR code (left of pair)
         BitMatrix qrMatrix = writer.encode(data, BarcodeFormat.QR_CODE, qrSz, qrSz);
-        drawBitMatrix(canvas, qrMatrix, pairLeft, codeY, qrSz, qrSz);
-        // Code128 (right of pair, same height as QR)
-        BitMatrix bcMatrix = writer.encode(data, BarcodeFormat.CODE_128, bcWidth, bcHeight);
-        drawBitMatrix(canvas, bcMatrix, pairLeft + qrSz + gap, codeY, bcWidth, bcHeight);
+        drawBitMatrix(canvas, qrMatrix, codeLeft, codeY, qrSz, qrSz);
 
-        return new float[]{ pairLeft, pairLeft + pairW, zoneTop, codeY };
+        return new float[]{ codeLeft, codeLeft + qrSz, zoneTop, codeY };
     }
 
     private void drawBitMatrix(PdfCanvas canvas, BitMatrix m,
@@ -1445,7 +1452,10 @@ public class BallotGenerationService {
                                          float aboveGroupLabel,
                                          float belowGroupLabel) throws Exception {
         float h = 0f;
-        final float CBOX_TOP_PAD_EST    = 3f + tmpl.getContestTitleFontSize() * 0.75f;
+        // Use same ascender approximation as drawing code.
+        // getTypoAscender() not available here without a canvas, so use
+        // the standard Helvetica ascender ratio of ~0.718 as the estimate.
+        final float CBOX_TOP_PAD_EST    = 3f + tmpl.getContestTitleFontSize() * 0.718f;
         final float CBOX_BOTTOM_PAD_EST = 4f;
         h += CBOX_TOP_PAD_EST;
         if (contest.isPrintGroupingLabel() &&

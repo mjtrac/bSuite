@@ -360,6 +360,10 @@ public class ScanController {
                     int idx = nextIndex.getAndIncrement();
                     if (idx >= total) break;
                     Path imagePath = session.imageQueue.get(idx);
+                    // Atomically advance submittedCount to at least idx+1 so the
+                    // /progress UI counter updates immediately when this image is
+                    // picked up, not only when the writer loop commits it to the DB.
+                    session.submittedCount.updateAndGet(v -> Math.max(v, idx + 1));
                     try {
                         ScanResult result = scanner.scanOne(imagePath, session);
                         completedQueue.add(new Object[]{imagePath, result, idx});
@@ -521,13 +525,12 @@ public class ScanController {
                     }
                 }
             }
-            // Pass complete — outer loop will check for new files
-            // Wait for all workers to finish, then drain any remaining items
+            // Pass complete — wait for all workers to finish, then drain.
+            // session.submittedCount was incremented as each future was submitted,
+            // so the UI counter already shows the correct value during this join.
             for (Future<?> f : futures) {
                 try { f.get(); } catch (Exception ignored) {}
             }
-
-            // ── Re-scan images that hit a transient ConcurrentModificationException ──
             // All worker threads are now idle (joined above), so whatever shared
             // state caused the race is no longer being mutated concurrently.
             // Re-scan single-threaded on this (background) thread, then persist

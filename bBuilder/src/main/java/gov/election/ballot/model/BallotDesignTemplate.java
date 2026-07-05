@@ -163,8 +163,8 @@ public class BallotDesignTemplate {
 
     // ── Barcode ───────────────────────────────────────────────
     private String barcodePosition = "TOP_RIGHT";
-    private float  barcodeWidthPt  = 90f;
-    private float  barcodeHeightPt = 36f;
+    private float  barcodeWidthPt  = 0f;    // 0 = no linear barcode (QR only)
+    private float  barcodeHeightPt = 72f;   // QR code size: 72pt = 1" (doubled from 36pt)
 
     private boolean multiSheet = false;
 
@@ -353,6 +353,22 @@ public class BallotDesignTemplate {
     public void    setPostambleItalic(boolean v)     { this.postambleItalic = v; }
 
     // header zone text
+    // ── Legacy columns retained for DB compatibility ─────────────────────────
+    // These fields were replaced by headerHtml but the DB columns still exist
+    // as NOT NULL. They are kept here so Hibernate includes them in INSERT
+    // statements with their default values. No application code uses them.
+    @Column(name = "header_headline")
+    private String headerHeadline = "OFFICIAL BALLOT";
+
+    @Column(name = "header_headline_font_size")
+    private float headerHeadlineFontSize = 13f;
+
+    @Column(name = "header_body_text", columnDefinition = "TEXT")
+    private String headerBodyText = "";
+
+    @Column(name = "header_body_font_size")
+    private float headerBodyFontSize = 9f;
+
     public String getHeaderHtml() {
         return headerHtml != null ? headerHtml : DEFAULT_HEADER_HTML;
     }

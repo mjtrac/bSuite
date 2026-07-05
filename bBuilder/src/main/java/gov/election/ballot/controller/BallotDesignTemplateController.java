@@ -120,6 +120,8 @@ public class BallotDesignTemplateController {
             @RequestParam(required = false)           String  headerHtml,
             // misc
             @RequestParam(defaultValue = "TOP_RIGHT") String  barcodePosition,
+            @RequestParam(defaultValue = "0")         float   barcodeWidthPt,
+            @RequestParam(defaultValue = "72")        float   barcodeHeightPt,
             @RequestParam(defaultValue = "false")     boolean multiSheet,
             @RequestParam(defaultValue = "HELVETICA") String  fontFamilyPrimary,
             @RequestParam(defaultValue = "TIMES")     String  fontFamilyAlternate,
@@ -210,6 +212,8 @@ public class BallotDesignTemplateController {
             ? headerHtml
             : BallotDesignTemplate.DEFAULT_HEADER_HTML);
         t.setBarcodePosition(barcodePosition);
+        t.setBarcodeWidthPt(barcodeWidthPt >= 0 ? barcodeWidthPt : 0f);
+        t.setBarcodeHeightPt(barcodeHeightPt > 0 ? barcodeHeightPt : 72f);
         t.setMultiSheet(multiSheet);
         try { t.setFontFamilyPrimary(BallotDesignTemplate.FontFamily.valueOf(fontFamilyPrimary)); }
         catch (IllegalArgumentException ex) { t.setFontFamilyPrimary(BallotDesignTemplate.FontFamily.HELVETICA); }

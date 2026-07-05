@@ -124,6 +124,14 @@ public class MarkerAnalysisService {
         result.imageX = (int) Math.round(indicator.offsetLeft * imageDpi);
         result.imageY = (int) Math.round(indicator.offsetTop  * imageDpi);
 
+        // ── Contest column bounds in original image pixels ──────────────────
+        // Used by VoteTallyService to crop write-in images to the correct column.
+        if (contest.offsetLeft > 0 && contest.width > 0) {
+            result.contestBoxImageLeft  = (int) Math.round(contest.offsetLeft * imageDpi);
+            result.contestBoxImageRight = (int) Math.round(
+                (contest.offsetLeft + contest.width) * imageDpi);
+        }
+
         // ── Arrow indicator: use central-zone presence detection ────────────
         // Arrow-style indicators use two inward-pointing triangles at the
         // left/right edges; the voter marks the empty centre zone.

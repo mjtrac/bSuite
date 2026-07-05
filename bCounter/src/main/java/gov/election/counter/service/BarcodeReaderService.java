@@ -9,7 +9,8 @@ import com.google.zxing.*;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.client.j2se.BufferedImageLuminanceSource;
 import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.multi.GenericMultipleBarcodeReader;
+import com.google.zxing.common.GlobalHistogramBinarizer;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 import java.awt.*;
@@ -19,127 +20,123 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Decodes QR codes and Code128 barcodes from a BufferedImage using ZXing.
+ * Decodes QR codes from scanned ballot images using ZXing.
  *
- * Strategy (tried in order until a result is found):
- *   1. Direct ZXing decode of the original image.
- *   2. Contrast-stretched version (CLAHE-equivalent via histogram stretch).
- *   3. Adaptive threshold version.
- *   4. Rotated 180° (handles upside-down scans).
+ * <p>bSuite prints only a QR code (no linear barcode). Only
+ * {@code BarcodeFormat.QR_CODE} is attempted, which avoids false positives
+ * from dense ballot text that can confuse linear-barcode detectors.
  *
- * The barcode data format is:
- *   JurisdictionId|RegionId|PartyId|BallotTypeId|ElectionId|PageNum
+ * <p><strong>Orientation contract:</strong> {@link ScannerService} always runs
+ * corner detection and flips upside-down images <em>before</em> calling
+ * {@link #identify}. The QR code is therefore always expected at the
+ * top-right of the correctly-oriented image.
+ *
+ * <p><strong>Thread safety:</strong> This class is a Spring singleton.
+ * No mutable instance fields exist — every method operates entirely on
+ * local variables and parameters. Concurrent calls from multiple scan
+ * worker threads are safe with no synchronisation needed.
+ *
+ * <p>QR data format: {@code JurId|RegionId|PartyId|TypeId|ElecId|Page}
  */
-@org.springframework.context.annotation.Primary
+@Primary
 @Service
 public class BarcodeReaderService implements BallotIdentifierService {
 
     private static final Logger log =
         LoggerFactory.getLogger(BarcodeReaderService.class);
 
+    /** Only QR_CODE is attempted — no linear barcode is drawn or expected. */
     private static final Map<DecodeHintType, Object> HINTS = Map.of(
         DecodeHintType.TRY_HARDER, Boolean.TRUE,
         DecodeHintType.POSSIBLE_FORMATS, java.util.List.of(
-            BarcodeFormat.QR_CODE,
-            BarcodeFormat.CODE_128,
-            BarcodeFormat.CODE_39)
+            BarcodeFormat.QR_CODE)
     );
 
-    // ── BallotIdentifierService implementation ─────────────────────────────────
+    // ── BallotIdentifierService implementation ────────────────────────────────
 
     /**
-     * Implements {@link BallotIdentifierService#identify} using ZXing barcode
-     * detection.  Tries multiple pre-processing strategies before giving up.
+     * Identifies the ballot QR code from an already-upright image.
+     *
+     * <p>Search order (all local, no shared state):
+     * <ol>
+     *   <li>Top-right crop with HybridBinarizer — fastest, covers normal scans
+     *   <li>Top-right crop with GlobalHistogramBinarizer — better for even lighting
+     *   <li>Full image with HybridBinarizer — handles misaligned scans
+     *   <li>Full image with GlobalHistogramBinarizer
+     *   <li>Contrast-stretched top-right crop, both binarizers
+     *   <li>Adaptive-threshold top-right crop, both binarizers
+     * </ol>
+     *
+     * <p>The top-right crop is right 40% × top 30% of the image — large enough
+     * to contain a 1" QR code at any scanner DPI from 200 to 600, while
+     * excluding the dense ballot text that can confuse binarization.
      */
     @Override
     public BallotIdentification identify(BufferedImage image) {
-        double[] pos  = decodeWithPosition(image);
-        String   data = decode(image);
-        if (data != null && !data.isBlank()) {
-            String method = "BARCODE_QR";  // most common; Code-128 also handled
+        // All variables local — no writes to any instance field.
+        BufferedImage tr = cropTopRight(image);
+
+        Result r = tryDecode(tr,    false);
+        if (r == null) r = tryDecode(tr,    true);
+        if (r == null) r = tryDecode(image, false);
+        if (r == null) r = tryDecode(image, true);
+        if (r == null) r = tryDecode(contrastStretch(tr),    false);
+        if (r == null) r = tryDecode(contrastStretch(tr),    true);
+        if (r == null) r = tryDecode(adaptiveThreshold(tr),  false);
+        if (r == null) r = tryDecode(adaptiveThreshold(tr),  true);
+
+        if (r != null) {
+            String data = r.getText();
+            ResultPoint[] pts = r.getResultPoints();
+            double cx = -1, cy = -1;
+            if (pts != null && pts.length >= 2) {
+                double sx = 0, sy = 0;
+                for (ResultPoint p : pts) { sx += p.getX(); sy += p.getY(); }
+                cx = sx / pts.length;
+                cy = sy / pts.length;
+            }
             return BallotIdentification.of(data, parsePageNumber(data),
-                                           pos[0], pos[1], method);
+                                           cx, cy, "BARCODE_QR");
         }
+        log.info("[BarcodeReaderService] No QR code found in image");
         return BallotIdentification.notDecoded();
     }
 
+    /**
+     * Image is already upright when this is called — delegates to identify().
+     */
     @Override
     public BallotIdentification identifyRotated(BufferedImage rotatedImage) {
         return identify(rotatedImage);
     }
 
-    // ── Existing ZXing methods (unchanged) ────────────────────────────────────
-    /**
-     * Decode the barcode and return {data, centreX, centreY} in image pixels.
-     * centreX/Y are the detected QR centre; both -1 if not found or no position.
-     */
-    public double[] decodeWithPosition(BufferedImage image) {
-        try {
-            LuminanceSource source = new BufferedImageLuminanceSource(toGrayscale(image));
-            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-            Result result = new MultiFormatReader().decode(bitmap, HINTS);
-            if (result != null) {
-                ResultPoint[] pts = result.getResultPoints();
-                double cx = -1, cy = -1;
-                if (pts != null && pts.length >= 3) {
-                    // QR code: average the three finder pattern centres
-                    double sx = 0, sy = 0;
-                    for (ResultPoint p : pts) { sx += p.getX(); sy += p.getY(); }
-                    cx = sx / pts.length;
-                    cy = sy / pts.length;
-                } else if (pts != null && pts.length == 2) {
-                    // Linear barcode: midpoint of the two end points
-                    cx = (pts[0].getX() + pts[1].getX()) / 2.0;
-                    cy = (pts[0].getY() + pts[1].getY()) / 2.0;
-                }
-                // Store text in a 1-element array for the caller
-                decodedText = result.getText();
-                return new double[]{ cx, cy };
-            }
-        } catch (Exception e) { /* fall through */ }
-        return new double[]{ -1, -1 };
-    }
+    // ── Legacy public methods — preserved for ScanController and tests ────────
 
-    /** Set by decodeWithPosition(); read by ScannerService after calling decode(). */
-    private volatile String decodedText = null;
-
+    /** Returns the decoded QR data string, or null if not found. */
     public String decode(BufferedImage image) {
-        // Try original
-        String result = tryDecode(image);
-        if (result != null) return result;
-
-        // Try contrast-stretched
-        result = tryDecode(contrastStretch(image));
-        if (result != null) return result;
-
-        // Try adaptive threshold
-        result = tryDecode(adaptiveThreshold(image));
-        if (result != null) return result;
-
-        // Try 180° rotation (upside-down ballots)
-        result = tryDecode(rotate180(image));
-        if (result != null) return result;
-
-        log.info("No barcode found in image");
-        return null;
+        BallotIdentification id = identify(image);
+        return id.decoded() ? id.barcodeData() : null;
     }
 
-    /**
-     * Parse the ballot barcode into its component fields.
-     * Returns an empty map if data is null or malformed.
-     */
+    /** Returns {centreX, centreY} in image pixels, or {-1,-1} if not found. */
+    public double[] decodeWithPosition(BufferedImage image) {
+        BallotIdentification id = identify(image);
+        return new double[]{ id.positionX(), id.positionY() };
+    }
+
+    /** Parses the pipe-delimited QR string into named fields. */
     public Map<String, String> parseBarcodeData(String data) {
         Map<String, String> result = new LinkedHashMap<>();
         if (data == null || data.isBlank()) return result;
         String[] parts = data.split("\\|");
         String[] labels = {"jurisdictionId", "regionId", "partyId",
                            "ballotTypeId", "electionId", "page"};
-        for (int i = 0; i < labels.length; i++) {
+        for (int i = 0; i < labels.length; i++)
             result.put(labels[i], i < parts.length ? parts[i] : "");
-        }
         return result;
     }
 
+    /** Extracts the page number from the QR string (last pipe-delimited field). */
     public int parsePageNumber(String data) {
         if (data == null) return 1;
         Map<String, String> fields = parseBarcodeData(data);
@@ -147,22 +144,47 @@ public class BarcodeReaderService implements BallotIdentifierService {
         catch (NumberFormatException e) { return 1; }
     }
 
-    // ── Private helpers ────────────────────────────────────────────────────────
+    // ── Private helpers — all stateless ──────────────────────────────────────
 
-    private String tryDecode(BufferedImage img) {
+    /**
+     * Crops the top-right search region: right 40% × top 30%.
+     * Covers a 1" QR code at the right margin on letter/legal/A4
+     * at 200–600 DPI, while excluding dense ballot text.
+     * Stateless — returns a sub-image view, no pixel copying.
+     */
+    private BufferedImage cropTopRight(BufferedImage img) {
+        int w = img.getWidth(), h = img.getHeight();
+        int cropW = Math.max(1, w * 40 / 100);
+        int cropH = Math.max(1, h * 30 / 100);
+        return img.getSubimage(w - cropW, 0, cropW, cropH);
+    }
+
+    /**
+     * Attempts ZXing QR decode using either HybridBinarizer (useGlobal=false)
+     * or GlobalHistogramBinarizer (useGlobal=true).
+     * Returns a ZXing Result (with position data), or null if not found.
+     * Stateless — all variables local.
+     *
+     * @param useGlobal false = HybridBinarizer (adaptive, good for uneven lighting)
+     *                  true  = GlobalHistogramBinarizer (better for even lighting)
+     */
+    private Result tryDecode(BufferedImage img, boolean useGlobal) {
         try {
-            LuminanceSource source = new BufferedImageLuminanceSource(toGrayscale(img));
-            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-            Result result = new MultiFormatReader().decode(bitmap, HINTS);
-            return result != null ? result.getText() : null;
+            LuminanceSource src =
+                new BufferedImageLuminanceSource(toGrayscale(img));
+            BinaryBitmap bmp = new BinaryBitmap(
+                useGlobal ? new GlobalHistogramBinarizer(src)
+                          : new HybridBinarizer(src));
+            return new MultiFormatReader().decode(bmp, HINTS);
         } catch (NotFoundException e) {
             return null;
         } catch (Exception e) {
-            log.debug("Decode attempt failed: " + e.getMessage());
+            log.debug("QR decode attempt failed: {}", e.getMessage());
             return null;
         }
     }
 
+    /** Converts to grayscale. Returns input unchanged if already TYPE_BYTE_GRAY. */
     private BufferedImage toGrayscale(BufferedImage img) {
         if (img.getType() == BufferedImage.TYPE_BYTE_GRAY) return img;
         BufferedImage gray = new BufferedImage(
@@ -173,53 +195,36 @@ public class BarcodeReaderService implements BallotIdentifierService {
         return gray;
     }
 
-    /** Simple linear histogram stretch to improve contrast in faded scans. */
+    /** Linear histogram stretch — improves contrast on faded or light scans. */
     private BufferedImage contrastStretch(BufferedImage img) {
         int w = img.getWidth(), h = img.getHeight();
-        int[] pixels = new int[w * h];
         img = toGrayscale(img);
+        int[] pixels = new int[w * h];
         img.getRaster().getSamples(0, 0, w, h, 0, pixels);
-
         int min = 255, max = 0;
         for (int p : pixels) { if (p < min) min = p; if (p > max) max = p; }
         if (max <= min) return img;
-
         float scale = 255f / (max - min);
         for (int i = 0; i < pixels.length; i++)
             pixels[i] = Math.round((pixels[i] - min) * scale);
-
         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
         out.getRaster().setSamples(0, 0, w, h, 0, pixels);
         return out;
     }
 
-    /** Simple global threshold to handle overexposed scans. */
+    /** Global mean threshold binarisation — handles overexposed scans. */
     private BufferedImage adaptiveThreshold(BufferedImage img) {
         int w = img.getWidth(), h = img.getHeight();
         img = toGrayscale(img);
         int[] pixels = new int[w * h];
         img.getRaster().getSamples(0, 0, w, h, 0, pixels);
-
-        // Compute mean
         long sum = 0;
         for (int p : pixels) sum += p;
         int thresh = (int)(sum / pixels.length);
-
         for (int i = 0; i < pixels.length; i++)
             pixels[i] = pixels[i] < thresh ? 0 : 255;
-
         BufferedImage out = new BufferedImage(w, h, BufferedImage.TYPE_BYTE_GRAY);
         out.getRaster().setSamples(0, 0, w, h, 0, pixels);
-        return out;
-    }
-
-    private BufferedImage rotate180(BufferedImage img) {
-        int w = img.getWidth(), h = img.getHeight();
-        BufferedImage out = new BufferedImage(w, h, img.getType());
-        Graphics2D g = out.createGraphics();
-        g.rotate(Math.PI, w / 2.0, h / 2.0);
-        g.drawImage(img, 0, 0, null);
-        g.dispose();
         return out;
     }
 }

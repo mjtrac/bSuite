@@ -53,7 +53,7 @@
         <span class="radio-title" th:text="${s.name()}"></span>
         <span class="radio-desc"
               th:text="${s.name() == 'OVAL' ?       'Fill an oval — strongly recommended for optical scan.' :
-                         s.name() == 'CHECKBOX' ?   'Check a box.' :
+                         s.name() == 'CHECKBOX' ?   'Fill a rectangle.' :
                          s.name() == 'ARROW' ?      'Complete an arrow pointing to the candidate.' :
                          s.name() == 'NUMBER_FIELD'? 'Write a rank numeral — for ranked-choice ballots.' :
                          s.name()}">
@@ -446,6 +446,23 @@
 
     <!-- Barcode position is always TOP_RIGHT — hardcoded for scanning reliability -->
     <input type="hidden" name="barcodePosition" value="TOP_RIGHT"/>
+
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+      <label style="flex:0 0 180px">QR Code Size (pt)
+        <small style="display:block;color:#666">Square QR code at top-right.
+          72pt = 1" (default). Larger = more reliable scanning.</small>
+        <input type="number" name="barcodeHeightPt" style="width:90px"
+               th:value="${template.barcodeHeightPt != 0 ? template.barcodeHeightPt : 72}"
+               min="36" max="144" step="6"/>
+      </label>
+      <label style="flex:0 0 180px">Linear Barcode Width (pt)
+        <small style="display:block;color:#666">0 = no linear barcode (recommended).
+          Only set if needed for legacy scanners.</small>
+        <input type="number" name="barcodeWidthPt" style="width:90px"
+               th:value="${template.barcodeWidthPt}"
+               min="0" max="216" step="6"/>
+      </label>
+    </div>
 
     <div class="checkbox-row">
       <input type="checkbox" id="multiSheet" name="multiSheet" value="true"

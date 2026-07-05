@@ -101,9 +101,32 @@ public class ScannerService {
         log.debug("[{}] imageDpi={}  size={}x{}",
         result.imageName, imageDpi, image.getWidth(), image.getHeight());
 
-        // ── Identify ballot ─────────────────────────────────────────────────
-        // Use the injected BallotIdentifierService (default: ZXing barcode reader;
-        // may be replaced with OCR, template matching, or composite strategy).
+        // ── Step 1: Corner detection — always runs before barcode decode ─────
+        // Running corners first lets us detect and correct upside-down images
+        // (back sides of duplex ballots) before reading the barcode.  The TL
+        // registration mark is a rectangle (wider than tall); if it appears at
+        // the bottom of the image, corner detection flips imageHolder[0] 180°.
+        // After the flip the barcode is always at the top-right, where ZXing
+        // finds it reliably.
+        //
+        // First pass: no layout hint (barcode not yet known).
+        // Second pass (below): full geometry once layout is loaded.
+        BufferedImage originalImage = image;
+        BufferedImage[] imageHolder = new BufferedImage[]{ image };
+        try {
+            cornerDetector.findContentBoxCorners(
+                imageHolder, (int) Math.round(imageDpi),
+                0, 0, null, 0, 0);
+        } catch (Exception e) {
+            log.debug("[{}] Corner probe pass: {}", result.imageName, e.getMessage());
+        }
+        image = imageHolder[0];
+        result.wasRotated = (image != originalImage);
+        if (result.wasRotated)
+            log.info("[{}] Image flipped upright by corner detection (pass 1)",
+                result.imageName);
+
+        // ── Step 2: Identify ballot — barcode is now at top-right ─────────────
         BallotIdentifierService.BallotIdentification ballotId =
             barcodeReader.identify(image);
         String barcodeData    = ballotId.decoded() ? ballotId.barcodeData() : null;
@@ -116,19 +139,25 @@ public class ScannerService {
             result.imageName, result.barcodeData,
             ballotId.method(), result.barcodeDecoded);
 
-        // ── Select page layout ──────────────────────────────────────────────
-        // Load the layout specific to this ballot's barcode combination so that
-        // ballots from different precincts/jurisdictions each get their own YAML.
-        // Falls back to session-wide layouts if barcode-specific file not found.
+        // If still not decoded, flag and stop.  Do NOT fall back to session
+        // layouts — using the wrong YAML silently corrupts vote counts.
+        if (!ballotId.decoded()) {
+            result.errorMessage =
+                "Barcode not decoded after orientation correction"
+                + " — ballot requires manual review";
+            log.warn("[{}] {}", result.imageName, result.errorMessage);
+            return result;
+        }
+
+        // ── Step 3: Load YAML layout for this barcode ──────────────────────────
         List<PageLayout> resolvedLayouts;
-        if (barcodeData != null && !barcodeData.isBlank()
-                && session.reportFolder != null && !session.reportFolder.isBlank()) {
+        if (session.reportFolder != null && !session.reportFolder.isBlank()) {
             try {
                 resolvedLayouts = loader.loadForBarcode(
                     java.nio.file.Paths.get(session.reportFolder), barcodeData);
             } catch (Exception e) {
-                log.warn("loadForBarcode failed for" + barcodeData
-                    + ": " + e.getMessage() + " -- using session layouts");
+                log.warn("loadForBarcode failed for {}: {} — using session layouts",
+                    barcodeData, e.getMessage());
                 resolvedLayouts = session.layouts;
             }
         } else {
@@ -141,34 +170,24 @@ public class ScannerService {
             .findFirst()
             .orElse(null);
         if (layout == null) {
-            // No layout matched the scanned page number.
-            // Do NOT fall back to layouts.get(0) — that would silently apply
-            // a different ballot's layout (e.g. Precinct 3 indicators on a
-            // Precinct 1 image), creating spurious vote_opportunity rows.
             result.errorMessage = "No layout data for barcode " + barcodeData
                 + " page " + result.pageNumber;
             return result;
         }
-        // Log barcode and YAML source now that we know which file was used
         String yamlSrc = layout.sourceFile != null ? layout.sourceFile
                        : (session.yamlReportPath != null ? session.yamlReportPath : "(none)");
         session.yamlReportPath = yamlSrc;
-        log.debug("[{}] Barcode: {}  —  YAML source: {}",
-        result.imageName,
-            result.barcodeDecoded ? result.barcodeData : "(not decoded)",
-            yamlSrc);
+        log.debug("[{}] Barcode: {}  page={}  YAML: {}",
+            result.imageName, barcodeData, result.pageNumber, yamlSrc);
 
-        // ── Detect content box corners ──────────────────────────────────────
-        // Pass image in a single-element array so CornerDetectionService can
-        // replace it with a 180°-rotated copy if the ballot is upside-down.
-        BufferedImage originalImage = image;
-        BufferedImage[] imageHolder = new BufferedImage[]{ image };
+        // ── Step 4: Corner detection — full pass with layout geometry ──────────
+        // Now that we have the YAML we can provide expected dimensions and
+        // barcode-position offset for more accurate corner searching.
+        // Image is already upright from step 1 — this pass will not flip again.
+        imageHolder = new BufferedImage[]{ image };
         Point2D[] corners;
         String cornerFailReason = null;
         try {
-            // Compute barcode offset: how far the detected barcode centroid
-            // differs from its expected position in the YAML.
-            // This shift applies equally to the corner marks.
             double bcOffsetX = 0, bcOffsetY = 0;
             if (detectedBcX >= 0 && detectedBcY >= 0
                     && layout.barcodeCentreX > 0 && layout.barcodeCentreY > 0) {
@@ -176,10 +195,10 @@ public class ScannerService {
                 double expectedBcY = layout.barcodeCentreY * imageDpi;
                 bcOffsetX = detectedBcX - expectedBcX;
                 bcOffsetY = detectedBcY - expectedBcY;
-                log.debug(
-                    "Barcode offset: dx={}px dy={}px ({}in, {}in)",
-                    bcOffsetX, bcOffsetY,
-                    bcOffsetX / imageDpi, bcOffsetY / imageDpi);
+                log.debug("Barcode offset: dx={}px dy={}px ({} in, {} in)",
+                    Math.round(bcOffsetX), Math.round(bcOffsetY),
+                    String.format("%.3f", bcOffsetX / imageDpi),
+                    String.format("%.3f", bcOffsetY / imageDpi));
             }
             corners = cornerDetector.findContentBoxCorners(
                 imageHolder, (int) Math.round(imageDpi),
@@ -189,65 +208,14 @@ public class ScannerService {
         } catch (Exception e) {
             cornerFailReason = e.getMessage() != null ? e.getMessage()
                               : "corner detection error";
-            log.warn("[CORNER]" + cornerFailReason);
+            log.warn("[{}] Corner detection (pass 2): {}",
+                result.imageName, cornerFailReason);
             corners = null;
             result.cornersFound = false;
         }
-        // Use the (possibly rotated) image for all subsequent processing
+        // Image should already be upright — pass 2 should not flip.
+        // Update image reference in case pass 2 made any correction.
         image = imageHolder[0];
-        // Track whether image was rotated so we can persist it
-        result.wasRotated = (image != originalImage);
-
-        // ── Re-read barcode if image was flipped ────────────────────────────
-        // The barcode was read from the original (possibly upside-down) image.
-        // After a 180° flip, re-read the barcode from the corrected image and
-        // reload the YAML layout so all subsequent processing uses the right data.
-        if (result.wasRotated) {
-            BallotIdentifierService.BallotIdentification flippedId =
-                barcodeReader.identifyRotated(image);
-            if (flippedId.decoded()
-                    && !flippedId.barcodeData().equals(barcodeData)) {
-                log.debug("[{}] Re-identified after flip: {} -> {} via {}",
-                    result.imageName, barcodeData,
-                    flippedId.barcodeData(), flippedId.method());
-                barcodeData               = flippedId.barcodeData();
-                result.barcodeData        = flippedId.barcodeData();
-                result.barcodeDecoded     = true;
-                result.pageNumber         = flippedId.pageNumber();
-                // Reload layout for the corrected barcode
-                if (session.reportFolder != null && !session.reportFolder.isBlank()) {
-                    try {
-                        List<PageLayout> flippedLayouts = loader.loadForBarcode(
-                            java.nio.file.Paths.get(session.reportFolder), flippedId.barcodeData());
-                        if (!flippedLayouts.isEmpty()) {
-                            final List<PageLayout> fl = flippedLayouts;
-                            layout = fl.stream()
-                                .filter(p -> p.pageNumber == result.pageNumber)
-                                .findFirst()
-                                .orElse(null);
-                            if (layout == null) {
-                                log.warn("[{}] No layout matched page {} after flip — skipping",
-                                    result.imageName, result.pageNumber);
-                                result.errorMessage = "No layout for page "
-                                    + result.pageNumber + " after upside-down correction";
-                                return result;
-                            }
-                            log.debug("[{}] Reloaded layout after flip: {}",
-                                result.imageName,
-                                layout.sourceFile != null ? layout.sourceFile : "(unknown)");
-                        }
-                    } catch (Exception e) {
-                        log.warn("loadForBarcode after flip failed:" + e.getMessage());
-                    }
-                }
-            } else if (flippedId.decoded()) {
-                log.debug("[{}] Barcode unchanged after flip: {}",
-        result.imageName, flippedId.barcodeData());
-            } else {
-                log.warn("[{}] Could not re-read barcode after flip",
-        result.imageName);
-            }
-        }
 
         // ── Store detected corners ──────────────────────────────────────────
         if (corners != null) {

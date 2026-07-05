@@ -195,28 +195,65 @@ public class RcvTabulationService {
             }
 
             // Check if only 1-2 candidates left
-            if (sorted.size() <= 2) {
-                if (sorted.size() == 1) {
+            if (sorted.size() == 1) {
+                winner       = sorted.get(0).getKey();
+                outcome      = "winner";
+                round.winner = winner;
+                rounds.add(round);
+                break;
+            }
+
+            if (sorted.size() == 2) {
+                // Two candidates remain — the one with more votes wins.
+                // Only declare a tie if they are exactly equal AND there are
+                // no more transferable ballots that could break the tie.
+                int v0 = sorted.get(0).getValue();
+                int v1 = sorted.get(1).getValue();
+                if (v0 > v1) {
                     winner       = sorted.get(0).getKey();
                     outcome      = "winner";
                     round.winner = winner;
                 } else {
-                    outcome      = "tie";
-                    round.tied   = List.of(sorted.get(0).getKey(),
-                                           sorted.get(1).getKey());
+                    outcome    = "tie";
+                    round.tied = List.of(sorted.get(0).getKey(),
+                                         sorted.get(1).getKey());
                 }
                 rounds.add(round);
                 break;
             }
 
-            // Eliminate all tied-last candidates
+            // Eliminate all candidates tied for last place.
+            // Special case: if ALL remaining candidates are tied (every candidate
+            // has the same vote count), we cannot eliminate based on this round
+            // alone.  Use a tiebreaker: eliminate the alphabetically last candidate
+            // (deterministic, auditable) so that second choices can be applied in
+            // the next round.  This is noted in the report as a tiebreaker round.
             int minVotes = sorted.get(sorted.size() - 1).getValue();
-            List<String> toElim = sorted.stream()
-                .filter(e -> e.getValue() == minVotes)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+            List<String> toElim;
 
-            if (toElim.size() >= sorted.size()) {
+            boolean allTied = sorted.stream().allMatch(e -> e.getValue() == minVotes);
+            if (allTied) {
+                // All remaining candidates tied — eliminate alphabetically last
+                // so IRV can proceed to apply second choices.
+                String lastAlpha = sorted.stream()
+                    .map(Map.Entry::getKey)
+                    .max(Comparator.naturalOrder())
+                    .orElse(sorted.get(sorted.size() - 1).getKey());
+                toElim = List.of(lastAlpha);
+                log.info("RCV '{}' round {}: all {} candidates tied at {} vote(s) — "
+                    + "eliminating '{}' (alphabetic tiebreaker) to proceed to next round",
+                    contestTitle, roundNum, sorted.size(), minVotes, lastAlpha);
+                round.tiebreaker = "Alphabetic tiebreaker: '" + lastAlpha
+                    + "' eliminated so second choices can be applied.";
+            } else {
+                toElim = sorted.stream()
+                    .filter(e -> e.getValue() == minVotes)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
+            }
+
+            if (!allTied && toElim.size() >= sorted.size()) {
+                // All non-tied candidates are at the bottom — genuine full tie
                 outcome    = "tie";
                 round.tied = sorted.stream().map(Map.Entry::getKey)
                                    .collect(Collectors.toList());
@@ -312,6 +349,12 @@ public class RcvTabulationService {
                     // Transfer note
                     if (ri > 0) {
                         RcvRound prev = result.rounds.get(ri - 1);
+                        if (prev.tiebreaker != null && !prev.tiebreaker.isBlank()) {
+                            pw.printf("<div class=\"tn\" style=\"background:#fff3cd;"
+                                + "border-color:#ffc107;color:#856404\">"
+                                + "&#9878; <strong>Tiebreaker applied:</strong> %s"
+                                + "</div>%n", h(prev.tiebreaker));
+                        }
                         if (prev.eliminated != null && !prev.eliminated.isEmpty()) {
                             int transferred = prev.eliminated.stream()
                                 .mapToInt(e -> prev.counts.getOrDefault(e, 0)).sum();
@@ -421,10 +464,12 @@ public class RcvTabulationService {
         public final int                    round;
         public final int                    majority;
         public final int                    active;
-        public final Map<String, Integer>   counts;      // candidate → votes, desc order
-        public       String                 winner;      // set if this round has a winner
-        public       List<String>           eliminated;  // set if candidates eliminated
-        public       List<String>           tied;        // set if tie
+        public final Map<String, Integer>   counts;
+        public       String                 winner;
+        public       List<String>           eliminated;
+        public       List<String>           tied;
+        /** Set when an alphabetic tiebreaker was used to break an all-tied round. */
+        public       String                 tiebreaker;
 
         RcvRound(int round, int majority, int active,
                  Map<String, Integer> counts,

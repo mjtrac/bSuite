@@ -262,14 +262,18 @@ public class ScribbleDetectionService {
             (int) Math.round(dilationIn * warpDpi));
 
         // Pre-darken all indicator bounding boxes from the YAML, expanded
-        // by indicatorPadIn on each side to cover the gap between the YAML
-        // bounding box and the actual printed indicator, and to absorb
-        // sloppy marks that overflow the box slightly.
+        // by indicatorPadIn on each side.
+        //
+        // Exception: for write-in indicators, do NOT extend padding downward.
+        // The write-in text area is below the indicator; if a voter writes
+        // a name there without filling the oval, those dark pixels should be
+        // detected as scribbles (triggering human review), not masked as
+        // normative.  Only the indicator box itself (with left/right/top pad)
+        // is masked; the area below is left unmasked.
         if (layout != null) {
             int padPx = (int) Math.round(indicatorPadIn * warpDpi);
             for (ContestBox contest : layout.contests) {
                 for (IndicatorBox ind : contest.indicators) {
-                    // Indicator positions in the warped image are content-area-relative
                     int ix = (int) Math.round(
                         (ind.offsetLeft - layout.contentAreaOffsetLeft) * warpDpi);
                     int iy = (int) Math.round(
@@ -277,11 +281,14 @@ public class ScribbleDetectionService {
                     int iw = Math.max(1, (int) Math.round(ind.width  * warpDpi));
                     int ih = Math.max(1, (int) Math.round(ind.height * warpDpi));
 
-                    // Expand by padding on all four sides
                     int x0 = Math.max(0, ix - padPx);
                     int y0 = Math.max(0, iy - padPx);
                     int x1 = Math.min(w, ix + iw + padPx);
-                    int y1 = Math.min(h, iy + ih + padPx);
+                    // For write-in indicators: no downward padding — text area
+                    // below the indicator must remain detectable as scribble.
+                    int y1 = ind.writeIn
+                        ? Math.min(h, iy + ih)   // no bottom pad for write-in
+                        : Math.min(h, iy + ih + padPx);
 
                     for (int y = y0; y < y1; y++) {
                         for (int x = x0; x < x1; x++) {
