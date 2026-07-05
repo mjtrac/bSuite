@@ -260,7 +260,7 @@ def main():
     )
     parser.add_argument(
         "--db",
-        default="../bCounter/counter_results.db",
+        default="${HOME}/bSuite_data/db/counter_results.db",
         help="Path to counter_results.db (default: ../bCounter/counter_results.db)"
     )
     parser.add_argument(

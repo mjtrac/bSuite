@@ -151,6 +151,36 @@ public class MarkerAnalysisService {
             return result;
         }
 
+        // ── Connect-dots indicator: check centered vertical stripe ───────────
+        // YAML bounding box covers only the gap between the two pointed tips.
+        // A vote is detected if any dark pixel appears in a centered vertical
+        // stripe 10% of the bounding box width — where the voter draws.
+        if ("CONNECT_DOTS".equalsIgnoreCase(indicator.indicatorStyle)) {
+            int imgWcd  = warped.getWidth(), imgHcd = warped.getHeight();
+            int stripeW  = Math.max(1, pw / 10);
+            int stripeX0 = Math.max(0, px + (pw - stripeW) / 2);
+            int stripeX1 = Math.min(imgWcd, stripeX0 + stripeW);
+            boolean marked = false;
+            outer:
+            for (int sy = Math.max(0, py); sy < Math.min(imgHcd, py + ph); sy++) {
+                for (int sx = stripeX0; sx < stripeX1; sx++) {
+                    if (luminance(warped.getRGB(sx, sy)) < threshold) {
+                        marked = true;
+                        break outer;
+                    }
+                }
+            }
+            result.marked        = marked;
+            result.darkPct       = marked ? 100.0 : 0.0;
+            result.darkPixels    = marked ? 1 : 0;
+            result.totalPixels   = stripeW * ph;
+            result.meanIntensity = marked ? 0.0 : 255.0;
+            log.debug("[CONNECT_DOTS] {}/{}: {} (stripe x={}-{})",
+                contest.title, indicator.candidateName,
+                marked ? "VOTED" : "unmarked", stripeX0, stripeX1);
+            return result;
+        }
+
         // ── Sample dark pixels from the warped image ────────────────────────
         int imgW = warped.getWidth(), imgH = warped.getHeight();
         int x0 = Math.max(0, px),         y0 = Math.max(0, py);

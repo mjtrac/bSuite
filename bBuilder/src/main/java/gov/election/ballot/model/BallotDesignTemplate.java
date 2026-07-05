@@ -55,7 +55,7 @@ public class BallotDesignTemplate {
     }
 
     public enum VoteIndicatorStyle {
-        OVAL, CHECKBOX, ARROW, NUMBER_FIELD
+        OVAL, CHECKBOX, ARROW, NUMBER_FIELD, CONNECT_DOTS
     }
 
     /**

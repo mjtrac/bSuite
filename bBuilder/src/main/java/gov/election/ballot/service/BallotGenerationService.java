@@ -84,7 +84,7 @@ public class BallotGenerationService {
     private final ExportService            exportService;
     private final BallotTranslationService translationService;
 
-    @Value("${ballot.export.dir:${user.home}/bBuilder_ballots}")
+    @Value("${ballot.export.dir:${user.home}/bSuite_data/ballot_templates}")
     private String exportDir;
 
     @Value("${ballot.export.format:yaml}")
@@ -108,6 +108,10 @@ public class BallotGenerationService {
     private static final float OVAL_WIDTH      = 22f;
     private static final float OVAL_HEIGHT     = 11f;
     private static final float ARROW_WIDTH     = 30f;
+    /** Total width of the connect-dots indicator (both markers + gap between points). */
+    private static final float CONNECT_DOTS_WIDTH  = 40f;
+    /** Radius of the circular half of each marker (4pt diameter). */
+    private static final float CONNECT_DOTS_DOT_R  = 2f;
     private static final float HEADER_ZONE_PT  = 90f;
     private static final float CBOX_INDENT     = 4f;
     private static final float LINE_GAP        = 2f;
@@ -563,6 +567,27 @@ public class BallotGenerationService {
                             rankX += bw + (indRight ? (rank == 1 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP)
                                                      : (rank == 2 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP));
                         }
+                    } else if (template.getVoteIndicatorStyle()
+                            == BallotDesignTemplate.VoteIndicatorStyle.CONNECT_DOTS) {
+                        // CONNECT_DOTS: YAML records the gap between the two pointed
+                        // tips — the sensitive zone the voter draws across.
+                        // Left tip = indX + 2r, right tip = indX + WIDTH - 2r.
+                        final float r        = CONNECT_DOTS_DOT_R;
+                        final float gapLeft  = indX + 2 * r;
+                        final float gapWidth = CONNECT_DOTS_WIDTH - 4 * r;
+                        final float INDICATOR_INSET_START = 3f;
+                        final float INDICATOR_INSET_END   = 3f;
+                        double cdOffLeft = MeasurementUtil.ptToInches(gapLeft);
+                        double cdOffTop  = MeasurementUtil.ptToInches(
+                            ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
+                        double cdW_in    = MeasurementUtil.ptToInches(gapWidth);
+                        double cdH_in    = MeasurementUtil.ptToInches(
+                            OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
+                        candPositions.add(new BallotDimensions.CandidatePosition(
+                            candidate.getId(), candidate.getRecordName(),
+                            candidate.isWriteIn(),
+                            cdOffLeft, cdOffTop, cdW_in, cdH_in,
+                            "CONNECT_DOTS"));
                     } else {
                         // Inset the sampling region from the oval border on all sides.
                         // INSET_START applies to the left edge and top edge.
@@ -1214,6 +1239,7 @@ public class BallotGenerationService {
             case CHECKBOX     -> "box";
             case ARROW        -> "arrow";
             case NUMBER_FIELD -> "number box";
+            case CONNECT_DOTS -> "connection line";
         };
         html = html
             .replace("{electionName}",     combo.getElection().getName())
@@ -1414,6 +1440,45 @@ public class BallotGenerationService {
             case ARROW -> {
                 ArrowIndicatorDrawer.draw(canvas, x, y, OVAL_WIDTH, OVAL_HEIGHT);
             }
+            case CONNECT_DOTS -> {
+                // Connect-dots indicator: two pointed markers with a gap between them.
+                // Left marker:  circular half on the left, point facing right.
+                // Right marker: circular half on the right, point facing left.
+                // The voter draws a horizontal line across the gap between the points.
+                //
+                // Geometry (all in pt):
+                //   r = CONNECT_DOTS_DOT_R = 2pt (circle radius)
+                //   midY = y + OVAL_HEIGHT/2  (vertical centre of indicator row)
+                //   Left marker:  circle centre at (x + r, midY)
+                //                 point (tip) at   (x + 2r, midY) → facing right
+                //   Right marker: circle centre at (x + CONNECT_DOTS_WIDTH - r, midY)
+                //                 point (tip) at   (x + CONNECT_DOTS_WIDTH - 2r, midY) → facing left
+                float r    = CONNECT_DOTS_DOT_R;
+                float midY = y + OVAL_HEIGHT / 2f;
+                canvas.saveState();
+                canvas.setFillColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
+                canvas.setStrokeColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
+                canvas.setLineWidth(lineW);
+
+                // Left marker — semicircle (left half of circle) + triangle pointing right
+                // Draw as a closed path: arc from top to bottom on left, line to point
+                float lCx = x + r;
+                canvas.moveTo(lCx, midY + r);           // top of circle
+                canvas.arc(lCx - r, midY - r, lCx + r, midY + r, 90, 180); // left semicircle
+                canvas.lineTo(x + 2 * r, midY);          // right point (tip)
+                canvas.closePath();
+                canvas.fillStroke();
+
+                // Right marker — semicircle (right half) + triangle pointing left
+                float rCx = x + CONNECT_DOTS_WIDTH - r;
+                canvas.moveTo(rCx, midY + r);            // top of circle
+                canvas.arc(rCx - r, midY - r, rCx + r, midY + r, 90, -180); // right semicircle
+                canvas.lineTo(x + CONNECT_DOTS_WIDTH - 2 * r, midY); // left point (tip)
+                canvas.closePath();
+                canvas.fillStroke();
+
+                canvas.restoreState();
+            }
             case NUMBER_FIELD -> {
                 // Fallback: draw ordinary rank boxes using indicator settings
                 float rcvW = (tmpl != null) ? tmpl.getRcvBoxLineWidthPt() : 0.5f;
@@ -1436,9 +1501,10 @@ public class BallotGenerationService {
     private float indicatorWidth(BallotDesignTemplate.VoteIndicatorStyle style,
                                   Contest contest) {
         return switch (style) {
-            case OVAL, CHECKBOX -> OVAL_WIDTH;
-            case ARROW          -> ARROW_WIDTH;
-            case NUMBER_FIELD   -> rankedChoiceIndicatorWidth(contest);
+            case OVAL, CHECKBOX   -> OVAL_WIDTH;
+            case ARROW            -> ARROW_WIDTH;
+            case CONNECT_DOTS     -> CONNECT_DOTS_WIDTH;
+            case NUMBER_FIELD     -> rankedChoiceIndicatorWidth(contest);
         };
     }
 

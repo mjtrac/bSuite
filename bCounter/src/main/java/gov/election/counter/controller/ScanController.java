@@ -65,6 +65,14 @@ public class ScanController {
     @Value("${scanner.parallel-threads:0}")
     private int parallelThreads;
 
+    /** Default ballot image source folder — pre-populated in the scan start form. */
+    @Value("${scanner.default.image.dir:${user.home}/bSuite_data/cast_ballot_scans}")
+    private String defaultImageDir;
+
+    /** Default ballot YAML layout folder — same bSuite_data tree as bBuilder output. */
+    @Value("${scanner.default.report.dir:${user.home}/bSuite_data/ballot_templates}")
+    private String defaultReportDir;
+
     private int resolvedThreads() {
         if (parallelThreads > 0) return parallelThreads;
         return Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
@@ -96,6 +104,8 @@ public class ScanController {
         ScanSession session = getOrCreate(httpSession);
         model.addAttribute("ss", session);
         model.addAttribute("hasSession", session.isStarted());
+        model.addAttribute("defaultImageDir", defaultImageDir);
+        model.addAttribute("defaultReportDir", defaultReportDir);
         // Show viewer link if a previous scan DB exists
         java.nio.file.Path dbPath = java.nio.file.Paths.get(
             System.getProperty("user.dir"), "counter_results.db");
@@ -120,8 +130,11 @@ public class ScanController {
             RedirectAttributes ra) {
 
         ScanSession session = new ScanSession();
-        session.imageFolder       = imageFolder       != null ? imageFolder.trim()       : "";
-        session.reportFolder      = reportFolder      != null ? reportFolder.trim()      : "";
+        // Fall back to configured default when no folder is provided
+        session.imageFolder = (imageFolder != null && !imageFolder.isBlank())
+            ? imageFolder.trim() : defaultImageDir;
+        session.reportFolder = (reportFolder != null && !reportFolder.isBlank())
+            ? reportFolder.trim() : defaultReportDir;
         session.threshold         = threshold;
         session.darkPctMin        = darkPct;
         session.dpi               = dpi;

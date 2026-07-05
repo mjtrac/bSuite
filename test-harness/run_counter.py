@@ -19,7 +19,7 @@ POLL_INTERVAL  = 2   # seconds between progress polls
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--host",     default=DEFAULT_HOST)
-    p.add_argument("--images",   default="images",
+    p.add_argument("--images",   default=str(Path.home() / "bSuite_data/cast_ballot_scans"),
                    help="Path to test image folder tree")
     p.add_argument("--yaml-dir", default=None,
                    help="Path to YAML layout files (defaults to bBuilder export dir "
