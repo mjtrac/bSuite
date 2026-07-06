@@ -494,19 +494,26 @@
     <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.75rem;align-items:flex-end">
       <label style="flex:0 0 210px">
         Indicator Line Width (pt)
-        <small style="display:block;color:#666">Applies to ovals, checkboxes, and RCV boxes.
-          0.25 = very thin (default); 0.5 = light; 1.0 = standard</small>
-        <input type="number" name="indicatorLineWidthPt" style="width:80px"
-               th:value="${template.indicatorLineWidthPt != 0 ? template.indicatorLineWidthPt : 0.5}"
-               min="0.1" max="2" step="0.05"/>
+        <small style="display:block;color:#666">Stroke weight for ovals and rectangles.
+          0.5pt is the recommended minimum for reliable scanning.</small>
+        <select name="indicatorLineWidthPt" style="width:90px">
+          <option value="0.5"  th:selected="${template.indicatorLineWidthPt == 0.5  || template.indicatorLineWidthPt == 0}">0.5 — light (default)</option>
+          <option value="0.75" th:selected="${template.indicatorLineWidthPt == 0.75}">0.75 — medium</option>
+          <option value="1.0"  th:selected="${template.indicatorLineWidthPt == 1.0}">1.0 — standard</option>
+          <option value="1.5"  th:selected="${template.indicatorLineWidthPt == 1.5}">1.5 — bold</option>
+          <option value="2.0"  th:selected="${template.indicatorLineWidthPt == 2.0}">2.0 — heavy</option>
+        </select>
       </label>
       <label style="flex:0 0 210px">
         RCV Box Line Width (pt)
-        <small style="display:block;color:#666">Overrides above for ranked-choice boxes only.
-          0.5 = light (default); 1.0 = standard</small>
-        <input type="number" name="rcvBoxLineWidthPt" style="width:80px"
-               th:value="${template.rcvBoxLineWidthPt != 0 ? template.rcvBoxLineWidthPt : 0.5}"
-               min="0.1" max="2" step="0.25"/>
+        <small style="display:block;color:#666">Stroke weight for ranked-choice boxes only.</small>
+        <select name="rcvBoxLineWidthPt" style="width:90px">
+          <option value="0.5"  th:selected="${template.rcvBoxLineWidthPt == 0.5  || template.rcvBoxLineWidthPt == 0}">0.5 — light (default)</option>
+          <option value="0.75" th:selected="${template.rcvBoxLineWidthPt == 0.75}">0.75 — medium</option>
+          <option value="1.0"  th:selected="${template.rcvBoxLineWidthPt == 1.0}">1.0 — standard</option>
+          <option value="1.5"  th:selected="${template.rcvBoxLineWidthPt == 1.5}">1.5 — bold</option>
+          <option value="2.0"  th:selected="${template.rcvBoxLineWidthPt == 2.0}">2.0 — heavy</option>
+        </select>
       </label>
     </div>
 

@@ -269,6 +269,8 @@ public class TestApiController {
         if (body.containsKey("suffix"))
             cand.setSuffixText(body.get("suffix").toString());
 
+        if (body.containsKey("displayOrder"))
+            cand.setDisplayOrder(Integer.parseInt(body.get("displayOrder").toString()));
         cand = candidateRepo.save(cand);
         return ok("id", cand.getId(), "name", cand.getName());
     }
@@ -291,23 +293,30 @@ public class TestApiController {
 
         String ind = body.getOrDefault("indicatorType", "OVAL").toString();
         t.setVoteIndicatorStyle(BallotDesignTemplate.VoteIndicatorStyle.valueOf(ind));
+        if (body.containsKey("barcodeHeightPt"))
+            t.setBarcodeHeightPt(Float.parseFloat(body.get("barcodeHeightPt").toString()));
+        if (body.containsKey("barcodeWidthPt"))
+            t.setBarcodeWidthPt(Float.parseFloat(body.get("barcodeWidthPt").toString()));
         if (body.containsKey("headerHtml"))
             t.setHeaderHtml(body.get("headerHtml").toString());
         else if (body.containsKey("headerHeadline") || body.containsKey("headerBodyText")) {
-            // Legacy support: convert old headline+body to HTML
+            // Legacy: convert old headline+body to HTML
             String headline = body.getOrDefault("headerHeadline", "OFFICIAL BALLOT").toString();
             String bodyTxt  = body.getOrDefault("headerBodyText", "").toString();
             String html = "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">"
                 + "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">" + headline + "</p>";
-            for (String para : bodyTxt.split("\\n|\\\\n")) {
+            for (String para : bodyTxt.split("\\n|\\\\n"))
                 if (!para.isBlank())
                     html += "<p style=\"font-size:9pt;margin:0 0 2px 0\">" + para + "</p>";
-            }
             html += "</div>";
             t.setHeaderHtml(html);
         }
+        if (body.containsKey("rcvIndicatorsRight"))
+            t.setRcvIndicatorsRight(Boolean.parseBoolean(body.get("rcvIndicatorsRight").toString()));
+        if (body.containsKey("rcvShowRankNumbers"))
+            t.setRcvShowRankNumbers(Boolean.parseBoolean(body.get("rcvShowRankNumbers").toString()));
 
-        // Optional layout overrides
+        t = templateRepo.save(t);
         if (body.containsKey("marginTopPt"))
             t.setMarginTopPt(Float.parseFloat(body.get("marginTopPt").toString()));
         if (body.containsKey("marginBottomPt"))
@@ -331,6 +340,104 @@ public class TestApiController {
 
         t = templateRepo.save(t);
         return ok("id", t.getId(), "paperSize", t.getPaperSize().name());
+    }
+
+    // ── Status summary ────────────────────────────────────────────────────────
+
+    @GetMapping("/status")
+    public ResponseEntity<Map<String,Object>> status() {
+        Map<String,Object> m = new LinkedHashMap<>();
+        m.put("jurisdictions", jurisdictionRepo.count());
+        m.put("elections",     electionRepo.count());
+        m.put("regions",       regionRepo.count());
+        m.put("parties",       partyRepo.count());
+        m.put("ballotTypes",   ballotTypeRepo.count());
+        m.put("contests",      contestRepo.count());
+        m.put("candidates",    candidateRepo.count());
+        m.put("combinations",  combRepo.count());
+        m.put("templates",     templateRepo.count());
+        return ResponseEntity.ok(m);
+    }
+
+    // ── Get template by id ────────────────────────────────────────────────────
+
+    @GetMapping("/template/{id}")
+    public ResponseEntity<Map<String,Object>> getTemplate(@PathVariable Long id) {
+        BallotDesignTemplate t = templateRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("template not found: " + id));
+        Map<String,Object> m = new LinkedHashMap<>();
+        m.put("id",                 t.getId());
+        m.put("paperSize",          t.getPaperSize().name());
+        m.put("columns",            t.getColumns());
+        m.put("indicatorType",      t.getVoteIndicatorStyle().name());
+        m.put("barcodeHeightPt",    t.getBarcodeHeightPt());
+        m.put("barcodeWidthPt",     t.getBarcodeWidthPt());
+        m.put("candidateNameFontSize", t.getCandidateNameFontSize());
+        m.put("contestTitleFontSize",  t.getContestTitleFontSize());
+        m.put("marginTopPt",        t.getMarginTopPt());
+        m.put("marginBottomPt",     t.getMarginBottomPt());
+        m.put("marginLeftPt",       t.getMarginLeftPt());
+        m.put("marginRightPt",      t.getMarginRightPt());
+        m.put("headerHtml",         t.getHeaderHtml());
+        return ResponseEntity.ok(m);
+    }
+
+    // ── List candidates for a contest ─────────────────────────────────────────
+
+    @GetMapping("/contest/{id}/candidates")
+    public ResponseEntity<List<Map<String,Object>>> listCandidates(
+            @PathVariable Long id) {
+        Contest c = contestRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("contest not found: " + id));
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Candidate cand : c.getCandidates()) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",             cand.getId());
+            m.put("name",           cand.getName());
+            m.put("writeIn",        cand.isWriteIn());
+            m.put("displayOrder",   cand.getDisplayOrder());
+            if (cand.getExplanatoryText() != null)
+                m.put("explanatoryText", cand.getExplanatoryText());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── List contests for an election ─────────────────────────────────────────
+
+    @GetMapping("/election/{id}/contests")
+    public ResponseEntity<List<Map<String,Object>>> listContests(
+            @PathVariable Long id) {
+        if (!electionRepo.existsById(id))
+            throw new IllegalArgumentException("election not found: " + id);
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Contest c : contestRepo.findByElectionIdOrderByDisplayOrder(id)) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",          c.getId());
+            m.put("title",       c.getRecordTitle());
+            m.put("contestType", c.getVotingMethod().name());
+            m.put("maxVotes",    c.getMaxChoices());
+            m.put("candidates",  c.getCandidates().size());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── List all templates ────────────────────────────────────────────────────
+
+    @GetMapping("/templates")
+    public ResponseEntity<List<Map<String,Object>>> listTemplates() {
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (BallotDesignTemplate t : templateRepo.findAll()) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",           t.getId());
+            m.put("paperSize",    t.getPaperSize().name());
+            m.put("columns",      t.getColumns());
+            m.put("indicatorType", t.getVoteIndicatorStyle().name());
+            m.put("electionId",   t.getElection().getId());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
     }
 
     // ── Create ballot combination ─────────────────────────────────────────────

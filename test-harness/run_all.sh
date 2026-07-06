@@ -10,6 +10,7 @@
 #   ./run_all.sh [--seed N] [--copies N] [--builder http://...] [--counter http://...] [--builder-dir /path]
 #   ./run_all.sh --use-existing --ballot-pdf /path/ballot.pdf --ballot-yaml /path/ballot.yaml
 #                [--quick] [--copies N] [--counter http://...]
+#   ./run_all.sh --connect-dots  # use CONNECT_DOTS indicator style instead of OVAL
 #
 # Output:
 #   election_data.json       — IDs of created entities + generated file paths
@@ -30,6 +31,7 @@ BUILDER_EXPORT_DIR=""   # derived from bBuilder application.properties below
 USE_EXISTING=0
 BALLOT_PDF=""
 BALLOT_YAML=""
+CONNECT_DOTS=0
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -40,9 +42,10 @@ while [[ $# -gt 0 ]]; do
     --counter)      COUNTER_HOST="$2";       shift 2 ;;
     --builder-dir)  BUILDER_EXPORT_DIR="$2"; shift 2 ;;
     --quick)        QUICK=1;                 shift   ;;
-    --use-existing) USE_EXISTING=1;          shift   ;;
-    --ballot-pdf)   BALLOT_PDF="$2";         shift 2 ;;
-    --ballot-yaml)  BALLOT_YAML="$2";        shift 2 ;;
+    --use-existing)   USE_EXISTING=1;        shift   ;;
+    --ballot-pdf)     BALLOT_PDF="$2";       shift 2 ;;
+    --ballot-yaml)    BALLOT_YAML="$2";      shift 2 ;;
+    --connect-dots)   CONNECT_DOTS=1;        shift   ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -187,7 +190,10 @@ done
 echo ""
 if [[ "$USE_EXISTING" == "0" ]]; then
   echo "Step 2 — Building test election in bBuilder"
-  "$PYTHON3" build_election.py --host "$BUILDER_HOST" --out election_data.json
+  IND_TYPE="OVAL"
+  [[ "$CONNECT_DOTS" == "1" ]] && IND_TYPE="CONNECT_DOTS"
+  "$PYTHON3" build_election.py --host "$BUILDER_HOST" --out election_data.json \
+    --indicator-type "$IND_TYPE"
 else
   echo "Step 2 — Skipped (--use-existing mode)"
 fi

@@ -70,15 +70,15 @@
   <section sec:authorize="hasAnyRole('ADMIN','DATA_ENTRY')">
     <h3>Ballot Configuration <small style="font-weight:normal;color:#666;font-size:.85rem">(complete steps 6–7 before printing)</small></h3>
     <div class="card-grid">
+      <a class="card" th:href="@{/data/ballot-templates}">
+        <h4>6. Design Templates</h4>
+        <p>Set paper size, vote indicator style (oval, rectangle, connect-dots),
+           columns, fonts, and barcode position for each election.</p>
+      </a>
       <a class="card" th:href="@{/data/ballot-combinations}">
-        <h4>6. Ballot Combinations</h4>
+        <h4>7. Ballot Combinations</h4>
         <p>Define each unique ballot variant: Election + Precinct + Party + Ballot Type.
            Shows which contests will appear on each ballot.</p>
-      </a>
-      <a class="card" th:href="@{/data/ballot-templates}">
-        <h4>7. Design Templates</h4>
-        <p>Set paper size, vote indicator style (oval/checkbox), columns, fonts,
-           and barcode position for each election.</p>
       </a>
     </div>
   </section>

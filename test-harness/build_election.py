@@ -21,6 +21,10 @@ CREDENTIALS  = ("admin", "ChangeMe123!")
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--host", default=DEFAULT_HOST)
+    p.add_argument("--indicator-type", default="OVAL",
+                   choices=["OVAL", "CHECKBOX", "CONNECT_DOTS"],
+                   dest="indicator_type",
+                   help="Vote indicator style (default: OVAL)")
     p.add_argument("--out",  default="election_data.json")
     return p.parse_args()
 
@@ -546,7 +550,7 @@ def build(client, out_path):
         "electionId":      elec["id"],
         "paperSize":       "LEGAL_8_5x14",
         "columns":         3,
-        "indicatorType":   "OVAL",
+        "indicatorType":   args.indicator_type,
         "barcodeHeightPt": 72,    # 1" QR code — no linear barcode
         "barcodeWidthPt":  0,
         "headerHtml": (

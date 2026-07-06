@@ -46,8 +46,8 @@
       </thead>
       <tbody>
         <tr th:each="l : ${printLogs}">
-          <td th:text="${l.printedBy.username}"></td>
-          <td th:text="${l.ballotCombination.id}"></td>
+          <td th:text="${l.printedBy != null ? l.printedBy.username : '—'}"></td>
+          <td th:text="${l.ballotCombination != null ? l.ballotCombination.id : '—'}"></td>
           <td th:text="${l.paperSize}"></td>
           <td th:text="${l.copies}"></td>
           <td th:text="${l.printedAt}"></td>

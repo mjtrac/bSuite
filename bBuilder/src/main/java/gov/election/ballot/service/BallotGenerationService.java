@@ -569,18 +569,26 @@ public class BallotGenerationService {
                         }
                     } else if (template.getVoteIndicatorStyle()
                             == BallotDesignTemplate.VoteIndicatorStyle.CONNECT_DOTS) {
-                        // CONNECT_DOTS: YAML records the gap between the two pointed
-                        // tips — the sensitive zone the voter draws across.
-                        // Left tip = indX + 2r, right tip = indX + WIDTH - 2r.
-                        final float r        = CONNECT_DOTS_DOT_R;
-                        final float gapLeft  = indX + 2 * r;
-                        final float gapWidth = CONNECT_DOTS_WIDTH - 4 * r;
+                        // CONNECT_DOTS: sample the center 10% of the gap between
+                        // the inner ends of the two leader lines.
+                        // Both dots shift inward by SHIFT=9pt; leaders extend 9pt inward.
+                        // Leader inner ends:
+                        //   left:  indX + 2r + SHIFT + LINE
+                        //   right: indX + WIDTH - 2r - SHIFT - LINE
+                        final float r     = CONNECT_DOTS_DOT_R;
+                        final float SHIFT = 8f;
+                        final float LINE  = 2f;
+                        float lLeaderEnd = indX + 2 * r + SHIFT + LINE;
+                        float rLeaderEnd = indX + CONNECT_DOTS_WIDTH - 2 * r - SHIFT - LINE;
+                        float gapW    = rLeaderEnd - lLeaderEnd;
+                        float sampleW = Math.max(2f, gapW * 0.10f);
+                        float sampleX = lLeaderEnd + (gapW - sampleW) / 2f;
                         final float INDICATOR_INSET_START = 3f;
                         final float INDICATOR_INSET_END   = 3f;
-                        double cdOffLeft = MeasurementUtil.ptToInches(gapLeft);
+                        double cdOffLeft = MeasurementUtil.ptToInches(sampleX);
                         double cdOffTop  = MeasurementUtil.ptToInches(
                             ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
-                        double cdW_in    = MeasurementUtil.ptToInches(gapWidth);
+                        double cdW_in    = MeasurementUtil.ptToInches(sampleW);
                         double cdH_in    = MeasurementUtil.ptToInches(
                             OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
                         candPositions.add(new BallotDimensions.CandidatePosition(
@@ -801,7 +809,7 @@ public class BallotGenerationService {
         if (contest.getVotingMethod() == Contest.VotingMethod.RANKED_CHOICE) {
             return drawRankedChoiceBoxes(canvas, tmpl, contest, x, y);
         }
-        drawVoteTarget(canvas, tmpl.getVoteIndicatorStyle(), contest, x, y);
+        drawVoteTarget(canvas, tmpl.getVoteIndicatorStyle(), contest, x, y, false);
         return indicatorWidth(tmpl.getVoteIndicatorStyle(), contest);
     }
 
@@ -1419,9 +1427,10 @@ public class BallotGenerationService {
 
     private void drawVoteTarget(PdfCanvas canvas,
                                  BallotDesignTemplate.VoteIndicatorStyle style,
-                                 Contest contest, float x, float y) {
+                                 Contest contest, float x, float y,
+                                 boolean indRight) {
         BallotDesignTemplate tmpl = _currentTemplate;
-        float lineW  = (tmpl != null) ? tmpl.getIndicatorLineWidthPt() : 0.25f;
+        float lineW  = (tmpl != null) ? tmpl.getIndicatorLineWidthPt() : 0.5f;
         boolean dash = (tmpl == null) || tmpl.isIndicatorDashed();
 
         switch (style) {
@@ -1441,41 +1450,66 @@ public class BallotGenerationService {
                 ArrowIndicatorDrawer.draw(canvas, x, y, OVAL_WIDTH, OVAL_HEIGHT);
             }
             case CONNECT_DOTS -> {
-                // Connect-dots indicator: two pointed markers with a gap between them.
-                // Left marker:  circular half on the left, point facing right.
-                // Right marker: circular half on the right, point facing left.
-                // The voter draws a horizontal line across the gap between the points.
+                // Connect-dots indicator: two half-circle/half-triangle markers.
                 //
-                // Geometry (all in pt):
-                //   r = CONNECT_DOTS_DOT_R = 2pt (circle radius)
-                //   midY = y + OVAL_HEIGHT/2  (vertical centre of indicator row)
-                //   Left marker:  circle centre at (x + r, midY)
-                //                 point (tip) at   (x + 2r, midY) → facing right
-                //   Right marker: circle centre at (x + CONNECT_DOTS_WIDTH - r, midY)
-                //                 point (tip) at   (x + CONNECT_DOTS_WIDTH - 2r, midY) → facing left
-                float r    = CONNECT_DOTS_DOT_R;
-                float midY = y + OVAL_HEIGHT / 2f;
+                // Both dots move INWARD by SHIFT (8pt) from their
+                // respective edges, so:
+                //   - The outer dot (near column border) moves away from the border
+                //   - The inner dot (near candidate name) moves away from the name
+                //   - The gap between the tips SHRINKS by 2×SHIFT = 16pt
+                //
+                // This gives the voter a shorter line to draw while keeping
+                // both markers visually separated from the ballot borders.
+                //
+                // Each tip has a 1/8" (9pt) horizontal leader line extending
+                // from the triangle vertex toward the center of the gap,
+                // guiding the voter where to draw.
+                //
+                // Geometry constants:
+                //   r     = CONNECT_DOTS_DOT_R = 2pt  (circle radius)
+                //   WIDTH = CONNECT_DOTS_WIDTH  = 40pt (total allocated width)
+                //   SHIFT = 8pt  (each dot moves inward this far from its edge)
+                //   LINE  = 9pt  (leader line length from each tip toward center)
+                //
+                // Left  dot: circle centre at x + r + SHIFT
+                //            tip at x + 2r + SHIFT (points right)
+                // Right dot: circle centre at x + WIDTH - r - SHIFT
+                //            tip at x + WIDTH - 2r - SHIFT (points left)
+                // Gap between tips: WIDTH - 4r - 2×SHIFT
+
+                final float r     = CONNECT_DOTS_DOT_R;
+                final float SHIFT = 8f;     // dots shifted inward from each edge
+                final float LINE  = 2f;     // 2pt leader line from each tip
+                final float midY  = y + OVAL_HEIGHT / 2f;
+
+                float lCx  = x + r + SHIFT;
+                float rCx  = x + CONNECT_DOTS_WIDTH - r - SHIFT;
+                float lTip = x + 2 * r + SHIFT;
+                float rTip = x + CONNECT_DOTS_WIDTH - 2 * r - SHIFT;
+
                 canvas.saveState();
                 canvas.setFillColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
                 canvas.setStrokeColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
-                canvas.setLineWidth(lineW);
+                canvas.setLineWidth(1.0f);
+                canvas.setLineDash(new float[0], 0f); // always solid
 
-                // Left marker — semicircle (left half of circle) + triangle pointing right
-                // Draw as a closed path: arc from top to bottom on left, line to point
-                float lCx = x + r;
-                canvas.moveTo(lCx, midY + r);           // top of circle
-                canvas.arc(lCx - r, midY - r, lCx + r, midY + r, 90, 180); // left semicircle
-                canvas.lineTo(x + 2 * r, midY);          // right point (tip)
+                // ── Left marker: semicircle left + triangle pointing right ──
+                canvas.moveTo(lCx, midY + r);
+                canvas.arc(lCx - r, midY - r, lCx + r, midY + r, 90, 180);
+                canvas.lineTo(lTip, midY);
                 canvas.closePath();
                 canvas.fillStroke();
 
-                // Right marker — semicircle (right half) + triangle pointing left
-                float rCx = x + CONNECT_DOTS_WIDTH - r;
-                canvas.moveTo(rCx, midY + r);            // top of circle
-                canvas.arc(rCx - r, midY - r, rCx + r, midY + r, 90, -180); // right semicircle
-                canvas.lineTo(x + CONNECT_DOTS_WIDTH - 2 * r, midY); // left point (tip)
+                // ── Right marker: semicircle right + triangle pointing left ──
+                canvas.moveTo(rCx, midY + r);
+                canvas.arc(rCx - r, midY - r, rCx + r, midY + r, 90, -180);
+                canvas.lineTo(rTip, midY);
                 canvas.closePath();
                 canvas.fillStroke();
+
+                // ── Leader lines: 1/8" from each tip toward center ──────────
+                canvas.moveTo(lTip, midY).lineTo(lTip + LINE, midY).stroke();
+                canvas.moveTo(rTip, midY).lineTo(rTip - LINE, midY).stroke();
 
                 canvas.restoreState();
             }

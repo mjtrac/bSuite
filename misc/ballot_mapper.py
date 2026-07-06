@@ -1,1139 +1,2088 @@
 #!/usr/bin/env python3
 """
-ballot_mapper.py — Interactive Ballot Image → bCounter YAML Mapper
-                   with Design Learning and Code Generation
+ballot_mapper.py — bSuite Ballot Layout Inference Tool (bMapper)
 
-Two modes:
-
-  LEARN mode  (--learn):
-    Annotate 1-2 ballot images to teach the tool the ballot design:
-    - Click the 4 content-area corners
-    - Draw rectangles around each corner/page mark
-    - Confirm column dividers and contest structure
-    → Saves ballot_design.json + generates corner_detector.py
-      and CornerDetectionService_custom.java
-
-  MAP mode  (default):
-    Map a ballot image to a bCounter YAML layout file.
-    If --profile is given, auto-detects corners and segments contests
-    using the learned design. Otherwise uses manual clicks throughout.
+Analyses a scanned ballot image from an unknown vendor, infers the layout
+(columns, contests, candidates, vote indicators), overlays its guesses on
+the image for user review, and writes a bCounter-compatible YAML layout file.
 
 Usage:
-    # Learn a design from example ballots:
-    python ballot_mapper.py ballot_example.png --learn --name "Acme 2026"
+    python ballot_mapper.py [--image path/to/scan.png]
+                            [--out ~/bSuite_data/ballot_templates/]
+                            [--dpi 300]
+                            [--mode learn|verify]
+                            [--yaml existing_layout.yaml]  # verify mode only
 
-    # Add a second training image to refine:
-    python ballot_mapper.py ballot_example2.png --learn \
-        --profile ballot_design.json
+Workflow (LEARN mode):
+    1. Load ballot image
+    2. Auto-detect or user-draw content bounding box
+    3. User clicks to identify barcode/QR region → decoded as YAML key
+    4. Detect columns via horizontal projection
+    5. Detect contest boundaries via vertical projection per column
+    6. Detect vote indicators via connected component analysis
+    7. OCR contest titles and candidate names
+    8. Display overlays — user can drag/resize/delete/add boxes
+    9. Write YAML to output directory
+   10. Prompt for next image (same ballot type or new one)
 
-    # Map a new ballot using the learned design:
-    python ballot_mapper.py ballot_precinct3.png \
-        --profile ballot_design.json --out precinct3.yaml
+Dependencies:
+    pip install opencv-python pillow pytesseract pyyaml numpy
+    brew install tesseract   # macOS
+    apt install tesseract-ocr  # Linux
 
-    # Map without a learned design (fully manual):
-    python ballot_mapper.py ballot.png --dpi 300 --out ballot.yaml
-
-Requirements:
-    pip install opencv-python-headless Pillow pyzbar pytesseract PyYAML
-    brew install tesseract   # macOS  (for OCR)
+Copyright (C) 2026 Mitch Trachtenberg — GPL v3
 """
 
 import argparse
-import base64
 import json
-import re
+import math
+import os
 import sys
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from pathlib import Path
+from dataclasses import dataclass, field
+from typing import Optional
 
 import cv2
 import numpy as np
 import yaml
 from PIL import Image, ImageTk
 
-# ── Sibling module ────────────────────────────────────────────────────────────
+# ── Optional barcode decode ───────────────────────────────────────────────────────
 try:
-    from design_profile import (DesignProfile, MarkTemplate,
-                                generate_python_detector,
-                                generate_java_service)
-    HAS_PROFILE = True
+    from pyzbar import pyzbar as _pyzbar
+    PYZBAR_AVAILABLE = True
 except ImportError:
-    HAS_PROFILE = False
-    print("⚠  design_profile.py not found alongside ballot_mapper.py")
-    print("   Learning and code generation will be unavailable.")
+    PYZBAR_AVAILABLE = False
+    print("⚠  pyzbar not installed — QR auto-decode disabled. "
+          "Install with: pip install pyzbar")
 
-# ── Optional imports ──────────────────────────────────────────────────────────
-try:
-    from pyzbar import pyzbar
-    HAS_PYZBAR = True
-except ImportError:
-    HAS_PYZBAR = False
-    print("⚠  pyzbar not installed — barcode detection disabled")
-
+# ── Optional Tesseract OCR ─────────────────────────────────────────────────────
 try:
     import pytesseract
-    HAS_TESSERACT = True
+    TESSERACT_AVAILABLE = True
 except ImportError:
-    HAS_TESSERACT = False
-    print("⚠  pytesseract not installed — OCR disabled")
+    TESSERACT_AVAILABLE = False
+    print("⚠  pytesseract not installed — OCR disabled. "
+          "Install with: pip install pytesseract")
+
+# ── Constants ──────────────────────────────────────────────────────────────────
+INDICATOR_INSET_PT = 1.0          # 1pt inset from each edge of detected indicator
+MIN_IND_WIDTH_IN   = 0.12         # minimum indicator width (inches)
+MAX_IND_WIDTH_IN   = 0.55         # maximum indicator width (inches)
+MIN_IND_HEIGHT_IN  = 0.06         # minimum indicator height (inches)
+MAX_IND_HEIGHT_IN  = 0.25         # maximum indicator height (inches)
+MIN_SOLIDITY       = 0.45         # connected component solidity (filled-ness)
+MAX_ASPECT_RATIO   = 5.0          # max width/height for an indicator shape
+HANDLE_R           = 6            # drag-handle radius in canvas pixels
+ZOOM_STEP          = 1.15         # zoom in/out multiplier
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Image utilities  (same as before)
+# Data model
 # ══════════════════════════════════════════════════════════════════════════════
 
-def load_image(path):
-    pil = Image.open(path).convert("RGB")
-    cv  = cv2.cvtColor(np.array(pil), cv2.COLOR_RGB2BGR)
-    return pil, cv
-
-
-def detect_barcodes(cv_img):
-    if not HAS_PYZBAR:
-        return []
-    gray    = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
-    decoded = pyzbar.decode(gray)
-    results = []
-    for d in decoded:
-        data = d.data.decode("utf-8", errors="replace")
-        pts  = d.polygon
-        if pts:
-            xs = [p.x for p in pts]; ys = [p.y for p in pts]
-            bbox = (min(xs), min(ys), max(xs), max(ys))
-        else:
-            bbox = (d.rect.left, d.rect.top,
-                    d.rect.left+d.rect.width, d.rect.top+d.rect.height)
-        results.append((data, bbox))
-    return results
-
-
-def ocr_region(cv_img, x0, y0, x1, y1, pad=4):
-    if not HAS_TESSERACT:
-        return ""
-    h, w = cv_img.shape[:2]
-    rx0 = max(0, x0-pad); ry0 = max(0, y0-pad)
-    rx1 = min(w, x1+pad); ry1 = min(h, y1+pad)
-    if rx1 <= rx0 or ry1 <= ry0:
-        return ""
-    roi  = cv_img[ry0:ry1, rx0:rx1]
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255,
-                              cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    text = pytesseract.image_to_string(thresh, config="--psm 6 --oem 3")
-    return text.strip()
-
-
-def find_indicator_blobs(cv_img, x0, y0, x1, y1, dpi,
-                         candidate_row_profile=None):
-    """Find vote indicator blobs. Uses candidate_row_profile if available."""
-    h, w = cv_img.shape[:2]
-    rx0 = max(0, x0); ry0 = max(0, y0)
-    rx1 = min(w, x1); ry1 = min(h, y1)
-    if rx1 <= rx0 or ry1 <= ry0:
-        return []
-
-    roi  = cv_img[ry0:ry1, rx0:rx1]
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255,
-                              cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL,
-                                   cv2.CHAIN_APPROX_SIMPLE)
-
-    if candidate_row_profile:
-        p       = candidate_row_profile
-        min_w   = max(2, int(p.indicator_width_in  * dpi * 0.4))
-        max_w   = int(p.indicator_width_in  * dpi * 2.5)
-        min_h   = max(2, int(p.indicator_height_in * dpi * 0.4))
-        max_h   = int(p.indicator_height_in * dpi * 2.5)
-    else:
-        min_w = min_h = max(4, int(dpi * 0.08))
-        max_w = max_h = int(dpi * 0.75)
-
-    blobs = []
-    for cnt in contours:
-        bx, by, bw, bh = cv2.boundingRect(cnt)
-        if bw < min_w or bh < min_h or bw > max_w or bh > max_h:
-            continue
-        aspect = bw / max(1, bh)
-        if aspect < 0.2 or aspect > 5.0:
-            continue
-        area = cv2.contourArea(cnt)
-        if area / max(1, bw*bh) < 0.04:
-            continue
-        cx = rx0 + bx + bw // 2
-        cy = ry0 + by + bh // 2
-        blobs.append((cx, cy, bw, bh))
-
-    if not blobs:
-        return []
-
-    blobs.sort(key=lambda b: b[1])
-    row_gap = max(int(dpi * 0.12), 8)
-    rows = []; current = [blobs[0]]
-    for b in blobs[1:]:
-        if abs(b[1] - current[-1][1]) < row_gap:
-            current.append(b)
-        else:
-            rows.append(current); current = [b]
-    rows.append(current)
-
-    result = []
-    for row in rows:
-        row.sort(key=lambda b: b[0])
-        result.append(row[0])
-    return result
-
-
-# ── Data model ────────────────────────────────────────────────────────────────
-
+@dataclass
 class Indicator:
-    def __init__(self, cx, cy, w, h):
-        self.cx=cx; self.cy=cy; self.w=w; self.h=h
-    def to_bbox(self, dpi):
-        return ((self.cx-self.w/2)/dpi, (self.cy-self.h/2)/dpi,
-                self.w/dpi, self.h/dpi)
+    """One vote indicator box in image pixels (relative to full image TL)."""
+    x: float          # left edge in image pixels
+    y: float          # top edge in image pixels
+    w: float          # width in image pixels
+    h: float          # height in image pixels
+    candidate: str = ""
+    style: str = "OVAL"         # OVAL / CHECKBOX / CONNECT_DOTS / UNKNOWN
+    appears_marked: bool = False
+    dark_pct: float = 0.0
+    confidence: float = 1.0
 
-class Candidate:
-    def __init__(self, name="", write_in=False, indicator=None):
-        self.name=name; self.write_in=write_in; self.indicator=indicator
+    @property
+    def cx(self): return self.x + self.w / 2
+    @property
+    def cy(self): return self.y + self.h / 2
 
+
+@dataclass
 class Contest:
-    def __init__(self, title="", contest_type="PLURALITY", max_votes=1,
-                 x0=0, y0=0, x1=0, y1=0):
-        self.title=title; self.contest_type=contest_type
-        self.max_votes=max_votes
-        self.x0=x0; self.y0=y0; self.x1=x1; self.y1=y1
-        self.candidates=[]
+    """One contest region in image pixels."""
+    x: float
+    y: float
+    w: float
+    h: float
+    title: str = ""
+    instruction: str = ""
+    column: int = 0
+    indicators: list = field(default_factory=list)
+    confidence: float = 1.0
 
-class BallotLayout:
-    def __init__(self):
-        self.barcode_data=""; self.page_number=1; self.dpi=300
-        self.img_w=0; self.img_h=0
-        self.corners={}; self.contests=[]; self.column_divs=[]
+
+@dataclass
+class Layout:
+    """Full inferred ballot layout."""
+    barcode_key: str = ""
+    dpi: int = 300
+    content_x: float = 0
+    content_y: float = 0
+    content_w: float = 0
+    content_h: float = 0
+    page_w: float = 0
+    page_h: float = 0
+    columns: list = field(default_factory=list)   # list of x-boundaries
+    contests: list = field(default_factory=list)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Main Application
+# Detection pipeline
 # ══════════════════════════════════════════════════════════════════════════════
 
-CORNER_ORDER  = ["TL","TR","BR","BL"]
-CORNER_COLORS = {"TL":"#e74c3c","TR":"#e67e22","BR":"#27ae60","BL":"#2980b9"}
-CORNER_LABELS = {"TL":"Top-Left content corner","TR":"Top-Right content corner",
-                 "BR":"Bottom-Right content corner","BL":"Bottom-Left content corner"}
+class Detector:
+    """Runs the CV pipeline to infer ballot layout from a grayscale image."""
 
-# Page mark labels for learn mode
-PAGE_MARK_ORDER  = ["PTL","PTR"]
-PAGE_MARK_COLORS = {"PTL":"#f0e040","PTR":"#c0f040"}
-PAGE_MARK_LABELS = {"PTL":"Page Top-Left mark (near top-left of page)",
-                    "PTR":"Page Top-Right mark (near top-right of page)"}
+    def __init__(self, gray: np.ndarray, dpi: int):
+        self.gray = gray
+        self.dpi  = dpi
+        self.h, self.w = gray.shape
+        self._binary = None
+
+    def binary(self) -> np.ndarray:
+        if self._binary is None:
+            _, b = cv2.threshold(
+                self.gray, 0, 255,
+                cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            self._binary = b
+        return self._binary
+
+    # ── Content bounding box ──────────────────────────────────────────────────
+
+    def infer_content_box(self) -> tuple[float, float, float, float]:
+        """
+        Estimate the ballot content area by finding the largest
+        dark-bordered rectangle.  Returns (x, y, w, h) in image pixels.
+        Falls back to the full image with a 1% margin.
+        """
+        # Edge detect, dilate to close gaps, find contours
+        edges = cv2.Canny(self.gray, 50, 150)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        dilated = cv2.dilate(edges, kernel, iterations=2)
+        contours, _ = cv2.findContours(
+            dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        best = None
+        best_area = 0
+        img_area = self.w * self.h
+        for c in contours:
+            rx, ry, rw, rh = cv2.boundingRect(c)
+            area = rw * rh
+            # Must cover at least 30% of image and be roughly rectangular
+            if area < img_area * 0.30:
+                continue
+            # Aspect ratio sanity
+            if rw < self.w * 0.4 or rh < self.h * 0.4:
+                continue
+            if area > best_area:
+                best_area = area
+                best = (float(rx), float(ry), float(rw), float(rh))
+
+        if best:
+            return best
+
+        # Fallback: 2% margin on each side
+        margin_x = self.w * 0.02
+        margin_y = self.h * 0.02
+        return (margin_x, margin_y,
+                self.w - 2 * margin_x, self.h - 2 * margin_y)
+
+    # ── Column detection ──────────────────────────────────────────────────────
+
+    def detect_columns(self, cx: float, cy: float,
+                        cw: float, ch: float) -> list[float]:
+        """
+        Find vertical column separators within the content box.
+        Returns a list of x-coordinates (image pixels) that are column
+        boundaries, including the left and right edges of the content box.
+        """
+        x0, x1 = int(cx), int(cx + cw)
+        y0, y1 = int(cy), int(cy + ch)
+        roi = self.binary()[y0:y1, x0:x1]
+
+        # Horizontal projection: count dark pixels per column
+        proj = roi.sum(axis=0).astype(float)
+        proj /= (proj.max() + 1e-6)   # normalise 0–1
+
+        # Smooth with a wide kernel to find whitespace valleys
+        kernel_w = max(1, int(self.dpi * 0.08))   # ~24px at 300 DPI
+        proj_s = np.convolve(proj, np.ones(kernel_w) / kernel_w, mode='same')
+
+        # Find valleys (potential column separators)
+        valleys = self._find_valleys(proj_s, min_width_px=int(self.dpi * 0.05))
+
+        # Convert to image-absolute x coords
+        boundaries = [float(cx)]
+        for v in valleys:
+            boundaries.append(float(cx + v))
+        boundaries.append(float(cx + cw))
+
+        # Sanity: at least 2 boundaries (1 column)
+        if len(boundaries) < 2:
+            boundaries = [float(cx), float(cx + cw)]
+
+        return boundaries
+
+    def _find_valleys(self, proj: np.ndarray,
+                       min_width_px: int = 15) -> list[int]:
+        """Find x-positions of valleys in a 1D projection."""
+        threshold = proj.mean() * 0.4
+        in_valley = False
+        start = 0
+        valleys = []
+        for i, v in enumerate(proj):
+            if not in_valley and v < threshold:
+                in_valley = True
+                start = i
+            elif in_valley and v >= threshold:
+                in_valley = False
+                width = i - start
+                if width >= min_width_px:
+                    valleys.append((start + i) // 2)
+        return valleys
+
+    # ── Contest boundary detection ────────────────────────────────────────────
+
+    def detect_contests_in_column(self, cx: float, cy: float,
+                                   cw: float, ch: float,
+                                   col_idx: int) -> list[Contest]:
+        """
+        Find contest boundaries within one column using vertical projection.
+        Returns a list of Contest objects with x/y/w/h set.
+        """
+        x0, x1 = int(cx), int(cx + cw)
+        y0, y1 = int(cy), int(cy + ch)
+        roi = self.binary()[y0:y1, x0:x1]
+
+        # Vertical projection: dark pixels per row
+        proj = roi.sum(axis=1).astype(float)
+        proj /= (proj.max() + 1e-6)
+
+        # Smooth to find dense-text bands separated by border lines or whitespace
+        kernel_h = max(1, int(self.dpi * 0.03))   # ~9px at 300 DPI
+        proj_s = np.convolve(proj, np.ones(kernel_h) / kernel_h, mode='same')
+
+        # Find peaks (dark horizontal lines = contest borders or text-dense areas)
+        # Then find gaps between them as contest regions
+        splits = self._find_horizontal_splits(proj_s)
+
+        contests = []
+        boundaries = [0] + splits + [int(ch)]
+        min_h = int(self.dpi * 0.3)   # minimum contest height: 0.3"
+
+        for i in range(len(boundaries) - 1):
+            top    = boundaries[i]
+            bottom = boundaries[i + 1]
+            if bottom - top < min_h:
+                continue
+            c = Contest(
+                x=float(cx),
+                y=float(cy + top),
+                w=float(cw),
+                h=float(bottom - top),
+                column=col_idx,
+            )
+            contests.append(c)
+
+        return contests
+
+    def _find_horizontal_splits(self, proj: np.ndarray) -> list[int]:
+        """Find row indices that are likely contest separators."""
+        # A separator is either:
+        #   (a) a dark peak (border line)
+        #   (b) a whitespace gap (no text)
+        threshold_dark  = proj.mean() * 2.0
+        threshold_light = proj.mean() * 0.15
+
+        splits = []
+        prev_was_split = False
+        for i, v in enumerate(proj):
+            is_split = (v > threshold_dark or v < threshold_light)
+            if is_split and not prev_was_split:
+                splits.append(i)
+            prev_was_split = is_split
+
+        # Merge splits that are very close together
+        merged = []
+        for s in splits:
+            if merged and s - merged[-1] < int(self.dpi * 0.15):
+                merged[-1] = (merged[-1] + s) // 2
+            else:
+                merged.append(s)
+
+        return merged
+
+    # ── Indicator detection ───────────────────────────────────────────────────
+
+    def detect_indicators_in_contest(self, contest: Contest) -> list[Indicator]:
+        """
+        Find vote indicator shapes within a contest region using connected
+        component analysis.  Returns Indicator objects in image pixels.
+        """
+        x0 = int(contest.x)
+        y0 = int(contest.y)
+        x1 = int(contest.x + contest.w)
+        y1 = int(contest.y + contest.h)
+        roi = self.binary()[y0:y1, x0:x1]
+
+        min_w = int(MIN_IND_WIDTH_IN  * self.dpi)
+        max_w = int(MAX_IND_WIDTH_IN  * self.dpi)
+        min_h = int(MIN_IND_HEIGHT_IN * self.dpi)
+        max_h = int(MAX_IND_HEIGHT_IN * self.dpi)
+
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+            roi, connectivity=8)
+
+        indicators = []
+        for label in range(1, num_labels):
+            sx  = stats[label, cv2.CC_STAT_LEFT]
+            sy  = stats[label, cv2.CC_STAT_TOP]
+            sw  = stats[label, cv2.CC_STAT_WIDTH]
+            sh  = stats[label, cv2.CC_STAT_HEIGHT]
+            area = stats[label, cv2.CC_STAT_AREA]
+
+            # Size filter
+            if not (min_w <= sw <= max_w and min_h <= sh <= max_h):
+                continue
+
+            # Aspect ratio filter (not too elongated)
+            aspect = sw / max(sh, 1)
+            if aspect > MAX_ASPECT_RATIO or aspect < 1 / MAX_ASPECT_RATIO:
+                continue
+
+            # Solidity filter (filled fraction of bounding box)
+            box_area = sw * sh
+            solidity = area / box_area if box_area > 0 else 0
+            # Allow both hollow (border only ~0.2) and filled (~0.8+)
+            if solidity < 0.1:
+                continue
+
+            # Dark pixel percentage (is it marked?)
+            # Sample from the original grayscale
+            patch = self.gray[y0+sy:y0+sy+sh, x0+sx:x0+sx+sw]
+            dark_px  = np.sum(patch < 128)
+            total_px = patch.size
+            dark_pct = 100.0 * dark_px / total_px if total_px > 0 else 0.0
+
+            # Classify indicator style from shape
+            style = self._classify_shape(roi[sy:sy+sh, sx:sx+sw], aspect)
+
+            # Apply 1pt inset for sampling region
+            inset_px = INDICATOR_INSET_PT / 72.0 * self.dpi
+            ind = Indicator(
+                x=float(x0 + sx),
+                y=float(y0 + sy),
+                w=float(sw),
+                h=float(sh),
+                style=style,
+                appears_marked=(dark_pct > 20.0),
+                dark_pct=dark_pct,
+                confidence=solidity,
+            )
+            indicators.append(ind)
+
+        # Sort top-to-bottom
+        indicators.sort(key=lambda i: i.y)
+        return indicators
+
+    def _classify_shape(self, component: np.ndarray, aspect: float) -> str:
+        """Classify an indicator shape as OVAL, CHECKBOX, or UNKNOWN."""
+        h, w = component.shape
+        if h < 2 or w < 2:
+            return "UNKNOWN"
+
+        # Fit an ellipse to the component
+        contours, _ = cv2.findContours(
+            component, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return "UNKNOWN"
+        cnt = max(contours, key=cv2.contourArea)
+
+        # Perimeter-based circularity (4π·area / perimeter²)
+        area      = cv2.contourArea(cnt)
+        perimeter = cv2.arcLength(cnt, True)
+        if perimeter < 1:
+            return "UNKNOWN"
+        circularity = 4 * math.pi * area / (perimeter ** 2)
+
+        # Check corner sharpness: if corners are sharp → CHECKBOX
+        approx = cv2.approxPolyDP(cnt, 0.04 * perimeter, True)
+        if len(approx) <= 6 and circularity < 0.6:
+            return "CHECKBOX"
+        elif circularity >= 0.5:
+            return "OVAL"
+        else:
+            return "UNKNOWN"
+
+    # ── OCR ───────────────────────────────────────────────────────────────────
+
+    def decode_barcode(self, x: float, y: float,
+                        w: float, h: float) -> str:
+        """
+        Attempt to decode a QR code or barcode in the given region.
+        Returns decoded string or "" if not found / pyzbar not installed.
+        """
+        if not PYZBAR_AVAILABLE:
+            return ""
+        x0 = max(0, int(x)); y0 = max(0, int(y))
+        x1 = min(self.w, int(x + w)); y1 = min(self.h, int(y + h))
+        roi = self.gray[y0:y1, x0:x1]
+        pil = Image.fromarray(roi)
+        try:
+            codes = _pyzbar.decode(pil)
+            if codes:
+                return codes[0].data.decode("utf-8", errors="replace")
+        except Exception:
+            pass
+        return ""
+
+    def ocr_region(self, x: float, y: float, w: float, h: float,
+                   config: str = "--psm 6") -> str:
+        """Run Tesseract OCR on a rectangular region. Returns stripped text."""
+        if not TESSERACT_AVAILABLE:
+            return ""
+        x0, y0 = max(0, int(x)), max(0, int(y))
+        x1, y1 = min(self.w, int(x + w)), min(self.h, int(y + h))
+        if x1 <= x0 or y1 <= y0:
+            return ""
+        roi = self.gray[y0:y1, x0:x1]
+        # Upscale for better OCR accuracy
+        scale = max(1.0, 200.0 / self.dpi)
+        if scale > 1.0:
+            roi = cv2.resize(roi, None, fx=scale, fy=scale,
+                             interpolation=cv2.INTER_CUBIC)
+        pil = Image.fromarray(roi)
+        try:
+            text = pytesseract.image_to_string(pil, config=config)
+            return text.strip()
+        except Exception:
+            return ""
+
+    def ocr_indicator_label(self, ind: Indicator,
+                             contest: Contest) -> str:
+        """
+        OCR the candidate name next to an indicator.
+        Tries to the right first (default layout), then to the left.
+        Returns the first non-empty result.
+        """
+        margin = ind.w * 0.5
+        label_h = ind.h * 2.5
+
+        # Try right of indicator
+        rx = ind.x + ind.w + margin
+        rw = (contest.x + contest.w) - rx - margin
+        if rw > self.dpi * 0.3:
+            text = self.ocr_region(rx, ind.y - ind.h * 0.5,
+                                    rw, label_h, "--psm 7")
+            if text:
+                return text
+
+        # Try left of indicator
+        lw = ind.x - contest.x - margin
+        if lw > self.dpi * 0.3:
+            text = self.ocr_region(contest.x + margin,
+                                    ind.y - ind.h * 0.5,
+                                    lw, label_h, "--psm 7")
+            if text:
+                return text
+        return ""
+
+    def ocr_contest_title(self, contest: Contest) -> tuple[str, str]:
+        """
+        OCR the contest title and instruction from the top portion of a
+        contest region.  Returns (title, instruction).
+        """
+        title_h = min(contest.h * 0.35, self.dpi * 0.6)
+        title = self.ocr_region(
+            contest.x + 4, contest.y + 4,
+            contest.w - 8, title_h, "--psm 6")
+        instr_y = contest.y + title_h
+        instr_h = min(contest.h * 0.15, self.dpi * 0.25)
+        instr = self.ocr_region(
+            contest.x + 4, instr_y,
+            contest.w - 8, instr_h, "--psm 7")
+        return title, instr
 
 
-class BallotMapperApp:
 
-    def __init__(self, root, pil_img, cv_img, dpi, out_path,
-                 profile=None, learn_mode=False, format_name=""):
-        self.root       = root
-        self.pil_img    = pil_img
-        self.cv_img     = cv_img
-        self.dpi        = dpi
-        self.out_path   = out_path
-        self.profile    = profile       # DesignProfile or None
-        self.learn_mode = learn_mode
-        self.format_name= format_name
+    # ── OCR-based contest title detection ─────────────────────────────────────
 
-        self.layout     = BallotLayout()
-        self.layout.dpi = dpi
-        self.layout.img_w = pil_img.width
-        self.layout.img_h = pil_img.height
+    # Common words/phrases that appear in contest titles or instructions
+    CONTEST_KEYWORDS = {
+        "vote", "for", "shall", "select", "choose", "rank", "candidate",
+        "office", "judge", "measure", "proposition", "question", "district",
+        "board", "council", "senator", "representative", "governor",
+        "president", "assembly", "supervisor", "assessor", "treasurer",
+        "attorney", "comptroller", "auditor", "clerk", "sheriff",
+        "retention", "recalled", "approved", "authorized", "one", "two",
+        "three", "four", "five", "six",
+    }
 
-        self.scale      = 1.0
-        self.tk_img     = None
+    def detect_contest_titles_ocr(self, cx: float, cy: float,
+                                   cw: float, ch: float) -> list[float]:
+        """
+        Use OCR to find contest title regions within a column.
+        Returns a sorted list of y-coordinates (image pixels) where new
+        contests appear to begin, based on:
+          1. Large-font text runs (title-sized)
+          2. Text containing contest keywords
+          3. No vote indicators within 0.5" above the text
 
-        # Learn mode extras
-        self._mark_crop_mode  = False   # True while drawing a crop rect
-        self._mark_crop_label = None
-        self._crop_start      = None
-        self._crop_rect_id    = None
-        self._mark_crops      = {}      # label→(x0,y0,x1,y1) in image coords
-        self._page_mark_idx   = 0
-        self._draw_page_marks = False
+        Caller should combine these with the projection-based splits and
+        let the user confirm.
+        """
+        if not TESSERACT_AVAILABLE:
+            return []
 
-        # Map mode
-        self.mode          = "idle"
-        self.corner_idx    = 0
-        self.col_div_count = 0
-        self._col_idx      = 0
-        self._col_clicks   = []
-        self._current_col_x= None
-        self.columns       = []
-        self.col_top       = 0
-        self.col_bot       = 0
+        try:
+            import pytesseract
+            x0, y0 = max(0, int(cx)), max(0, int(cy))
+            x1, y1 = min(self.w, int(cx + cw)), min(self.h, int(cy + ch))
+            roi = self.gray[y0:y1, x0:x1]
+
+            # Get word-level OCR data including bounding boxes and font size info
+            data = pytesseract.image_to_data(
+                Image.fromarray(roi),
+                config="--psm 6",
+                output_type=pytesseract.Output.DICT)
+
+            # Compute median word height (proxy for body text size)
+            heights = [h for h, c in zip(data["height"], data["conf"])
+                       if h > 0 and int(c) > 30]
+            if not heights:
+                return []
+            median_h = sorted(heights)[len(heights) // 2]
+
+            # Find words that are significantly larger than median
+            # (title text is typically 1.4× body text)
+            title_threshold = median_h * 1.35
+
+            # Group by line (same top ± 5px)
+            lines: dict[int, list] = {}
+            for i, (top, h, text, conf) in enumerate(zip(
+                    data["top"], data["height"],
+                    data["text"], data["conf"])):
+                if int(conf) < 25 or not text.strip():
+                    continue
+                # Snap to line group
+                key = round(top / 8) * 8
+                lines.setdefault(key, []).append({
+                    "top": top, "h": h, "text": text, "conf": int(conf)
+                })
+
+            title_y_positions = []
+            for line_top, words in sorted(lines.items()):
+                avg_h = sum(w["h"] for w in words) / len(words)
+                line_text = " ".join(w["text"].lower() for w in words)
+
+                # Check if line is title-sized
+                is_large = avg_h >= title_threshold
+
+                # Check if line contains contest keywords
+                has_keyword = any(kw in line_text.split()
+                                  for kw in self.CONTEST_KEYWORDS)
+
+                if is_large or has_keyword:
+                    # Convert back to image-absolute coordinates
+                    img_y = cy + line_top
+                    # Add a small margin above the title line
+                    title_y_positions.append(float(img_y - median_h * 0.5))
+
+            return sorted(set(round(y, 1) for y in title_y_positions))
+
+        except Exception as e:
+            return []
+
+    # ── Template-match indicator detection ───────────────────────────────────
+
+    def match_indicator_template(self, template_gray: np.ndarray,
+                                  search_x: float, search_y: float,
+                                  search_w: float, search_h: float,
+                                  threshold: float = 0.72) -> list[Indicator]:
+        """
+        Search for instances of a user-provided indicator template within
+        a search region using normalised cross-correlation.
+
+        The template should be a grayscale crop of one empty indicator
+        (as drawn by the user via drag-select).
+
+        Returns Indicator objects sorted top-to-bottom.
+        """
+        if template_gray is None or template_gray.size == 0:
+            return []
+
+        tw, th = template_gray.shape[1], template_gray.shape[0]
+        x0 = max(0, int(search_x))
+        y0 = max(0, int(search_y))
+        x1 = min(self.w, int(search_x + search_w))
+        y1 = min(self.h, int(search_y + search_h))
+        if x1 - x0 < tw or y1 - y0 < th:
+            return []
+
+        roi = self.gray[y0:y1, x0:x1]
+
+        # Normalised cross-correlation
+        result = cv2.matchTemplate(roi, template_gray,
+                                   cv2.TM_CCOEFF_NORMED)
+
+        # Find all locations above threshold using non-maximum suppression
+        locations = np.where(result >= threshold)
+        matches = list(zip(locations[1], locations[0]))  # (x, y) in roi coords
+
+        if not matches:
+            return []
+
+        # Non-maximum suppression: remove overlapping matches
+        # Keep the match with the highest score within each tw×th window
+        kept = []
+        used = set()
+        scored = sorted(matches,
+                        key=lambda p: result[p[1], p[0]],
+                        reverse=True)
+        for mx, my in scored:
+            # Check if any kept match is within tw/2, th/2
+            too_close = False
+            for kx, ky in kept:
+                if abs(mx - kx) < tw * 0.6 and abs(my - ky) < th * 0.6:
+                    too_close = True
+                    break
+            if not too_close:
+                kept.append((mx, my))
+
+        indicators = []
+        for mx, my in kept:
+            # Image-absolute coordinates
+            img_x = float(x0 + mx)
+            img_y = float(y0 + my)
+
+            # Measure dark pixel percentage in this region
+            patch = self.gray[y0+my:y0+my+th, x0+mx:x0+mx+tw]
+            dark_pct = 100.0 * np.sum(patch < 128) / patch.size
+
+            ind = Indicator(
+                x=img_x,
+                y=img_y,
+                w=float(tw),
+                h=float(th),
+                style="OVAL",           # user will confirm/correct style
+                appears_marked=(dark_pct > 20.0),
+                dark_pct=dark_pct,
+                confidence=float(result[my, mx]),
+            )
+            indicators.append(ind)
+
+        indicators.sort(key=lambda i: (round(i.y / (th * 0.5)), i.x))
+        return indicators
+
+# ══════════════════════════════════════════════════════════════════════════════
+# YAML writer
+# ══════════════════════════════════════════════════════════════════════════════
+
+def layout_to_yaml(layout: Layout) -> dict:
+    """Convert an inferred Layout to the bCounter YAML schema."""
+    dpi = layout.dpi
+    pt_per_inch = 72.0
+
+    def px_to_in(px: float) -> float:
+        return round(px / dpi, 5)
+
+    def inset_in(px: float) -> float:
+        """Apply 1pt inset in inches."""
+        return round((px + INDICATOR_INSET_PT / pt_per_inch * dpi) / dpi, 5)
+
+    def inset_dim_in(px: float) -> float:
+        """Dimension reduced by 2pt inset."""
+        return round(max(0.01, (px - 2 * INDICATOR_INSET_PT / pt_per_inch * dpi) / dpi), 5)
+
+    page_w_in = px_to_in(layout.page_w)
+    page_h_in = px_to_in(layout.page_h)
+    ca_left   = px_to_in(layout.content_x)
+    ca_top    = px_to_in(layout.content_y)
+    ca_w      = px_to_in(layout.content_w)
+    ca_h      = px_to_in(layout.content_h)
+
+    contests_yaml = []
+    for contest in layout.contests:
+        candidates = []
+        for ind in contest.indicators:
+            # Sampling region: inset 1pt from each edge of the detected box
+            samp_left = inset_in(ind.x)
+            samp_top  = inset_in(ind.y)
+            samp_w    = inset_dim_in(ind.w)
+            samp_h    = inset_dim_in(ind.h)
+            cand = {
+                "name":      ind.candidate or "(unknown)",
+                "writeIn":   False,
+                "indicator": {
+                    "offsetFromLeft":  samp_left,
+                    "offsetFromTop":   samp_top,
+                    "width":           samp_w,
+                    "height":          samp_h,
+                    "indicatorStyle":  ind.style,
+                },
+            }
+            candidates.append(cand)
+
+        contests_yaml.append({
+            "id":          0,
+            "title":       contest.title or "(unknown contest)",
+            "contestType": "PLURALITY",
+            "maxVotes":    1,
+            "column":      contest.column,
+            "offsetFromLeft":  px_to_in(contest.x),
+            "offsetFromTop":   px_to_in(contest.y),
+            "width":           px_to_in(contest.w),
+            "height":          px_to_in(contest.h),
+            "candidates":  candidates,
+        })
+
+    doc = {
+        "barcodeData":           layout.barcode_key,
+        "pageNumber":            1,
+        "dpi":                   dpi,
+        "pageWidthIn":           page_w_in,
+        "pageHeightIn":          page_h_in,
+        "contentAreaOffsetLeft": ca_left,
+        "contentAreaOffsetTop":  ca_top,
+        "contentAreaWidth":      ca_w,
+        "contentAreaHeight":     ca_h,
+        "inferredLayout":        True,
+        "contests":              contests_yaml,
+    }
+    return doc
+
+
+def write_yaml(layout: Layout, out_dir: Path) -> Path:
+    """Write the YAML file and return its path."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # Sanitise barcode key for filename
+    safe_key = "".join(c if c.isalnum() or c in "-_" else "_"
+                       for c in layout.barcode_key)
+    filename = f"ballot_{safe_key}.yaml"
+    out_path = out_dir / filename
+    doc = layout_to_yaml(layout)
+    with open(out_path, "w") as f:
+        yaml.dump(doc, f, default_flow_style=False, sort_keys=False)
+    return out_path
+
+
+class _ContentBoxProxy:
+    """
+    Thin proxy that makes the Layout content box look like an object
+    with x/y/w/h attributes so the generic drag/resize code works on it.
+    """
+    def __init__(self, layout: Layout):
+        self._layout = layout
+
+    @property
+    def x(self): return self._layout.content_x
+    @x.setter
+    def x(self, v): self._layout.content_x = v
+
+    @property
+    def y(self): return self._layout.content_y
+    @y.setter
+    def y(self, v): self._layout.content_y = v
+
+    @property
+    def w(self): return self._layout.content_w
+    @w.setter
+    def w(self, v): self._layout.content_w = v
+
+    @property
+    def h(self): return self._layout.content_h
+    @h.setter
+    def h(self, v): self._layout.content_h = v
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# GUI
+# ══════════════════════════════════════════════════════════════════════════════
+
+class MapperApp:
+    """
+    Main tkinter application for bMapper.
+
+    Canvas coordinate system:
+      - Image is displayed at self.zoom level
+      - canvas_to_image(cx, cy) → image pixel coords
+      - image_to_canvas(ix, iy) → canvas pixel coords
+    """
+
+    # Overlay colours
+    COL_CONTENT  = "#00aaff"   # content bounding box
+    COL_COLUMN   = "#00cc44"   # column separators
+    COL_CONTEST  = "#3355ff"   # contest boxes
+    COL_IND      = "#ff3300"   # indicators (empty)
+    COL_MARKED   = "#ff9900"   # indicators (appears marked)
+    COL_SELECTED = "#ffee00"   # selected box handles
+    COL_HANDLE   = "#ffffff"
+
+    def __init__(self, root: tk.Tk, args):
+        self.root     = root
+        self.args     = args
+        self.out_dir  = Path(args.out)
+        self.dpi      = args.dpi
+
+        # State
+        self.img_orig  = None    # original PIL image (full res)
+        self.img_cv    = None    # OpenCV grayscale (full res)
+        self.img_path  = None
+        self.zoom      = 1.0
+        self.pan_x     = 0
+        self.pan_y     = 0
+        self.layout    = Layout()
+        self.detector  = None
+
+        # Editing state
+        self.selected_item  = None   # currently selected box tag
+        self.drag_mode      = None   # "move" | "resize-tl" | "resize-br" etc.
+        self.drag_start     = (0, 0)
+        self.drawing_box      = None
+        self._draw_rect_id    = None
+        self.mode             = "select"
+        self.ind_template     = None
+        self.ind_template_pil = None
+        self._ocr_title_candidates = []
+        self._click_boundaries = []
+        self._undo_stack: list = []     # list of serialised layout snapshots
+        self._undo_max   = 20
 
         self._build_ui()
-        self._auto_detect()
+        root.title("bMapper — Ballot Layout Inference")
+        root.geometry("1400x900")
 
-        if self.learn_mode:
-            self._start_learn_corners()
-        elif profile and HAS_PROFILE:
-            self._auto_apply_profile()
-        else:
-            self._start_corner_marking()
+        if args.mode == "verify" and args.yaml:
+            self.root.after(100, lambda: self._load_verify_mode(args.yaml, args.image))
+        elif args.image:
+            self.root.after(100, lambda: self.load_image(args.image))
 
-    # ── UI ────────────────────────────────────────────────────────────────────
+    # ── UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
-        title = ("LEARN MODE — " if self.learn_mode else "") + \
-                "Ballot Mapper"
-        self.root.title(title)
-        self.root.geometry("1200x820")
+        # Top toolbar
+        tb = tk.Frame(self.root, bg="#2b2b2b", height=40)
+        tb.pack(fill=tk.X, side=tk.TOP)
 
-        left = tk.Frame(self.root)
-        left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        def btn(parent, text, cmd, bg="#444", fg="white"):
+            b = tk.Button(parent, text=text, command=cmd,
+                          bg=bg, fg=fg, relief=tk.FLAT,
+                          padx=8, pady=4, font=("Helvetica", 11))
+            b.pack(side=tk.LEFT, padx=2, pady=4)
+            return b
 
-        self.canvas = tk.Canvas(left, bg="#222", cursor="crosshair")
-        hbar = ttk.Scrollbar(left, orient=tk.HORIZONTAL,
-                             command=self.canvas.xview)
-        vbar = ttk.Scrollbar(left, orient=tk.VERTICAL,
-                             command=self.canvas.yview)
+        btn(tb, "📂 Open Image",    self.open_image)
+        btn(tb, "🔍 Auto-Detect",   self.run_detection)
+        btn(tb, "✏️ Draw Content",  self.start_draw_content, bg="#556")
+        btn(tb, "＋ Add Indicator", self.start_add_indicator, bg="#556")
+        btn(tb, "🗑 Delete Selected", self.delete_selected, bg="#744")
+        btn(tb, "📷 Decode QR",     self.decode_qr_region, bg="#556")
+        btn(tb, "✏️ Edit Title",    self.edit_contest_title, bg="#556")
+        btn(tb, "🔍 Find Contests", self.find_contests_ocr, bg="#556")
+        btn(tb, "🖱 Sample Indicator", self.start_sample_indicator, bg="#556")
+        btn(tb, "🔎 Match Indicators", self.match_all_indicators, bg="#556")
+        btn(tb, "↩ Undo",           self.undo, bg="#444")
+        btn(tb, "💾 Save YAML",     self.save_yaml, bg="#363", fg="white")
+        btn(tb, "▶ Next Image",     self.next_image, bg="#363")
+
+        self.status_var = tk.StringVar(value="Open a ballot image to begin.")
+        tk.Label(tb, textvariable=self.status_var,
+                 bg="#2b2b2b", fg="#aaa",
+                 font=("Helvetica", 10)).pack(side=tk.RIGHT, padx=10)
+
+        # Main area: canvas + right panel
+        main = tk.Frame(self.root)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        # Canvas with scrollbars
+        canv_frame = tk.Frame(main, bg="#111")
+        canv_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.canvas = tk.Canvas(canv_frame, bg="#111",
+                                cursor="crosshair",
+                                highlightthickness=0)
+        hbar = tk.Scrollbar(canv_frame, orient=tk.HORIZONTAL,
+                            command=self.canvas.xview)
+        vbar = tk.Scrollbar(canv_frame, orient=tk.VERTICAL,
+                            command=self.canvas.yview)
         self.canvas.configure(xscrollcommand=hbar.set,
-                              yscrollcommand=vbar.set)
+                               yscrollcommand=vbar.set)
         hbar.pack(side=tk.BOTTOM, fill=tk.X)
         vbar.pack(side=tk.RIGHT,  fill=tk.Y)
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.canvas.bind("<Button-1>",        self._on_click)
-        self.canvas.bind("<B1-Motion>",       self._on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self._on_release)
-        self.canvas.bind("<MouseWheel>",      self._on_scroll)
-        self.canvas.bind("<Button-4>",        self._on_scroll)
-        self.canvas.bind("<Button-5>",        self._on_scroll)
-
-        zoom_bar = tk.Frame(left)
-        zoom_bar.pack(side=tk.BOTTOM, fill=tk.X)
-        tk.Button(zoom_bar,text="−",command=self._zoom_out).pack(side=tk.LEFT)
-        self.zoom_label=tk.Label(zoom_bar,text="100%")
-        self.zoom_label.pack(side=tk.LEFT,padx=4)
-        tk.Button(zoom_bar,text="+",command=self._zoom_in).pack(side=tk.LEFT)
-        tk.Button(zoom_bar,text="Fit",command=self._zoom_fit).pack(side=tk.LEFT,padx=8)
-
-        # "Next column" button
-        self.next_col_btn = tk.Button(
-            left, text="▶ Done with this column — next column",
-            bg="#334155", fg="white",
-            command=self._finish_column)
-        self.next_col_btn.pack(side=tk.BOTTOM, fill=tk.X)
 
         # Right panel
-        right = tk.Frame(self.root, width=330, bg="#1a1a2e")
-        right.pack(side=tk.RIGHT, fill=tk.Y)
-        right.pack_propagate(False)
+        rp = tk.Frame(main, bg="#222", width=260)
+        rp.pack(side=tk.RIGHT, fill=tk.Y)
+        rp.pack_propagate(False)
+
+        tk.Label(rp, text="Barcode / YAML Key",
+                 bg="#222", fg="#aaa",
+                 font=("Helvetica", 10)).pack(pady=(12, 2))
+        self.key_var = tk.StringVar()
+        tk.Entry(rp, textvariable=self.key_var,
+                 font=("Helvetica", 11), width=22).pack(padx=8)
+
+        tk.Label(rp, text="Output Directory",
+                 bg="#222", fg="#aaa",
+                 font=("Helvetica", 10)).pack(pady=(10, 2))
+        self.out_var = tk.StringVar(value=str(self.out_dir))
+        tk.Entry(rp, textvariable=self.out_var,
+                 font=("Helvetica", 10), width=22).pack(padx=8)
+        tk.Button(rp, text="Browse…",
+                  command=self._browse_out,
+                  bg="#444", fg="white", relief=tk.FLAT,
+                  padx=6, pady=2).pack(pady=4)
+
+        tk.Label(rp, text="Selected Box",
+                 bg="#222", fg="#aaa",
+                 font=("Helvetica", 10)).pack(pady=(12, 2))
+        self.sel_info = tk.Text(rp, height=6, width=28,
+                                font=("Helvetica", 9),
+                                bg="#333", fg="#eee",
+                                relief=tk.FLAT, state=tk.DISABLED)
+        self.sel_info.pack(padx=8)
+
+        tk.Label(rp, text="Candidate Name",
+                 bg="#222", fg="#aaa",
+                 font=("Helvetica", 10)).pack(pady=(8, 2))
+        self.cand_var = tk.StringVar()
+        self.cand_entry = tk.Entry(rp, textvariable=self.cand_var,
+                                   font=("Helvetica", 11), width=22)
+        self.cand_entry.pack(padx=8)
+        tk.Button(rp, text="Apply Name",
+                  command=self.apply_candidate_name,
+                  bg="#444", fg="white", relief=tk.FLAT,
+                  padx=6, pady=2).pack(pady=4)
+
+        # Zoom controls
+        zf = tk.Frame(rp, bg="#222")
+        zf.pack(pady=12)
+        tk.Button(zf, text="＋ Zoom",
+                  command=lambda: self.zoom_by(ZOOM_STEP),
+                  bg="#444", fg="white", relief=tk.FLAT,
+                  padx=6).pack(side=tk.LEFT, padx=2)
+        tk.Button(zf, text="－ Zoom",
+                  command=lambda: self.zoom_by(1/ZOOM_STEP),
+                  bg="#444", fg="white", relief=tk.FLAT,
+                  padx=6).pack(side=tk.LEFT, padx=2)
+        tk.Button(zf, text="Fit",
+                  command=self.zoom_fit,
+                  bg="#444", fg="white", relief=tk.FLAT,
+                  padx=6).pack(side=tk.LEFT, padx=2)
+
+        # Legend
+        legend_items = [
+            (self.COL_CONTENT, "Content box"),
+            (self.COL_COLUMN,  "Column separator"),
+            (self.COL_CONTEST, "Contest box"),
+            (self.COL_IND,     "Indicator (empty)"),
+            (self.COL_MARKED,  "Indicator (marked)"),
+        ]
+        tk.Label(rp, text="Legend", bg="#222", fg="#aaa",
+                 font=("Helvetica", 10)).pack(pady=(8, 4))
+        for colour, label in legend_items:
+            lf = tk.Frame(rp, bg="#222")
+            lf.pack(anchor=tk.W, padx=10)
+            tk.Label(lf, bg=colour, width=2, height=1).pack(side=tk.LEFT)
+            tk.Label(lf, text=f"  {label}", bg="#222", fg="#ccc",
+                     font=("Helvetica", 9)).pack(side=tk.LEFT)
+
+        # Canvas bindings
+        self.canvas.bind("<ButtonPress-1>",   self.on_press)
+        self.canvas.bind("<B1-Motion>",        self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>",  self.on_release)
+        self.canvas.bind("<MouseWheel>",       self.on_scroll)
+        self.canvas.bind("<Button-4>",         self.on_scroll)
+        self.canvas.bind("<Button-5>",         self.on_scroll)
+        self.canvas.bind("<ButtonPress-3>",    self.on_right_click)
+        self.root.bind("<Return>",             self.on_enter_key)
+        self.root.bind("<z>",                  lambda e: self.undo())
+        self.root.bind("<d>",                  lambda e: self.delete_selected())
+        self.root.bind("<f>",                  lambda e: self.zoom_fit())
+
+    def on_enter_key(self, event):
+        """Enter accepts click-boundaries mode."""
+        if self.mode == "click-boundaries":
+            self._accept_click_boundaries()
+
+    def _browse_out(self):
+        d = filedialog.askdirectory(initialdir=str(self.out_dir))
+        if d:
+            self.out_var.set(d)
+            self.out_dir = Path(d)
+
+    # ── Image loading ─────────────────────────────────────────────────────────
 
-        mode_label = "🎓 LEARN MODE" if self.learn_mode else "🗳  MAP MODE"
-        tk.Label(right, text=mode_label, bg="#1a1a2e", fg="#f59e0b",
-                 font=("Helvetica",11,"bold"), pady=6).pack(fill=tk.X)
-
-        self.instruction_var = tk.StringVar(value="Starting…")
-        tk.Label(right, textvariable=self.instruction_var,
-                 wraplength=310, justify=tk.LEFT, bg="#1a1a2e",
-                 fg="#aad4f5", font=("Helvetica",11), pady=8,
-                 padx=8).pack(fill=tk.X)
-
-        tk.Label(right, text="Barcode / QR:", bg="#1a1a2e", fg="#94a3b8",
-                 font=("Helvetica",9,"bold"), anchor="w",
-                 padx=8).pack(fill=tk.X)
-        self.barcode_var = tk.StringVar(value="(not detected)")
-        tk.Label(right, textvariable=self.barcode_var, bg="#1a1a2e",
-                 fg="#e2e8f0", font=("Courier",9), wraplength=310,
-                 anchor="w", padx=8).pack(fill=tk.X)
-
-        tk.Label(right, text="Log:", bg="#1a1a2e", fg="#94a3b8",
-                 font=("Helvetica",9,"bold"), anchor="w",
-                 padx=8, pady=(10,0)).pack(fill=tk.X)
-        self.log_text = tk.Text(right, height=18, bg="#0f172a",
-                                fg="#cbd5e1", font=("Courier",9),
-                                wrap=tk.WORD, padx=6, pady=4,
-                                state=tk.DISABLED)
-        self.log_text.pack(fill=tk.BOTH, expand=True, padx=6, pady=4)
-
-        btn_frame = tk.Frame(right, bg="#1a1a2e")
-        btn_frame.pack(fill=tk.X, pady=4, padx=6)
-        tk.Button(btn_frame, text="Undo last click",
-                  command=self._undo).pack(fill=tk.X, pady=2)
-        tk.Button(btn_frame, text="Edit contests / candidates",
-                  command=self._open_editor).pack(fill=tk.X, pady=2)
-
-        if self.learn_mode and HAS_PROFILE:
-            tk.Button(btn_frame,
-                      text="💾 Save design profile + generate code",
-                      bg="#7c3aed", fg="white",
-                      command=self._save_profile_and_generate
-                      ).pack(fill=tk.X, pady=2)
-
-        tk.Button(btn_frame, text="Export YAML",
-                  bg="#1a6a6a", fg="white",
-                  command=self._export_yaml).pack(fill=tk.X, pady=2)
-
-        self._render_image()
-
-    def _log(self, msg):
-        self.log_text.configure(state=tk.NORMAL)
-        self.log_text.insert(tk.END, msg + "\n")
-        self.log_text.see(tk.END)
-        self.log_text.configure(state=tk.DISABLED)
-
-    def _set_instruction(self, text):
-        self.instruction_var.set(text)
-
-    # ── Rendering ─────────────────────────────────────────────────────────────
-
-    def _render_image(self):
-        w = int(self.pil_img.width  * self.scale)
-        h = int(self.pil_img.height * self.scale)
-        resized  = self.pil_img.resize((w, h), Image.LANCZOS)
-        self.tk_img = ImageTk.PhotoImage(resized)
-        self.canvas.delete("all")
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_img)
-        self.canvas.configure(scrollregion=(0, 0, w, h))
-        self.zoom_label.configure(text=f"{int(self.scale*100)}%")
-        self._redraw_overlays()
-
-    def _zoom_in(self):
-        self.scale = min(4.0, self.scale * 1.25); self._render_image()
-    def _zoom_out(self):
-        self.scale = max(0.1, self.scale / 1.25); self._render_image()
-    def _zoom_fit(self):
-        cw = self.canvas.winfo_width()  or 800
-        ch = self.canvas.winfo_height() or 600
-        self.scale = min(cw/self.pil_img.width, ch/self.pil_img.height)
-        self._render_image()
-    def _on_scroll(self, event):
-        if event.num==4 or event.delta>0: self._zoom_in()
-        else: self._zoom_out()
-
-    def _img_to_canvas(self, ix, iy):
-        return ix*self.scale, iy*self.scale
-    def _canvas_to_image(self, cx, cy):
-        x = self.canvas.canvasx(cx); y = self.canvas.canvasy(cy)
-        return int(x/self.scale), int(y/self.scale)
-
-    def _redraw_overlays(self):
-        for name, (ix,iy) in self.layout.corners.items():
-            col = CORNER_COLORS.get(name, PAGE_MARK_COLORS.get(name,"#fff"))
-            self._draw_crosshair(ix, iy, col, name)
-        if "TL" in self.layout.corners and "BL" in self.layout.corners:
-            tly = self.layout.corners["TL"][1]
-            bly = self.layout.corners["BL"][1]
-            for dx in self.layout.column_divs:
-                x,y0=self._img_to_canvas(dx,tly); _,y1=self._img_to_canvas(dx,bly)
-                self.canvas.create_line(x,y0,x,y1,fill="#f59e0b",width=2,dash=(6,3))
-        for i, c in enumerate(self.layout.contests):
-            x0,y0=self._img_to_canvas(c.x0,c.y0)
-            x1,y1=self._img_to_canvas(c.x1,c.y1)
-            self.canvas.create_rectangle(x0,y0,x1,y1,outline="#a855f7",width=2)
-            self.canvas.create_text(x0+4,y0+4,
-                text=f"#{i+1} {c.title[:22]}",
-                fill="#a855f7",anchor=tk.NW,font=("Helvetica",8))
-            for cand in c.candidates:
-                if cand.indicator:
-                    ind=cand.indicator
-                    bx0,by0=self._img_to_canvas(ind.cx-ind.w//2,ind.cy-ind.h//2)
-                    bx1,by1=self._img_to_canvas(ind.cx+ind.w//2,ind.cy+ind.h//2)
-                    self.canvas.create_rectangle(bx0,by0,bx1,by1,
-                                                 outline="#22c55e",width=1)
-        # Learn mode: show mark crop boxes
-        for label, (cx0,cy0,cx1,cy1) in self._mark_crops.items():
-            col = PAGE_MARK_COLORS.get(label, CORNER_COLORS.get(label,"#ff0"))
-            bx0,by0=self._img_to_canvas(cx0,cy0)
-            bx1,by1=self._img_to_canvas(cx1,cy1)
-            self.canvas.create_rectangle(bx0,by0,bx1,by1,
-                                         outline=col,width=2,dash=(4,2))
-            self.canvas.create_text(bx0+2,by0+2,text=label,
-                                    fill=col,anchor=tk.NW,
-                                    font=("Helvetica",8,"bold"))
-
-    def _draw_crosshair(self, ix, iy, color, label):
-        cx,cy=self._img_to_canvas(ix,iy); r=10
-        self.canvas.create_line(cx-r,cy,cx+r,cy,fill=color,width=2)
-        self.canvas.create_line(cx,cy-r,cx,cy+r,fill=color,width=2)
-        self.canvas.create_oval(cx-r,cy-r,cx+r,cy+r,outline=color,width=2)
-        self.canvas.create_text(cx+r+4,cy,text=label,fill=color,
-                                anchor=tk.W,font=("Helvetica",9,"bold"))
-
-    # ── Mouse events ──────────────────────────────────────────────────────────
-
-    def _on_click(self, event):
-        ix, iy = self._canvas_to_image(event.x, event.y)
-        if self._mark_crop_mode:
-            self._crop_start = (ix, iy)
-            return
-        if   self.mode=="corners":   self._handle_corner_click(ix,iy)
-        elif self.mode=="page_marks":self._handle_page_mark_click(ix,iy)
-        elif self.mode=="col_divs":  self._handle_col_div_click(ix,iy)
-        elif self.mode=="contests":  self._handle_contest_click(ix,iy)
-
-    def _on_drag(self, event):
-        if not self._mark_crop_mode or not self._crop_start:
-            return
-        ix, iy = self._canvas_to_image(event.x, event.y)
-        if self._crop_rect_id:
-            self.canvas.delete(self._crop_rect_id)
-        x0,y0=self._img_to_canvas(*self._crop_start)
-        x1,y1=self._img_to_canvas(ix,iy)
-        col = PAGE_MARK_COLORS.get(self._mark_crop_label,
-              CORNER_COLORS.get(self._mark_crop_label,"#ff0"))
-        self._crop_rect_id = self.canvas.create_rectangle(
-            x0,y0,x1,y1,outline=col,width=2,dash=(3,2))
-
-    def _on_release(self, event):
-        if not self._mark_crop_mode or not self._crop_start:
-            return
-        ix, iy = self._canvas_to_image(event.x, event.y)
-        if self._crop_rect_id:
-            self.canvas.delete(self._crop_rect_id)
-            self._crop_rect_id = None
-        sx, sy = self._crop_start
-        self._crop_start = None
-        x0,y0 = min(sx,ix),min(sy,iy)
-        x1,y1 = max(sx,ix),max(sy,iy)
-        if x1-x0 < 5 or y1-y0 < 5:
-            return
-        label = self._mark_crop_label
-        self._mark_crops[label] = (x0,y0,x1,y1)
-        self._log(f"  Cropped {label}: ({x0},{y0})→({x1},{y1})")
-        self._redraw_overlays()
-        self._mark_crop_mode  = False
-        self._mark_crop_label = None
-        self._next_mark_crop()
-
-    def _undo(self):
-        if self.mode=="corners" and self.corner_idx>0:
-            self.corner_idx-=1
-            name=CORNER_ORDER[self.corner_idx]
-            self.layout.corners.pop(name,None)
-            self._render_image()
-            self._set_instruction(
-                f"Click {CORNER_LABELS[CORNER_ORDER[self.corner_idx]]}")
-        elif self.mode=="col_divs" and self.layout.column_divs:
-            self.layout.column_divs.pop(); self._render_image()
-        elif self.mode=="contests" and self.layout.contests:
-            self.layout.contests.pop()
-            if self._col_clicks:
-                self._col_clicks.pop()
-            self._render_image()
-
-    # ── Auto-detect ───────────────────────────────────────────────────────────
-
-    def _auto_detect(self):
-        self._log("Auto-detecting barcodes…")
-        codes = detect_barcodes(self.cv_img)
-        if codes:
-            for data, bbox in codes:
-                self._log(f"  Barcode: {data}")
-                x0,y0,x1,y1=bbox
-                bx0,by0=self._img_to_canvas(x0,y0)
-                bx1,by1=self._img_to_canvas(x1,y1)
-                self.canvas.create_rectangle(bx0,by0,bx1,by1,
-                                             outline="#06b6d4",width=2)
-            self.layout.barcode_data = codes[0][0]
-            self.barcode_var.set(self.layout.barcode_data)
-            parts = self.layout.barcode_data.split("|")
-            if len(parts)>=6:
-                try: self.layout.page_number=int(parts[5])
-                except ValueError: pass
-        else:
-            self._log("  No barcodes detected")
-            val = simpledialog.askstring(
-                "Barcode data",
-                "No barcode detected. Enter ballot ID / barcode string\n"
-                "(or leave blank):", parent=self.root)
-            if val:
-                self.layout.barcode_data = val.strip()
-                self.barcode_var.set(self.layout.barcode_data)
-
-    # ── Profile auto-apply ────────────────────────────────────────────────────
-
-    def _auto_apply_profile(self):
-        """Use the loaded design profile to auto-detect corners and segments."""
-        self._log("── Applying learned design profile ──")
-        self._log(f"  Format: {self.profile.format_name}")
-
-        corners = self.profile.find_corners(self.cv_img, self.dpi)
-        if corners:
-            self.layout.corners = corners
-            self._log(f"  Found {len(corners)} corner/page marks: "
-                      f"{list(corners.keys())}")
-            self._render_image()
-        else:
-            self._log("  ⚠  No corners found — switching to manual mode")
-            self._start_corner_marking()
-            return
-
-        # Build columns from profile
-        if "TL" in corners and "TR" in corners:
-            ca_x0 = corners["TL"][0]; ca_x1 = corners["TR"][0]
-            ca_y0 = corners["TL"][1]
-            ca_y1 = corners.get("BL",(0,corners["TL"][1]+
-                                   int(self.profile.content_area.height_in*self.dpi)))[1]
-
-            col_ranges = self.profile.column_x_ranges(ca_x0, ca_x1)
-            self.columns   = col_ranges
-            self.col_top   = ca_y0
-            self.col_bot   = ca_y1
-            self.layout.column_divs = [c[1] for c in col_ranges[:-1]]
-            self._log(f"  {len(col_ranges)} column(s) from profile")
-
-            # Auto-segment contests in each column
-            self._log("  Auto-segmenting contests…")
-            for col_x0, col_x1 in col_ranges:
-                tops = self.profile.find_contest_boundaries(
-                    self.cv_img, col_x0, ca_y0, col_x1, ca_y1)
-                self._log(f"  Column x={col_x0}–{col_x1}: "
-                          f"{len(tops)} separator(s) found")
-                for i, top_y in enumerate(tops):
-                    bot_y = tops[i+1]-2 if i+1<len(tops) else ca_y1
-                    self._add_contest(col_x0, top_y, col_x1, bot_y)
-
-            self._render_image()
-            self._set_instruction(
-                f"Profile applied — {len(self.layout.contests)} contest(s) detected.\n\n"
-                "Review with 'Edit contests / candidates', correct any OCR errors,\n"
-                "then 'Export YAML'.")
-            self._log(f"  Done — {len(self.layout.contests)} contest(s)")
-        else:
-            self._log("  ⚠  Insufficient corners — switching to manual mode")
-            self._start_corner_marking()
-
-    # ── Learn mode: corners ───────────────────────────────────────────────────
-
-    def _start_learn_corners(self):
-        self.mode       = "corners"
-        self.corner_idx = 0
-        self._set_instruction(
-            "LEARN — Step 1/4: Click the 4 content-area corners.\n\n"
-            f"First: {CORNER_LABELS[CORNER_ORDER[0]]}")
-        self._log("── Learn Step 1: Content area corners ──")
-
-    def _handle_corner_click(self, ix, iy):
-        name = CORNER_ORDER[self.corner_idx]
-        self.layout.corners[name] = (ix,iy)
-        self._draw_crosshair(ix,iy,CORNER_COLORS[name],name)
-        self._log(f"  {name}: ({ix},{iy})")
-        self.corner_idx+=1
-        if self.corner_idx<len(CORNER_ORDER):
-            nxt=CORNER_ORDER[self.corner_idx]
-            if self.learn_mode:
-                self._set_instruction(
-                    f"LEARN — Step 1/4: Click {CORNER_LABELS[nxt]}")
-            else:
-                self._set_instruction(f"Click {CORNER_LABELS[nxt]}")
-        else:
-            if self.learn_mode:
-                self._start_learn_page_marks()
-            else:
-                self._start_column_marking()
-
-    # ── Learn mode: page marks ────────────────────────────────────────────────
-
-    def _start_learn_page_marks(self):
-        self.mode = "page_marks"
-        self._page_mark_idx = 0
-        has_page_marks = messagebox.askyesno(
-            "Page marks",
-            "Does this ballot format have page-level orientation marks\n"
-            "(PTL/PTR — marks near the top of the page separate from\n"
-            "the content box corners)?\n\n"
-            "Examples: small rectangles near the top margin outside\n"
-            "the content area border.",
-            parent=self.root)
-        if has_page_marks:
-            label = PAGE_MARK_ORDER[0]
-            self._set_instruction(
-                f"LEARN — Step 2/4: Click the {PAGE_MARK_LABELS[label]}")
-            self._log("── Learn Step 2: Page marks ──")
-        else:
-            self._log("── Skipping page marks (none on this format) ──")
-            self._start_learn_mark_crops()
-
-    def _handle_page_mark_click(self, ix, iy):
-        label = PAGE_MARK_ORDER[self._page_mark_idx]
-        self.layout.corners[label] = (ix,iy)
-        self._draw_crosshair(ix,iy,PAGE_MARK_COLORS[label],label)
-        self._log(f"  {label}: ({ix},{iy})")
-        self._page_mark_idx+=1
-        if self._page_mark_idx<len(PAGE_MARK_ORDER):
-            nxt=PAGE_MARK_ORDER[self._page_mark_idx]
-            self._set_instruction(
-                f"LEARN — Step 2/4: Click {PAGE_MARK_LABELS[nxt]}")
-        else:
-            self._start_learn_mark_crops()
-
-    # ── Learn mode: mark crops ────────────────────────────────────────────────
-
-    def _start_learn_mark_crops(self):
-        """Ask user to draw rectangles around each mark."""
-        self.mode = "mark_crops"
-        all_mark_labels = [k for k in self.layout.corners.keys()
-                           if k in CORNER_ORDER+PAGE_MARK_ORDER]
-        self._pending_crop_labels = list(all_mark_labels)
-        self._log("── Learn Step 3: Draw rectangles around each mark ──")
-        self._next_mark_crop()
-
-    def _next_mark_crop(self):
-        if not self._pending_crop_labels:
-            self._start_column_marking_learn()
-            return
-        label = self._pending_crop_labels[0]
-        self._pending_crop_labels = self._pending_crop_labels[1:]
-        self._mark_crop_mode  = True
-        self._mark_crop_label = label
-        col = PAGE_MARK_COLORS.get(label, CORNER_COLORS.get(label,"#ff0"))
-        self._set_instruction(
-            f"LEARN — Step 3/4: Draw a rectangle around the {label} mark.\n\n"
-            f"Click and drag to select the mark symbol "
-            f"(the printed shape that {label} uses for orientation).\n\n"
-            "Zoom in first for accuracy.")
-        self._log(f"  Waiting for crop rect: {label}")
-
-    def _start_column_marking_learn(self):
-        self._log("── Learn Step 4: Column structure ──")
-        self._start_column_marking()
-
-    # ── Column marking (shared learn/map) ─────────────────────────────────────
-
-    def _start_column_marking(self):
-        self.mode = "col_divs"
-        prefix = "LEARN — Step 4/4: " if self.learn_mode else "Step 2/3: "
-        n = simpledialog.askinteger(
-            "Columns",
-            "How many contest columns does this ballot have?",
-            minvalue=1, maxvalue=5, initialvalue=2, parent=self.root)
-        self.col_div_count = (n or 1)-1
-        if self.col_div_count==0:
-            self._log("Single-column ballot")
-            self._start_contest_marking()
-            return
-        self._set_instruction(
-            f"{prefix}Click {self.col_div_count} column divider(s).")
-        self._log(f"── Step: Mark {self.col_div_count} column divider(s) ──")
-
-    def _handle_col_div_click(self, ix, iy):
-        self.layout.column_divs.append(ix)
-        self.layout.column_divs.sort()
-        self._render_image()
-        placed=len(self.layout.column_divs)
-        self._log(f"  Column divider at x={ix}")
-        if placed>=self.col_div_count:
-            self._start_contest_marking()
-        else:
-            self._set_instruction(
-                f"Click column divider {placed+1} of {self.col_div_count}.")
-
-    # ── Contest marking (shared) ──────────────────────────────────────────────
-
-    def _start_contest_marking(self):
-        self.mode="contests"
-        corners=self.layout.corners
-        left_x =min(corners.get("TL",(0,0))[0],corners.get("BL",(0,0))[0])
-        right_x=max(corners.get("TR",(self.layout.img_w,0))[0],
-                    corners.get("BR",(self.layout.img_w,0))[0])
-        top_y  =min(corners.get("TL",(0,0))[1],corners.get("TR",(0,0))[1])
-        bot_y  =max(corners.get("BL",(0,self.layout.img_h))[1],
-                    corners.get("BR",(0,self.layout.img_h))[1])
-        divs=[left_x]+sorted(self.layout.column_divs)+[right_x]
-        self.columns    =[(divs[i],divs[i+1]) for i in range(len(divs)-1)]
-        self.col_top    =top_y; self.col_bot=bot_y
-        self._col_idx   =0; self._col_clicks=[]
-        self._current_col_x=self.columns[0]
-        prefix="LEARN — " if self.learn_mode else ""
-        self._set_instruction(
-            f"{prefix}Click the TOP edge of each contest (top→bottom, "
-            "left column first).\nWhen done with a column click "
-            "'Done with this column'.")
-        self._log("── Contest boundaries ──")
-        self._log(f"  Column 1 of {len(self.columns)}")
-
-    def _handle_contest_click(self, ix, iy):
-        col_x0,col_x1=self._current_col_x
-        self._col_clicks.append(iy)
-        self._log(f"  Contest top at y={iy}")
-        if len(self._col_clicks)>=2:
-            y0=self._col_clicks[-2]; y1=iy-2
-            self._add_contest(col_x0,y0,col_x1,y1)
-        self._update_contest_instruction()
-
-    def _add_contest(self, x0, y0, x1, y1):
-        title = ocr_region(self.cv_img, x0, y0, x1,
-                           min(y1, y0+int(self.dpi*0.4)))
-        title = title.split("\n")[0].strip() if title \
-                else f"Contest {len(self.layout.contests)+1}"
-        title = re.sub(r'\s+', ' ', title)
-        contest=Contest(title=title,x0=x0,y0=y0,x1=x1,y1=y1)
-        crp = self.profile.candidate_row if self.profile else None
-        blobs=find_indicator_blobs(self.cv_img,x0,y0,x1,y1,
-                                   self.dpi,crp)
-        ind_bboxes=[]
-        if blobs:
-            for cx,cy,bw,bh in blobs:
-                name_x0=cx+bw//2+int(self.dpi*0.05)
-                name=ocr_region(self.cv_img,name_x0,cy-bh,x1,cy+bh)
-                name=name.split("\n")[0].strip() if name \
-                     else f"Candidate {len(contest.candidates)+1}"
-                name=re.sub(r'\s+',' ',name)
-                ind=Indicator(cx,cy,bw,bh)
-                contest.candidates.append(Candidate(name=name,indicator=ind))
-                ind_bboxes.append((cx-bw//2,cy-bh//2,cx+bw//2,cy+bh//2))
-        self.layout.contests.append(contest)
-        self._render_image()
-        self._log(f"  '{title}' — {len(contest.candidates)} candidate(s)")
-        # Learn: accumulate indicator data for candidate_row profile
-        if self.learn_mode and HAS_PROFILE and ind_bboxes:
-            if not hasattr(self,'_all_indicator_bboxes'):
-                self._all_indicator_bboxes=[]
-            self._all_indicator_bboxes.extend(ind_bboxes)
-
-    def _finish_column(self):
-        if self.mode!="contests":
-            return
-        if self._col_clicks:
-            col_x0,col_x1=self._current_col_x
-            y0=self._col_clicks[-1]; y1=self.col_bot
-            self._add_contest(col_x0,y0,col_x1,y1)
-            self._col_clicks=[]
-        self._col_idx+=1
-        if self._col_idx<len(self.columns):
-            self._current_col_x=self.columns[self._col_idx]
-            self._log(f"  Column {self._col_idx+1} of {len(self.columns)}")
-        else:
-            self._log("  All columns done.")
-            self._set_instruction(
-                f"All contests marked ({len(self.layout.contests)} total).\n\n"
-                "Review with 'Edit contests / candidates' then 'Export YAML'."
-                + ("\n\nIn LEARN mode: click 'Save design profile + generate code'."
-                   if self.learn_mode else ""))
-
-    def _update_contest_instruction(self):
-        n=len(self.layout.contests)
-        self._set_instruction(
-            f"{n} contest(s) marked.\n\n"
-            "Click top edge of next contest, OR\n"
-            "click 'Done with this column' to close column.")
-
-    # ── Profile save + code generation ───────────────────────────────────────
-
-    def _save_profile_and_generate(self):
-        if not HAS_PROFILE:
-            messagebox.showerror("Missing module",
-                                 "design_profile.py not found.")
-            return
-
-        # Close any open column
-        if self.mode=="contests" and self._col_clicks:
-            self._finish_column()
-
-        # Get profile path
-        profile_path = simpledialog.askstring(
-            "Save profile",
-            "Path for ballot_design.json:",
-            initialvalue="ballot_design.json",
-            parent=self.root)
-        if not profile_path:
-            return
-
-        profile_path = Path(profile_path)
-
-        # Load existing or create new
-        if profile_path.exists() and self.profile:
-            p = self.profile
-        else:
-            p = DesignProfile()
-            p.format_name = self.format_name or simpledialog.askstring(
-                "Format name",
-                "Short name for this ballot format\n(e.g. 'Acme County 2026'):",
-                initialvalue="Custom Ballot Format",
-                parent=self.root) or "Custom Ballot Format"
-
-        p.dpi_reference = self.dpi
-
-        # Learn from this annotation
-        img_name = Path(self.out_path).stem + "_source.png"
-        if img_name not in p.training_images:
-            p.training_images.append(img_name)
-
-        # Contest separator profile from layout
-        sep_type = messagebox.askyesno(
-            "Contest separator",
-            "Are contests separated by a printed horizontal LINE\n"
-            "(yes), or by whitespace gaps only (no)?",
-            parent=self.root)
-        p.contest_separator.type = "horizontal_line" if sep_type else "whitespace"
-
-        # Call learn_from_annotation with accumulated data
-        div_xs = self.layout.column_divs
-        contest_tops = []  # already processed
-        p.learn_from_annotation(
-            self.cv_img, self.dpi,
-            corner_clicks  = self.layout.corners,
-            col_divider_xs = div_xs,
-            contest_tops   = contest_tops,
-            mark_crops     = self._mark_crops)
-
-        # Learn candidate row from collected blobs
-        if hasattr(self,'_all_indicator_bboxes') and self._all_indicator_bboxes:
-            p.learn_candidate_geometry(self._all_indicator_bboxes, self.dpi)
-
-        # Save profile
-        p.save(str(profile_path))
-        self.profile = p
-
-        # Generate Python detector
-        py_path = str(profile_path).replace('.json', '_corner_detector.py')
-        py_path = py_path if py_path != str(profile_path) \
-                  else str(profile_path.parent / "corner_detector.py")
-        generate_python_detector(p, py_path)
-
-        # Generate Java service
-        java_path = str(profile_path).replace(
-            '.json', '_CornerDetectionService_custom.java')
-        if java_path==str(profile_path):
-            java_path=str(profile_path.parent/"CornerDetectionService_custom.java")
-        generate_java_service(p, java_path)
-
-        self._log(f"✓ Profile: {profile_path}")
-        self._log(f"✓ Python:  {py_path}")
-        self._log(f"✓ Java:    {java_path}")
-        messagebox.showinfo(
-            "Saved",
-            f"Design profile saved and code generated:\n\n"
-            f"Profile:  {profile_path}\n"
-            f"Python:   {py_path}\n"
-            f"Java:     {java_path}\n\n"
-            f"To use on new ballots:\n"
-            f"  python ballot_mapper.py new_ballot.png \\\n"
-            f"    --profile {profile_path}")
-
-    # ── Contest editor ────────────────────────────────────────────────────────
-
-    def _open_editor(self):
-        if self.mode=="contests" and self._col_clicks:
-            if messagebox.askyesno("Finish column?",
-                                   "Close out the current column first?"):
-                self._finish_column()
-
-        ed=tk.Toplevel(self.root); ed.title("Edit Contests and Candidates")
-        ed.geometry("720x620")
-
-        for row,(lbl,var_init,w) in enumerate([
-            ("DPI:", str(self.dpi), 8),
-            ("Barcode/ID:", self.layout.barcode_data, 40),
-            ("Page number:", str(self.layout.page_number), 6)]):
-            f=tk.Frame(ed); f.pack(fill=tk.X,padx=8,pady=2)
-            tk.Label(f,text=lbl).pack(side=tk.LEFT)
-            v=tk.StringVar(value=var_init)
-            tk.Entry(f,textvariable=v,width=w).pack(side=tk.LEFT)
-            if row==0:   dpi_var=v
-            elif row==1: bc_var=v
-            else:        pg_var=v
-
-        tk.Label(ed,text="Contests:",anchor="w").pack(fill=tk.X,padx=8)
-        lf=tk.Frame(ed); lf.pack(fill=tk.BOTH,expand=True,padx=8,pady=4)
-        contest_lb=tk.Listbox(lf,height=7,exportselection=False)
-        contest_lb.pack(side=tk.LEFT,fill=tk.BOTH,expand=True)
-        tk.Scrollbar(lf,command=contest_lb.yview).pack(side=tk.RIGHT,fill=tk.Y)
-        for c in self.layout.contests:
-            contest_lb.insert(tk.END,c.title or "(untitled)")
-
-        detail=tk.LabelFrame(ed,text="Selected contest")
-        detail.pack(fill=tk.BOTH,expand=True,padx=8,pady=4)
-        tk.Label(detail,text="Title:").grid(row=0,column=0,sticky="w",padx=4)
-        title_var=tk.StringVar()
-        tk.Entry(detail,textvariable=title_var,width=42).grid(
-            row=0,column=1,sticky="ew",padx=4,pady=2)
-        tk.Label(detail,text="Type:").grid(row=1,column=0,sticky="w",padx=4)
-        type_var=tk.StringVar()
-        ttk.Combobox(detail,textvariable=type_var,width=22,
-                     values=["PLURALITY","RANKED_CHOICE","APPROVAL"]
-                     ).grid(row=1,column=1,sticky="w",padx=4,pady=2)
-        tk.Label(detail,text="Max votes:").grid(row=2,column=0,sticky="w",padx=4)
-        max_var=tk.StringVar()
-        tk.Entry(detail,textvariable=max_var,width=6).grid(
-            row=2,column=1,sticky="w",padx=4,pady=2)
-        tk.Label(detail,
-                 text="Candidates (one per line; prefix '!' = write-in):"
-                 ).grid(row=3,column=0,columnspan=2,sticky="w",padx=4,pady=(8,0))
-        cand_text=tk.Text(detail,height=7,width=52)
-        cand_text.grid(row=4,column=0,columnspan=2,sticky="nsew",padx=4,pady=2)
-        detail.rowconfigure(4,weight=1); detail.columnconfigure(1,weight=1)
-
-        current_idx=[None]
-
-        def save_current():
-            i=current_idx[0]
-            if i is None: return
-            c=self.layout.contests[i]
-            c.title=title_var.get().strip()
-            c.contest_type=type_var.get().strip() or "PLURALITY"
-            try: c.max_votes=int(max_var.get())
-            except ValueError: c.max_votes=1
-            lines=cand_text.get("1.0",tk.END).strip().split("\n")
-            new_cands=[]
-            for j,line in enumerate(lines):
-                line=line.strip()
-                if not line: continue
-                wi=line.startswith("!"); name=line.lstrip("!").strip()
-                ind=c.candidates[j].indicator if j<len(c.candidates) else None
-                new_cands.append(Candidate(name=name,write_in=wi,indicator=ind))
-            c.candidates=new_cands
-            contest_lb.delete(i); contest_lb.insert(i,c.title or "(untitled)")
-            contest_lb.selection_set(i)
-
-        def on_select(event):
-            sel=contest_lb.curselection()
-            if not sel: return
-            save_current(); i=sel[0]; current_idx[0]=i
-            c=self.layout.contests[i]
-            title_var.set(c.title); type_var.set(c.contest_type)
-            max_var.set(str(c.max_votes)); cand_text.delete("1.0",tk.END)
-            for cand in c.candidates:
-                cand_text.insert(tk.END,("!" if cand.write_in else "")+cand.name+"\n")
-
-        contest_lb.bind("<<ListboxSelect>>",on_select)
-
-        def on_ok():
-            save_current()
-            try: self.dpi=int(dpi_var.get()); self.layout.dpi=self.dpi
-            except ValueError: pass
-            self.layout.barcode_data=bc_var.get().strip()
-            try: self.layout.page_number=int(pg_var.get())
-            except ValueError: pass
-            self.barcode_var.set(self.layout.barcode_data)
-            self._render_image(); ed.destroy()
-
-        tk.Button(ed,text="OK — save changes",command=on_ok,
-                  bg="#1a6a6a",fg="white").pack(pady=6)
-        if self.layout.contests:
-            contest_lb.selection_set(0); on_select(None)
-
-    # ── YAML export ───────────────────────────────────────────────────────────
-
-    def _export_yaml(self):
-        corners=self.layout.corners
-        if len([k for k in corners if k in CORNER_ORDER])<4:
-            messagebox.showerror("Missing corners",
-                                 "Please mark all 4 content area corners first.")
-            return
-        dpi=self.layout.dpi
-        tl=corners["TL"]; tr=corners["TR"]
-        br=corners["BR"]; bl=corners["BL"]
-        ca_left  =min(tl[0],bl[0])/dpi; ca_top  =min(tl[1],tr[1])/dpi
-        ca_right =max(tr[0],br[0])/dpi; ca_bottom=max(bl[1],br[1])/dpi
-        ca_w=ca_right-ca_left; ca_h=ca_bottom-ca_top
-
-        def r4(v): return round(v,4)
-
-        contests_yaml=[]
-        for i,c in enumerate(self.layout.contests):
-            cands_yaml=[]
-            for j,cand in enumerate(c.candidates):
-                if cand.indicator:
-                    il,it,iw,ih=cand.indicator.to_bbox(dpi)
-                    ind_yaml={"offsetFromLeft":r4(il),"offsetFromTop":r4(it),
-                              "width":r4(iw),"height":r4(ih)}
-                else:
-                    ind_yaml={"offsetFromLeft":0.0,"offsetFromTop":0.0,
-                              "width":0.2,"height":0.1}
-                cands_yaml.append({"id":j+1,"name":cand.name,
-                                   "writeIn":cand.write_in,"indicator":ind_yaml})
-            contests_yaml.append({
-                "id":i+1,"title":c.title,"contestType":c.contest_type,
-                "maxVotes":c.max_votes,
-                "boundingBox":{"offsetFromLeft":r4(c.x0/dpi),
-                               "offsetFromTop":r4(c.y0/dpi),
-                               "width":r4((c.x1-c.x0)/dpi),
-                               "height":r4((c.y1-c.y0)/dpi)},
-                "candidates":cands_yaml})
-
-        corner_marks=[{"corner":k,"x":r4(v[0]/dpi),"y":r4(v[1]/dpi)}
-                      for k,v in corners.items() if k in CORNER_ORDER]
-        page_marks  =[{"corner":k,"x":r4(v[0]/dpi),"y":r4(v[1]/dpi)}
-                      for k,v in corners.items() if k in PAGE_MARK_ORDER]
-
-        combo_id=self.layout.barcode_data or "unknown"
+    def _load_verify_mode(self, yaml_path: str, image_path: str | None):
+        """Load an existing YAML and overlay on the given (or user-chosen) image."""
         try:
-            parts=self.layout.barcode_data.split("|")
-            if len(parts)>=5: combo_id=int(parts[4])
-        except (ValueError,IndexError): pass
+            with open(yaml_path) as f:
+                doc = yaml.safe_load(f)
+        except Exception as e:
+            messagebox.showerror("YAML error", f"Could not load {yaml_path}:\n{e}")
+            return
 
-        doc={"combinationId":combo_id,"unit":"inches","source":"ballot_mapper",
-             "sides":[{
-                 "side_number":self.layout.page_number,
-                 "ballotContentArea":{"offsetFromLeft":r4(ca_left),
-                                      "offsetFromTop":r4(ca_top),
-                                      "width":r4(ca_w),"height":r4(ca_h)},
-                 "cornerMarks":corner_marks,
-                 "pageMarks":page_marks,
-                 "contests":contests_yaml}]}
+        if not image_path:
+            image_path = filedialog.askopenfilename(
+                title="Open ballot image for verification",
+                filetypes=[("Images", "*.png *.jpg *.jpeg *.tif *.tiff"),
+                           ("All files", "*.*")])
+        if not image_path:
+            return
 
-        with open(self.out_path,"w") as f:
-            yaml.dump(doc,f,default_flow_style=False,
-                      sort_keys=False,allow_unicode=True)
-        self._log(f"✓ YAML: {self.out_path}")
-        messagebox.showinfo("Exported",f"YAML written to:\n{self.out_path}")
+        self.load_image(image_path)
+
+        # Parse YAML into Layout
+        dpi = doc.get("dpi", 300)
+        pw  = doc.get("pageWidthIn", self.layout.page_w / dpi) * dpi
+        ph  = doc.get("pageHeightIn", self.layout.page_h / dpi) * dpi
+        self.layout.barcode_key = doc.get("barcodeData", "")
+        self.layout.dpi         = dpi
+        self.layout.content_x   = doc.get("contentAreaOffsetLeft", 0) * dpi
+        self.layout.content_y   = doc.get("contentAreaOffsetTop",  0) * dpi
+        self.layout.content_w   = doc.get("contentAreaWidth",      0) * dpi
+        self.layout.content_h   = doc.get("contentAreaHeight",     0) * dpi
+        self.key_var.set(self.layout.barcode_key)
+
+        self.layout.contests = []
+        for cd in doc.get("contests", []):
+            contest = Contest(
+                x=cd.get("offsetFromLeft", 0) * dpi,
+                y=cd.get("offsetFromTop",  0) * dpi,
+                w=cd.get("width",          0) * dpi,
+                h=cd.get("height",         0) * dpi,
+                title=cd.get("title", ""),
+                column=cd.get("column", 0),
+            )
+            for cand in cd.get("candidates", []):
+                ind_d = cand.get("indicator", {})
+                ind = Indicator(
+                    x=ind_d.get("offsetFromLeft", 0) * dpi,
+                    y=ind_d.get("offsetFromTop",  0) * dpi,
+                    w=ind_d.get("width",          0) * dpi,
+                    h=ind_d.get("height",         0) * dpi,
+                    candidate=cand.get("name", ""),
+                    style=ind_d.get("indicatorStyle", "OVAL"),
+                )
+                contest.indicators.append(ind)
+            self.layout.contests.append(contest)
+
+        n = sum(len(c.indicators) for c in self.layout.contests)
+        self.set_status(
+            f"VERIFY mode — loaded {len(self.layout.contests)} contest(s), "
+            f"{n} indicator(s) from {Path(yaml_path).name}")
+        self.redraw()
+
+    def open_image(self):
+        path = filedialog.askopenfilename(
+            title="Open ballot scan",
+            filetypes=[("Images", "*.png *.jpg *.jpeg *.tif *.tiff *.bmp"),
+                       ("All files", "*.*")])
+        if path:
+            self.load_image(path)
+
+    def load_image(self, path: str):
+        self.img_path = path
+        pil = Image.open(path).convert("RGB")
+        self.img_orig = pil
+        arr = np.array(pil)
+        self.img_cv  = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        self.layout  = Layout(dpi=self.dpi,
+                               page_w=float(pil.width),
+                               page_h=float(pil.height))
+        self.detector = Detector(self.img_cv, self.dpi)
+        self.selected_item = None
+        self.root.title(f"bMapper — {Path(path).name}")
+        self.zoom_fit()
+        self.redraw()
+        # Auto-try QR decode on top-right quadrant
+        self.root.after(200, self._auto_decode_qr)
+        self.set_status(f"Loaded {Path(path).name} "
+                        f"({pil.width}×{pil.height}px, {self.dpi} DPI). "
+                        "Click Auto-Detect to begin.")
+
+    def _auto_decode_qr(self):
+        """Silently try to decode QR from top-right quadrant on load."""
+        if self.img_cv is None or self.key_var.get():
+            return
+        w, h = self.img_cv.shape[1], self.img_cv.shape[0]
+        # Try right 40% × top 30%
+        decoded = self.detector.decode_barcode(
+            w * 0.60, 0, w * 0.40, h * 0.30)
+        if decoded:
+            self.key_var.set(decoded)
+            self.layout.barcode_key = decoded
+            self.set_status(
+                f"QR decoded: {decoded!r} — set as YAML key. "
+                "Click Auto-Detect to continue.")
+        else:
+            self.set_status(
+                "QR not auto-decoded. Use '📷 Decode QR' to draw over "
+                "the code, or type the key manually. "
+                "Click Auto-Detect to detect layout.")
+
+    # ── Detection ─────────────────────────────────────────────────────────────
+
+    def run_detection(self):
+        if self.img_cv is None:
+            messagebox.showwarning("No image", "Open a ballot image first.")
+            return
+
+        self.set_status("Detecting content bounding box…")
+        self.root.update()
+
+        d = self.detector
+
+        # 1. Content box
+        cx, cy, cw, ch = d.infer_content_box()
+        self.layout.content_x = cx
+        self.layout.content_y = cy
+        self.layout.content_w = cw
+        self.layout.content_h = ch
+
+        # 2. Columns
+        self.set_status("Detecting columns…")
+        self.root.update()
+        col_bounds = d.detect_columns(cx, cy, cw, ch)
+        self.layout.columns = col_bounds
+
+        # 3. Contests + indicators per column
+        self.set_status("Detecting contests and indicators…")
+        self.root.update()
+        self.layout.contests = []
+        for i in range(len(col_bounds) - 1):
+            col_x = col_bounds[i]
+            col_w = col_bounds[i + 1] - col_bounds[i]
+            contests = d.detect_contests_in_column(
+                col_x, cy, col_w, ch, col_idx=i)
+            for contest in contests:
+                # OCR title
+                if TESSERACT_AVAILABLE:
+                    self.set_status(
+                        f"OCR: column {i+1}, contest at y={int(contest.y)}…")
+                    self.root.update()
+                    title, instr = d.ocr_contest_title(contest)
+                    contest.title       = title
+                    contest.instruction = instr
+
+                # Indicators
+                inds = d.detect_indicators_in_contest(contest)
+                for ind in inds:
+                    if TESSERACT_AVAILABLE:
+                        ind.candidate = d.ocr_indicator_label(ind, contest)
+                contest.indicators = inds
+                self.layout.contests.append(contest)
+
+        n_contests = len(self.layout.contests)
+        n_inds     = sum(len(c.indicators) for c in self.layout.contests)
+        self.set_status(
+            f"Detected {n_contests} contest(s), {n_inds} indicator(s). "
+            "Review overlays and correct as needed, then Save YAML.")
+        self.redraw()
+
+    # ── Drawing ───────────────────────────────────────────────────────────────
+
+    def redraw(self):
+        """Redraw the entire canvas from scratch."""
+        self.canvas.delete("all")
+        if self.img_orig is None:
+            return
+
+        # Draw image at current zoom
+        w = int(self.img_orig.width  * self.zoom)
+        h = int(self.img_orig.height * self.zoom)
+        resized = self.img_orig.resize((w, h), Image.LANCZOS)
+        self._tk_img = ImageTk.PhotoImage(resized)
+        self.canvas.create_image(0, 0, anchor=tk.NW, image=self._tk_img,
+                                  tags="image")
+        self.canvas.configure(scrollregion=(0, 0, w, h))
+
+        # Content box
+        if self.layout.content_w > 0:
+            self._draw_rect("content_box",
+                            self.layout.content_x, self.layout.content_y,
+                            self.layout.content_w, self.layout.content_h,
+                            self.COL_CONTENT, width=2)
+
+        # Column separators
+        for i, bx in enumerate(self.layout.columns[1:-1], 1):
+            cx = self.ix(bx)
+            y0 = self.iy(self.layout.content_y)
+            y1 = self.iy(self.layout.content_y + self.layout.content_h)
+            self.canvas.create_line(cx, y0, cx, y1,
+                                    fill=self.COL_COLUMN,
+                                    width=2, dash=(6, 4),
+                                    tags=f"col_{i}")
+
+        # Contests and indicators
+        for ci, contest in enumerate(self.layout.contests):
+            self._draw_rect(f"contest_{ci}",
+                            contest.x, contest.y,
+                            contest.w, contest.h,
+                            self.COL_CONTEST, width=2)
+            # Title label
+            self.canvas.create_text(
+                self.ix(contest.x + 4), self.iy(contest.y + 4),
+                text=contest.title[:40] if contest.title else "",
+                anchor=tk.NW, fill=self.COL_CONTEST,
+                font=("Helvetica", max(8, int(9 * self.zoom))),
+                tags=f"contest_{ci}_label")
+
+            for ii, ind in enumerate(contest.indicators):
+                tag  = f"ind_{ci}_{ii}"
+                col  = self.COL_MARKED if ind.appears_marked else self.COL_IND
+                self._draw_rect(tag, ind.x, ind.y, ind.w, ind.h,
+                                col, width=2)
+                # Candidate label
+                label = ind.candidate[:30] if ind.candidate else ""
+                self.canvas.create_text(
+                    self.ix(ind.x + ind.w + 4), self.iy(ind.cy),
+                    text=label, anchor=tk.W, fill=col,
+                    font=("Helvetica", max(7, int(8 * self.zoom))),
+                    tags=f"{tag}_label")
+
+        # Draw OCR-suggested contest title positions (cyan, dashed)
+        for img_y in self._ocr_title_candidates:
+            cy2 = self.iy(img_y)
+            self.canvas.create_line(
+                self.ix(self.layout.content_x), cy2,
+                self.ix(self.layout.content_x + self.layout.content_w), cy2,
+                fill="#00ffff", width=1, dash=(4, 3),
+                tags="ocr_candidate")
+
+        # Draw user-accepted contest boundaries (yellow, solid)
+        for img_y in self._click_boundaries:
+            cy2 = self.iy(img_y)
+            self.canvas.create_line(
+                self.ix(self.layout.content_x), cy2,
+                self.ix(self.layout.content_x + self.layout.content_w), cy2,
+                fill="#ffee00", width=2, tags="click_boundary")
+
+        # In click-boundaries mode: show accept button hint
+        if self.mode == "click-boundaries":
+            self.canvas.create_text(
+                10, 10, anchor=tk.NW,
+                text="Click = add boundary  |  Right-click = remove  |"
+                     "  Press Enter to accept",
+                fill="#ffee00", font=("Helvetica", 11, "bold"),
+                tags="boundary_hint")
+
+        # Draw handles for selected item
+        if self.selected_item:
+            self._draw_handles(self.selected_item)
+
+    def _draw_rect(self, tag: str, x: float, y: float,
+                   w: float, h: float, colour: str, width: int = 2):
+        self.canvas.create_rectangle(
+            self.ix(x), self.iy(y),
+            self.ix(x + w), self.iy(y + h),
+            outline=colour, width=width, fill="",
+            tags=(tag, "box"))
+
+    def _draw_handles(self, tag: str):
+        """Draw drag handles at corners of a selected box."""
+        coords = self.canvas.coords(tag)
+        if len(coords) != 4:
+            return
+        x0, y0, x1, y1 = coords
+        r = HANDLE_R
+        for hx, hy, htag in [
+            (x0, y0, "tl"), (x1, y0, "tr"),
+            (x0, y1, "bl"), (x1, y1, "br"),
+        ]:
+            self.canvas.create_oval(
+                hx - r, hy - r, hx + r, hy + r,
+                fill=self.COL_SELECTED, outline=self.COL_HANDLE,
+                tags=(f"handle_{htag}", "handle"))
+
+    # ── Coordinate helpers ────────────────────────────────────────────────────
+
+    def ix(self, img_x: float) -> float:
+        """Image x → canvas x."""
+        return img_x * self.zoom
+
+    def iy(self, img_y: float) -> float:
+        """Image y → canvas y."""
+        return img_y * self.zoom
+
+    def ci(self, canvas_x: float) -> float:
+        """Canvas x → image x."""
+        return canvas_x / self.zoom
+
+    def cj(self, canvas_y: float) -> float:
+        """Canvas y → image y."""
+        return canvas_y / self.zoom
+
+    def canvas_pos(self, event) -> tuple[float, float]:
+        """Return canvas-scrolled (x, y) for a mouse event."""
+        return (self.canvas.canvasx(event.x),
+                self.canvas.canvasy(event.y))
+
+    # ── Mouse interaction ─────────────────────────────────────────────────────
+
+    def on_press(self, event):
+        cx, cy = self.canvas_pos(event)
+
+        if self.mode in ("draw-content", "decode-qr",
+                          "add-indicator", "sample-indicator"):
+            self._draw_rect_start = (cx, cy)
+            return
+
+        if self.mode == "click-boundaries":
+            # Left-click: add a boundary at this y
+            img_y = round(self.cj(cy), 1)
+            # Snap to nearest existing OCR candidate if within 20px
+            nearest = min(self._ocr_title_candidates,
+                          key=lambda y: abs(y - img_y),
+                          default=None)
+            if nearest is not None and abs(nearest - img_y) < 20:
+                img_y = nearest
+            if img_y not in self._click_boundaries:
+                self._click_boundaries.append(img_y)
+                self._click_boundaries.sort()
+            self.set_status(
+                f"{len(self._click_boundaries)} boundary(ies) set. "
+                "Right-click a cyan line to remove. "
+                "Press Enter or click 'Find Contests' again to accept.")
+            self.redraw()
+            return
+
+        if self.mode == "add-indicator-skip":
+            self._draw_rect_start = (cx, cy)
+            return
+
+        # Check if pressing a handle
+        items = self.canvas.find_overlapping(
+            cx - HANDLE_R, cy - HANDLE_R,
+            cx + HANDLE_R, cy + HANDLE_R)
+        for item in reversed(items):
+            tags = self.canvas.gettags(item)
+            if "handle" in tags:
+                htag = next((t for t in tags if t.startswith("handle_")), None)
+                if htag:
+                    self.drag_mode  = htag.replace("handle_", "resize-")
+                    self.drag_start = (cx, cy)
+                    return
+
+        # Check if pressing a box
+        items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+        for item in reversed(items):
+            tags = self.canvas.gettags(item)
+            if "box" in tags:
+                box_tag = next((t for t in tags if t != "box"), None)
+                if box_tag:
+                    self.selected_item = box_tag
+                    self.drag_mode     = "move"
+                    self.drag_start    = (cx, cy)
+                    self._update_sel_info()
+                    self.redraw()
+                    return
+
+        # Click on empty area — deselect
+        self.selected_item = None
+        self.drag_mode     = None
+        self.redraw()
+
+    def on_drag(self, event):
+        cx, cy = self.canvas_pos(event)
+        dx = (cx - self.drag_start[0]) / self.zoom
+        dy = (cy - self.drag_start[1]) / self.zoom
+        self.drag_start = (cx, cy)
+
+        if self.mode in ("draw-content", "decode-qr", "sample-indicator") and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+            x0, y0 = self._draw_rect_start
+            self._draw_rect_id = self.canvas.create_rectangle(
+                x0, y0, cx, cy,
+                outline=self.COL_CONTENT, width=2, fill="")
+            return
+
+        if self.mode == "sample-indicator" and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+                self._draw_rect_id = None
+            x0c, y0c = self._draw_rect_start
+            x0 = self.ci(min(x0c, cx)); y0 = self.cj(min(y0c, cy))
+            x1 = self.ci(max(x0c, cx)); y1 = self.cj(max(y0c, cy))
+            self._finish_sample_indicator(x0, y0, x1, y1)
+            del self._draw_rect_start
+            return
+
+        if self.mode == "decode-qr" and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+                self._draw_rect_id = None
+            x0c, y0c = self._draw_rect_start
+            x0 = min(self.ci(x0c), self.ci(cx))
+            y0 = min(self.cj(y0c), self.cj(cy))
+            x1 = max(self.ci(x0c), self.ci(cx))
+            y1 = max(self.cj(y0c), self.cj(cy))
+            if x1 - x0 > 10 and y1 - y0 > 10:
+                decoded = self.detector.decode_barcode(x0, y0, x1-x0, y1-y0)
+                if decoded:
+                    self.key_var.set(decoded)
+                    self.layout.barcode_key = decoded
+                    messagebox.showinfo("QR Decoded",
+                        f"Decoded: {decoded}\n\nThis has been set as the YAML key.")
+                else:
+                    ans = simpledialog.askstring(
+                        "No barcode found",
+                        "Could not decode a QR code in that region.\n"
+                        "Enter the key manually:")
+                    if ans:
+                        self.key_var.set(ans.strip())
+            self.mode = "select"
+            del self._draw_rect_start
+            return
+
+        if self.mode == "add-indicator" and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+            x0, y0 = self._draw_rect_start
+            self._draw_rect_id = self.canvas.create_rectangle(
+                x0, y0, cx, cy,
+                outline=self.COL_IND, width=2, fill="")
+            return
+
+        if not self.selected_item or not self.drag_mode:
+            return
+
+        # Push undo on first drag movement
+        if not hasattr(self, "_drag_pushed_undo"):
+            self._push_undo()
+            self._drag_pushed_undo = True
+
+        obj = self._find_object(self.selected_item)
+        if obj is None:
+            return
+
+        if self.drag_mode == "move":
+            obj.x += dx; obj.y += dy
+        elif self.drag_mode == "resize-tl":
+            obj.w  = max(4, obj.w - dx)
+            obj.h  = max(4, obj.h - dy)
+            obj.x += dx; obj.y += dy
+        elif self.drag_mode == "resize-tr":
+            obj.w  = max(4, obj.w + dx)
+            obj.h  = max(4, obj.h - dy)
+            obj.y += dy
+        elif self.drag_mode == "resize-bl":
+            obj.w  = max(4, obj.w - dx)
+            obj.h  = max(4, obj.h + dy)
+            obj.x += dx
+        elif self.drag_mode == "resize-br":
+            obj.w  = max(4, obj.w + dx)
+            obj.h  = max(4, obj.h + dy)
+
+        self.redraw()
+        self._update_sel_info()
+
+    def on_release(self, event):
+        cx, cy = self.canvas_pos(event)
+
+        if self.mode in ("draw-content", "decode-qr", "sample-indicator") and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+                self._draw_rect_id = None
+            x0c, y0c = self._draw_rect_start
+            x0 = min(self.ci(x0c), self.ci(cx))
+            y0 = min(self.cj(y0c), self.cj(cy))
+            x1 = max(self.ci(x0c), self.ci(cx))
+            y1 = max(self.cj(y0c), self.cj(cy))
+            if x1 - x0 > 10 and y1 - y0 > 10:
+                self.layout.content_x = x0
+                self.layout.content_y = y0
+                self.layout.content_w = x1 - x0
+                self.layout.content_h = y1 - y0
+            self.mode = "select"
+            self.redraw()
+            del self._draw_rect_start
+            return
+
+        if self.mode == "sample-indicator" and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+                self._draw_rect_id = None
+            x0c, y0c = self._draw_rect_start
+            x0 = self.ci(min(x0c, cx)); y0 = self.cj(min(y0c, cy))
+            x1 = self.ci(max(x0c, cx)); y1 = self.cj(max(y0c, cy))
+            self._finish_sample_indicator(x0, y0, x1, y1)
+            del self._draw_rect_start
+            return
+
+        if self.mode == "decode-qr" and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+                self._draw_rect_id = None
+            x0c, y0c = self._draw_rect_start
+            x0 = min(self.ci(x0c), self.ci(cx))
+            y0 = min(self.cj(y0c), self.cj(cy))
+            x1 = max(self.ci(x0c), self.ci(cx))
+            y1 = max(self.cj(y0c), self.cj(cy))
+            if x1 - x0 > 10 and y1 - y0 > 10:
+                decoded = self.detector.decode_barcode(x0, y0, x1-x0, y1-y0)
+                if decoded:
+                    self.key_var.set(decoded)
+                    self.layout.barcode_key = decoded
+                    messagebox.showinfo("QR Decoded",
+                        f"Decoded: {decoded}\n\nThis has been set as the YAML key.")
+                else:
+                    ans = simpledialog.askstring(
+                        "No barcode found",
+                        "Could not decode a QR code in that region.\n"
+                        "Enter the key manually:")
+                    if ans:
+                        self.key_var.set(ans.strip())
+            self.mode = "select"
+            del self._draw_rect_start
+            return
+
+        if self.mode == "add-indicator" and hasattr(self, '_draw_rect_start'):
+            if self._draw_rect_id:
+                self.canvas.delete(self._draw_rect_id)
+                self._draw_rect_id = None
+            x0c, y0c = self._draw_rect_start
+            x0 = min(self.ci(x0c), self.ci(cx))
+            y0 = min(self.cj(y0c), self.cj(cy))
+            x1 = max(self.ci(x0c), self.ci(cx))
+            y1 = max(self.cj(y0c), self.cj(cy))
+            if x1 - x0 > 4 and y1 - y0 > 4:
+                # Find which contest this falls in
+                ind = Indicator(x=x0, y=y0, w=x1-x0, h=y1-y0)
+                target = self._find_contest_for_point(x0 + (x1-x0)/2,
+                                                       y0 + (y1-y0)/2)
+                if target is not None:
+                    target.indicators.append(ind)
+                else:
+                    # Create a new contest for it
+                    nc = Contest(x=x0-4, y=y0-4, w=x1-x0+8, h=y1-y0+8)
+                    nc.indicators.append(ind)
+                    self.layout.contests.append(nc)
+            self.mode = "select"
+            self.redraw()
+            del self._draw_rect_start
+            return
+
+        self.drag_mode = None
+        if hasattr(self, "_drag_pushed_undo"):
+            del self._drag_pushed_undo
+
+    def on_scroll(self, event):
+        if event.num == 4 or event.delta > 0:
+            self.zoom_by(ZOOM_STEP)
+        else:
+            self.zoom_by(1 / ZOOM_STEP)
+
+    def on_right_click(self, event):
+        cx, cy = self.canvas_pos(event)
+
+        # In boundary mode: right-click removes nearest boundary
+        if self.mode == "click-boundaries":
+            img_y = self.cj(cy)
+            if self._click_boundaries:
+                nearest = min(self._click_boundaries,
+                              key=lambda y: abs(y - img_y))
+                if abs(nearest - img_y) * self.zoom < 20:
+                    self._click_boundaries.remove(nearest)
+                    self.redraw()
+                    return
+            return
+
+        items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+        for item in reversed(items):
+            tags = self.canvas.gettags(item)
+            if "box" in tags:
+                box_tag = next((t for t in tags if t != "box"), None)
+                if box_tag and box_tag.startswith("ind_"):
+                    self.selected_item = box_tag
+                    self._show_context_menu(event, box_tag)
+                    return
+
+    def _show_context_menu(self, event, tag: str):
+        m = tk.Menu(self.root, tearoff=0)
+        m.add_command(label="Set candidate name…",
+                      command=lambda: self._prompt_candidate_name(tag))
+        m.add_command(label="Toggle marked/unmarked",
+                      command=lambda: self._toggle_marked(tag))
+        m.add_separator()
+        m.add_command(label="Delete indicator",
+                      command=self.delete_selected)
+        try:
+            m.tk_popup(event.x_root, event.y_root)
+        finally:
+            m.grab_release()
+
+    # ── Object lookup ─────────────────────────────────────────────────────────
+
+    def _parse_tag(self, tag: str):
+        """
+        Parse a canvas tag back to a Layout object.
+        Returns the object (Contest or Indicator) or None.
+        """
+        parts = tag.split("_")
+        if not parts:
+            return None, None, None
+        if parts[0] == "content" and parts[1] == "box":
+            return "content", None, None
+        if parts[0] == "contest":
+            ci = int(parts[1])
+            if ci < len(self.layout.contests):
+                return "contest", ci, None
+        if parts[0] == "ind":
+            ci = int(parts[1]); ii = int(parts[2])
+            if ci < len(self.layout.contests):
+                c = self.layout.contests[ci]
+                if ii < len(c.indicators):
+                    return "ind", ci, ii
+        return None, None, None
+
+    def _find_object(self, tag: str):
+        """Return the mutable object for a tag, or None."""
+        kind, ci, ii = self._parse_tag(tag)
+        if kind == "contest" and ci is not None:
+            return self.layout.contests[ci]
+        if kind == "ind" and ci is not None and ii is not None:
+            return self.layout.contests[ci].indicators[ii]
+        if kind == "content":
+            return _ContentBoxProxy(self.layout)
+        return None
+
+    def _find_contest_for_point(self, ix: float, iy: float) -> Optional[Contest]:
+        for c in self.layout.contests:
+            if c.x <= ix <= c.x + c.w and c.y <= iy <= c.y + c.h:
+                return c
+        return None
+
+    # ── Selection info ────────────────────────────────────────────────────────
+
+    def _update_sel_info(self):
+        if not self.selected_item:
+            return
+        obj = self._find_object(self.selected_item)
+        if obj is None:
+            return
+        self.sel_info.configure(state=tk.NORMAL)
+        self.sel_info.delete("1.0", tk.END)
+        if isinstance(obj, Indicator):
+            self.sel_info.insert(tk.END,
+                f"Indicator\n"
+                f"x={obj.x:.0f} y={obj.y:.0f}\n"
+                f"w={obj.w:.0f} h={obj.h:.0f}\n"
+                f"style={obj.style}\n"
+                f"dark={obj.dark_pct:.1f}%\n"
+                f"marked={'yes' if obj.appears_marked else 'no'}")
+            self.cand_var.set(obj.candidate)
+        elif isinstance(obj, Contest):
+            self.sel_info.insert(tk.END,
+                f"Contest\n"
+                f"x={obj.x:.0f} y={obj.y:.0f}\n"
+                f"w={obj.w:.0f} h={obj.h:.0f}\n"
+                f"col={obj.column}\n"
+                f"inds={len(obj.indicators)}")
+        self.sel_info.configure(state=tk.DISABLED)
+
+    # ── Toolbar actions ───────────────────────────────────────────────────────
+
+    def decode_qr_region(self):
+        """
+        Prompt the user to draw a rectangle over the barcode/QR area,
+        then decode it and use as the YAML key.
+        """
+        if self.img_cv is None:
+            messagebox.showwarning("No image", "Open a ballot image first.")
+            return
+        self.mode = "decode-qr"
+        self.set_status(
+            "Draw a rectangle over the QR code or barcode area to decode it.")
+
+    def edit_contest_title(self):
+        """Edit the title of the currently selected contest."""
+        if not self.selected_item:
+            messagebox.showinfo("No selection", "Select a contest box first.")
+            return
+        kind, ci, ii = self._parse_tag(self.selected_item)
+        if kind != "contest" or ci is None:
+            messagebox.showinfo("Not a contest", "Select a contest box first.")
+            return
+        contest = self.layout.contests[ci]
+        title = simpledialog.askstring(
+            "Contest Title", "Enter contest title:",
+            initialvalue=contest.title)
+        if title is not None:
+            contest.title = title.strip()
+            self.redraw()
+
+    def start_draw_content(self):
+        self.mode = "draw-content"
+        self.set_status("Draw the content bounding box: click and drag.")
+
+    def start_add_indicator(self):
+        self.mode = "add-indicator"
+        self.set_status("Draw a new indicator box: click and drag.")
+
+    def delete_selected(self):
+        if not self.selected_item:
+            return
+        kind, ci, ii = self._parse_tag(self.selected_item)
+        if kind == "ind" and ci is not None and ii is not None:
+            self.layout.contests[ci].indicators.pop(ii)
+        elif kind == "contest" and ci is not None:
+            self.layout.contests.pop(ci)
+        self.selected_item = None
+        self.redraw()
+
+    def apply_candidate_name(self):
+        if not self.selected_item:
+            return
+        kind, ci, ii = self._parse_tag(self.selected_item)
+        if kind == "ind" and ci is not None and ii is not None:
+            self.layout.contests[ci].indicators[ii].candidate = \
+                self.cand_var.get().strip()
+            self.redraw()
+
+    def _prompt_candidate_name(self, tag: str):
+        self.selected_item = tag
+        kind, ci, ii = self._parse_tag(tag)
+        if kind == "ind" and ci is not None and ii is not None:
+            ind = self.layout.contests[ci].indicators[ii]
+            name = simpledialog.askstring(
+                "Candidate Name", "Enter candidate name:",
+                initialvalue=ind.candidate)
+            if name is not None:
+                ind.candidate = name.strip()
+                self.redraw()
+
+    def _toggle_marked(self, tag: str):
+        kind, ci, ii = self._parse_tag(tag)
+        if kind == "ind" and ci is not None and ii is not None:
+            ind = self.layout.contests[ci].indicators[ii]
+            ind.appears_marked = not ind.appears_marked
+            self.redraw()
+
+
+    # ── Undo ──────────────────────────────────────────────────────────────────
+
+    def _push_undo(self):
+        """Save a snapshot of the current layout for undo."""
+        import copy
+        self._undo_stack.append(copy.deepcopy(self.layout))
+        if len(self._undo_stack) > self._undo_max:
+            self._undo_stack.pop(0)
+
+    def undo(self):
+        if not self._undo_stack:
+            self.set_status("Nothing to undo.")
+            return
+        self.layout = self._undo_stack.pop()
+        self.redraw()
+        self.set_status(f"Undone. ({len(self._undo_stack)} step(s) remaining)")
+
+    # ── OCR contest boundary detection ────────────────────────────────────────
+
+    def find_contests_ocr(self):
+        """
+        Use OCR to find candidate contest title positions in each column,
+        overlay them as horizontal lines, then let the user click to accept
+        or adjust boundaries.
+        """
+        if self.img_cv is None:
+            messagebox.showwarning("No image", "Open a ballot image first.")
+            return
+        if not self.layout.columns:
+            messagebox.showwarning("No columns",
+                "Run Auto-Detect first to establish columns,\n"
+                "or draw the content box.")
+            return
+        if not TESSERACT_AVAILABLE:
+            messagebox.showwarning("OCR unavailable",
+                "pytesseract is not installed.\n"
+                "Install with: pip install pytesseract\n"
+                "and brew install tesseract")
+            return
+
+        self._push_undo()
+        self._ocr_title_candidates = []
+        d = self.detector
+        cy = self.layout.content_y
+        ch = self.layout.content_h
+        cols = self.layout.columns
+
+        for i in range(len(cols) - 1):
+            col_x = cols[i]
+            col_w = cols[i + 1] - cols[i]
+            self.set_status(
+                f"OCR scanning column {i+1} for contest titles…")
+            self.root.update()
+            ys = d.detect_contest_titles_ocr(col_x, cy, col_w, ch)
+            self._ocr_title_candidates.extend(ys)
+
+        self._ocr_title_candidates = sorted(set(
+            round(y, 1) for y in self._ocr_title_candidates))
+
+        if not self._ocr_title_candidates:
+            messagebox.showinfo("No titles found",
+                "OCR did not find any contest title candidates.\n\n"
+                "Try clicking 'Find Contests' again after adjusting the content box,\n"
+                "or use the click-boundary mode below.")
+
+        n = len(self._ocr_title_candidates)
+        self.set_status(
+            f"Found {n} possible contest title location(s). "
+            "Review the cyan lines, then click each one to accept it as a "
+            "contest boundary — or click elsewhere to add a new boundary. "
+            "Right-click a cyan line to remove it.")
+        self.mode = "click-boundaries"
+        self._click_boundaries = list(self._ocr_title_candidates)
+        self.redraw()
+
+    def _accept_click_boundaries(self):
+        """
+        Convert the current click boundaries into Contest objects and
+        exit boundary-click mode.
+        """
+        if not self._click_boundaries:
+            self.mode = "select"
+            self.redraw()
+            return
+
+        self._push_undo()
+        boundaries = sorted(self._click_boundaries)
+        cy = self.layout.content_y
+        ch = self.layout.content_h
+        cols = self.layout.columns
+
+        self.layout.contests = []
+        for i in range(len(cols) - 1):
+            col_x = cols[i]
+            col_w = cols[i + 1] - cols[i]
+
+            # Filter boundaries that fall in this column's x range
+            col_bounds = [cy] + [y for y in boundaries
+                                   if col_x <= col_x + col_w] + [cy + ch]
+            col_bounds = sorted(set(col_bounds))
+            min_h = self.dpi * 0.3
+
+            for j in range(len(col_bounds) - 1):
+                top    = col_bounds[j]
+                bottom = col_bounds[j + 1]
+                if bottom - top < min_h:
+                    continue
+                # OCR title from this region
+                title, instr = "", ""
+                if TESSERACT_AVAILABLE:
+                    title, instr = self.detector.ocr_contest_title(
+                        Contest(x=col_x, y=top, w=col_w, h=bottom-top))
+                contest = Contest(
+                    x=float(col_x), y=float(top),
+                    w=float(col_w), h=float(bottom - top),
+                    title=title, instruction=instr,
+                    column=i)
+                self.layout.contests.append(contest)
+
+        self._click_boundaries = []
+        self._ocr_title_candidates = []
+        self.mode = "select"
+        self.set_status(
+            f"Created {len(self.layout.contests)} contest(s). "
+            "Now use 'Sample Indicator' to detect vote indicators.")
+        self.redraw()
+
+    # ── Template indicator sampling and matching ───────────────────────────────
+
+    def start_sample_indicator(self):
+        """
+        Enter sample-indicator mode: user drags a rectangle over one empty
+        indicator to use as the template for matching.
+        """
+        if self.img_cv is None:
+            messagebox.showwarning("No image", "Open a ballot image first.")
+            return
+        self.mode = "sample-indicator"
+        self.set_status(
+            "Drag a tight rectangle over ONE empty vote indicator "
+            "(oval/rectangle/etc.) to use as the search template.")
+
+    def match_all_indicators(self):
+        """
+        Run template matching across all contests using the stored template.
+        Replaces any existing auto-detected indicators.
+        """
+        if self.ind_template is None:
+            messagebox.showwarning("No template",
+                "Use 'Sample Indicator' first to draw a template.")
+            return
+        if not self.layout.contests:
+            messagebox.showwarning("No contests",
+                "Define contest boxes first (Auto-Detect or Find Contests).")
+            return
+
+        self._push_undo()
+        total = 0
+        for ci, contest in enumerate(self.layout.contests):
+            self.set_status(
+                f"Template matching: contest {ci+1}/{len(self.layout.contests)}…")
+            self.root.update()
+            inds = self.detector.match_indicator_template(
+                self.ind_template,
+                contest.x, contest.y,
+                contest.w, contest.h,
+                threshold=0.70)
+            # OCR candidate names
+            if TESSERACT_AVAILABLE:
+                for ind in inds:
+                    ind.candidate = self.detector.ocr_indicator_label(
+                        ind, contest)
+            contest.indicators = inds
+            total += len(inds)
+
+        self.set_status(
+            f"Template match complete: {total} indicator(s) found across "
+            f"{len(self.layout.contests)} contest(s). "
+            "Review overlays and correct as needed.")
+        self.redraw()
+
+    def _finish_sample_indicator(self, x0: float, y0: float,
+                                  x1: float, y1: float):
+        """
+        Called after user finishes dragging the sample rectangle.
+        Crops the template from the image and stores it.
+        """
+        ix0 = max(0, int(min(x0, x1)))
+        iy0 = max(0, int(min(y0, y1)))
+        ix1 = min(self.img_cv.shape[1], int(max(x0, x1)))
+        iy1 = min(self.img_cv.shape[0], int(max(y0, y1)))
+        if ix1 - ix0 < 4 or iy1 - iy0 < 4:
+            self.set_status("Sample too small — try again.")
+            return
+
+        self.ind_template = self.img_cv[iy0:iy1, ix0:ix1].copy()
+        self.ind_template_pil = Image.fromarray(self.ind_template)
+        tw, th = ix1 - ix0, iy1 - iy0
+        self.mode = "select"
+        self.set_status(
+            f"Template captured ({tw}×{th}px). "
+            "Click 'Match Indicators' to search all contests, "
+            "or 'Sample Indicator' again to re-sample.")
+
+        # Show template info in right panel
+        self.sel_info.configure(state=tk.NORMAL)
+        self.sel_info.delete("1.0", tk.END)
+        self.sel_info.insert(tk.END,
+            f"Indicator template\n"
+            f"Size: {tw}×{th}px\n"
+            f"({tw/self.dpi:.3f}" × {th/self.dpi:.3f}")")
+        self.sel_info.configure(state=tk.DISABLED)
+
+    # ── Save YAML ─────────────────────────────────────────────────────────────
+
+    def save_yaml(self):
+        if not self.layout.contests:
+            messagebox.showwarning("Nothing to save",
+                                   "Run detection first.")
+            return
+
+        key = self.key_var.get().strip()
+        if not key:
+            key = simpledialog.askstring(
+                "YAML Key",
+                "Enter the barcode/key string for this ballot type.\n"
+                "This will be the YAML filename: ballot_<key>.yaml\n\n"
+                "For bSuite ballots: e.g. 1|1|1|1|1|1\n"
+                "For alien ballots: any text, e.g. PCT-042")
+            if not key:
+                return
+            self.key_var.set(key)
+
+        self.layout.barcode_key = key
+        out_dir = Path(self.out_var.get())
+
+        try:
+            out_path = write_yaml(self.layout, out_dir)
+            messagebox.showinfo("Saved",
+                f"YAML written to:\n{out_path}\n\n"
+                f"bCounter can now use this layout for ballots "
+                f"with key '{key}'.")
+            self.set_status(f"Saved: {out_path.name}")
+        except Exception as e:
+            messagebox.showerror("Save failed", str(e))
+
+    # ── Next image ────────────────────────────────────────────────────────────
+
+    def next_image(self):
+        """Prompt for another image of the same ballot type."""
+        ans = messagebox.askquestion(
+            "Next Image",
+            "Load another image?\n\n"
+            "• Yes — same ballot type (keeps YAML key and output dir)\n"
+            "• No — cancel",
+            icon="question")
+        if ans == "yes":
+            path = filedialog.askopenfilename(
+                title="Open next ballot scan",
+                filetypes=[("Images", "*.png *.jpg *.jpeg *.tif *.tiff"),
+                           ("All files", "*.*")])
+            if path:
+                # Keep barcode key and out dir
+                old_key = self.key_var.get()
+                self.load_image(path)
+                self.key_var.set(old_key)
+
+    # ── Zoom ─────────────────────────────────────────────────────────────────
+
+    def zoom_by(self, factor: float):
+        self.zoom = max(0.05, min(8.0, self.zoom * factor))
+        self.redraw()
+
+    def zoom_fit(self):
+        if self.img_orig is None:
+            return
+        cw = self.canvas.winfo_width()  or 800
+        ch = self.canvas.winfo_height() or 700
+        zx = cw / self.img_orig.width
+        zy = ch / self.img_orig.height
+        self.zoom = min(zx, zy) * 0.95
+        self.redraw()
+
+    # ── Status ────────────────────────────────────────────────────────────────
+
+    def set_status(self, msg: str):
+        self.status_var.set(msg)
+        self.root.update_idletasks()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Entry point
 # ══════════════════════════════════════════════════════════════════════════════
 
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="bMapper — Ballot Layout Inference Tool")
+    p.add_argument("--image",  default=None,
+                   help="Path to ballot scan image (optional — can open via UI)")
+    p.add_argument("--out",    default=str(Path.home() / "bSuite_data/ballot_templates"),
+                   help="Output directory for YAML files")
+    p.add_argument("--dpi",   type=int, default=300,
+                   help="Scanner DPI (default 300)")
+    p.add_argument("--mode",  default="learn",
+                   choices=["learn", "verify"],
+                   help="learn = infer new layout; verify = overlay existing YAML")
+    p.add_argument("--yaml",  default=None,
+                   help="Existing YAML file (verify mode only)")
+    return p.parse_args()
+
+
 def main():
-    ap=argparse.ArgumentParser(
-        description="Map a ballot image to bCounter YAML (with design learning)")
-    ap.add_argument("image",       help="Ballot image file (PNG/JPG/TIFF)")
-    ap.add_argument("--dpi",       type=int, default=300)
-    ap.add_argument("--out",       default=None, help="Output YAML path")
-    ap.add_argument("--profile",   default=None,
-                    help="ballot_design.json — load/save design profile")
-    ap.add_argument("--learn",     action="store_true",
-                    help="Learn ballot design from this image")
-    ap.add_argument("--name",      default="",
-                    help="Format name (for --learn mode)")
-    args=ap.parse_args()
-
-    img_path=Path(args.image)
-    if not img_path.exists():
-        print(f"✗ Image not found: {img_path}"); sys.exit(1)
-
-    out_path=Path(args.out) if args.out else img_path.with_suffix(".yaml")
-
-    # Detect DPI from metadata
-    dpi=args.dpi
-    try:
-        with Image.open(img_path) as im:
-            info_dpi=im.info.get("dpi")
-            if info_dpi:
-                d=int(info_dpi[0])
-                if d>=72: dpi=d; print(f"  DPI from metadata: {dpi}")
-    except Exception: pass
-
-    # Load design profile
-    profile=None
-    if args.profile and HAS_PROFILE:
-        p=Path(args.profile)
-        if p.exists():
-            profile=DesignProfile.load(str(p))
-        elif not args.learn:
-            print(f"⚠  Profile not found: {p}")
-
-    print(f"Loading {img_path}  ({dpi} DPI)")
-    print(f"Output → {out_path}")
-    pil_img, cv_img=load_image(str(img_path))
-    print(f"Image: {pil_img.width}×{pil_img.height} px")
-
-    root=tk.Tk()
-    BallotMapperApp(root, pil_img, cv_img, dpi, str(out_path),
-                    profile=profile,
-                    learn_mode=args.learn,
-                    format_name=args.name)
+    args = parse_args()
+    root = tk.Tk()
+    app = MapperApp(root, args)
     root.mainloop()
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
