@@ -23,6 +23,26 @@ import java.util.List;
 
 @Repository
 public interface PrintLogRepository extends JpaRepository<PrintLog, Long> {
+
+    /**
+     * Returns only print logs whose BallotCombination still exists.
+     * SQLite does not enforce FK constraints so orphaned logs can accumulate
+     * when combinations or elections are deleted.
+     */
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT l FROM PrintLog l "
+        + "WHERE l.ballotCombination IS NOT NULL "
+        + "AND EXISTS (SELECT 1 FROM BallotCombination c WHERE c = l.ballotCombination)")
+    java.util.List<PrintLog> findAllWithValidCombination();
+
+    /** Delete all print logs linked to combinations of the given election. */
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Query(
+        "DELETE FROM PrintLog l WHERE l.ballotCombination.election = :election")
+    void deleteByElection(
+        @org.springframework.data.repository.query.Param("election")
+        gov.election.ballot.model.Election election);
     List<PrintLog> findByPrintedByIdOrderByPrintedAtDesc(Long userId);
     List<PrintLog> findByBallotCombinationIdOrderByPrintedAtDesc(Long combinationId);
 }

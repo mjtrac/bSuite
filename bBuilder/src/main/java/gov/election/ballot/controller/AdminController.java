@@ -50,7 +50,8 @@ public class AdminController {
     @GetMapping
     public String dashboard(Model model) {
         model.addAttribute("users",     userRepo.findAll());
-        model.addAttribute("printLogs", printLogRepo.findAll());
+        // Only show logs whose BallotCombination still exists in the DB
+        model.addAttribute("printLogs", printLogRepo.findAllWithValidCombination());
         return "admin/dashboard";
     }
 

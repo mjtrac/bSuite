@@ -55,13 +55,13 @@
       <p style="color:#8fa0c0;font-size:.82rem">No active ss.</p>
     </div>
     <nav>
-      <a th:if="${hasSession}" th:href="@{/scan}">▶ Continue Scanning</a>
+      <a th:if="${hasSession}" th:href="@{/scan}">▶ Continue Counting</a>
       <a th:if="${hasSession}" th:href="@{/report}">📊 View Report</a>
       <a th:if="${dbExists}"
          href="http://localhost:8082/viewer/"
          target="_blank"
          style="margin-top:.5rem;display:block;color:#7dd3fc">
-        🔍 View Scanned Ballots
+        🔍 View Counted Ballots
       </a>
       <a th:if="${dbExists}"
          th:href="@{/results}"
@@ -72,7 +72,7 @@
   </aside>
 
   <main class="main">
-    <h2>Scan Configuration</h2>
+    <h2>Count Configuration</h2>
 
     <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
@@ -163,7 +163,7 @@
       <!-- Adjusted YAML is always written alongside each image (no checkbox needed) -->
 
       <div class="btn-row">
-        <button type="submit" class="btn btn-primary">▶ Start Scanning</button>
+        <button type="submit" class="btn btn-primary">▶ Start Counting</button>
         <th:block th:if="${hasSession}">
           <a th:href="@{/scan}" class="btn btn-amber">Resume Current Session</a>
           <form method="post" th:action="@{/reset}" style="display:inline">
