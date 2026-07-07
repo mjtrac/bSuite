@@ -851,27 +851,26 @@ public class VoteTallyService {
         for (ScanResult sr : results) {
             if (sr.markings == null) continue;
 
-            // Collect write-in indicators where the marker oval is genuinely filled.
-            // Use a higher threshold (20%) than the standard darkPctMin to avoid
-            // extracting images for blank write-in slots whose oval border alone
-            // contributes ~8-9% darkness without any voter marking.
+            // Collect write-in indicators where there is evidence of voter activity:
+            //   1. Oval is marked (standard vote) - always capture
+            //   2. Oval has some darkness (> 2%) suggesting partial mark - capture for review
+            // Completely empty write-in slots (dark_pct ~0-1%) are skipped.
+            // This prevents capturing every write-in slot on every ballot.
             Map<Long, List<MarkingResult>> writeIns = new LinkedHashMap<>();
             for (MarkingResult mr : sr.markings) {
-                if (mr.writeIn && mr.marked) {  // use standard marking threshold
+                if (mr.writeIn && (mr.marked || mr.darkPct > 2.0)) {
                     Long key = mr.contestId != null ? mr.contestId : -1L;
                     writeIns.computeIfAbsent(key, k -> new ArrayList<>()).add(mr);
                 }
             }
             if (writeIns.isEmpty()) continue;
 
-            // Use full imagePath if available, else fall back to imageFolder + name
+            // Load image
             Path imgPath = (sr.imagePath != null && !sr.imagePath.isBlank())
                 ? Paths.get(sr.imagePath)
                 : Paths.get(imageFolder, sr.imageName);
-            // File may have been renamed to .counted after scanning
-            if (!Files.exists(imgPath)) {
+            if (!Files.exists(imgPath))
                 imgPath = Paths.get(imgPath.toString() + ".counted");
-            }
             if (!Files.exists(imgPath)) {
                 log.warn("Write-in: image not found: {}", imgPath);
                 continue;
@@ -879,7 +878,7 @@ public class VoteTallyService {
             BufferedImage img;
             try { img = ImageIO.read(imgPath.toFile()); }
             catch (IOException ex) {
-                log.warn("Write-in: cannot read" + imgPath + ": " + ex.getMessage());
+                log.warn("Write-in: cannot read {}: {}", imgPath, ex.getMessage());
                 continue;
             }
             if (img == null) continue;
@@ -895,8 +894,10 @@ public class VoteTallyService {
                 List<MarkingResult> wis = e.getValue();
                 for (int wi = 0; wi < wis.size(); wi++) {
                     String suffix = wis.size() > 1 ? "_" + (wi + 1) : "";
+                    String markedSuffix = wis.get(wi).marked ? "" : "_unvoted";
                     String outName = Paths.get(writeInsDir,
-                        "writein_" + stem + "_" + cid + suffix + "." + ext).toString();
+                        "writein_" + stem + "_" + cid + suffix
+                        + markedSuffix + "." + ext).toString();
                     saveWriteInRegion(img, wis.get(wi), dpi, outName, ext);
                 }
             }
@@ -905,22 +906,50 @@ public class VoteTallyService {
 
     private void saveWriteInRegion(BufferedImage img, MarkingResult mr,
                                    int dpi, String outName, String ext) {
-        // Capture the write-in area: start at the left of the oval, extend 3" to
-        // the right to include the write-in fill line, and capture 0.6" of height
-        // starting 2px ABOVE the indicator top so the full candidate row is visible.
-        int margin = Math.max(2, dpi / 150);   // ~2px above oval top
-        int x       = Math.max(0, mr.imageX);
-        int y       = Math.max(0, mr.imageY - margin);
-        int regionW = Math.min((int)(3.0 * dpi), img.getWidth()  - x);
-        int regionH = Math.min((int)(0.6 * dpi), img.getHeight() - y);
-        if (regionW <= 0 || regionH <= 0) return;
+        // Capture the write-in area: full column width, below the indicator.
+        //
+        // HORIZONTAL: use the contest column bounds stored on MarkingResult.
+        // If those are unavailable (legacy), fall back to estimating 3" from
+        // the indicator position toward the text side.
+        //
+        // VERTICAL: from the indicator top down ~0.85" to cover the indicator,
+        // the gap, and the write-in line below it.
+
+        int imgW = img.getWidth();
+        int imgH = img.getHeight();
+
+        int x, w;
+        if (mr.contestBoxImageLeft >= 0 && mr.contestBoxImageRight > mr.contestBoxImageLeft) {
+            // Use exact column bounds from YAML
+            x = Math.max(0, mr.contestBoxImageLeft);
+            w = Math.min(mr.contestBoxImageRight, imgW) - x;
+        } else {
+            // Fallback: infer column side from indicator position
+            boolean indOnRight = mr.imageX > imgW / 2;
+            int colWidthPx = (int)(3.0 * dpi);
+            int indW = Math.max(1, mr.width > 0 ? mr.width : (int)(0.25 * dpi));
+            if (indOnRight) {
+                int indRight = mr.imageX + indW;
+                x = Math.max(0, indRight - colWidthPx);
+                w = Math.min(indRight, imgW) - x;
+            } else {
+                x = Math.max(0, mr.imageX - (int)(0.1 * dpi));
+                w = Math.min(colWidthPx, imgW - x);
+            }
+        }
+
+        // Vertical: from indicator top down to below write-in line
+        int y = Math.max(0, mr.imageY);
+        int h = Math.min((int)(0.85 * dpi), imgH - y);
+
+        if (w <= 0 || h <= 0) return;
         try {
-            BufferedImage crop = img.getSubimage(x, y, regionW, regionH);
+            BufferedImage crop = img.getSubimage(x, y, w, h);
             String fmt = "jpeg".equals(ext) || "jpg".equals(ext) ? "JPEG" : "PNG";
             ImageIO.write(crop, fmt, new java.io.File(outName));
-            log.info("Write-in image saved:" + outName);
+            log.info("Write-in image saved: {} (marked={})", outName, mr.marked);
         } catch (Exception ex) {
-            log.warn("Write-in image failed (" + outName + "): " + ex.getMessage());
+            log.warn("Write-in image failed ({}): {}", outName, ex.getMessage());
         }
     }
 

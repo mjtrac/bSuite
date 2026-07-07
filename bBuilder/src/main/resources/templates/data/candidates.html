@@ -239,8 +239,7 @@
            th:unless="${contest.votingMethod != null
                         and contest.votingMethod.name() == 'MEASURE'}">
         <input type="checkbox" id="writeIn" name="writeIn" value="true"
-               th:checked="${candidate.writeIn}"
-               onchange="onWriteInChange(this)"/>
+               th:checked="${candidate.writeIn}"/>
         <label for="writeIn" style="font-weight:normal">
           Write-in slot
           <small>(pre-fills name as "Write-In" and adds a blank fill line on the ballot)</small>
@@ -254,44 +253,15 @@
            th:href="@{'/data/contests/' + ${contest.id} + '/candidates'}"
            class="btn btn-secondary">Cancel Edit</a>
         <button th:unless="${candidate.id != null}"
-                type="button" class="btn btn-secondary"
-                onclick="document.getElementById('candidateForm').reset()">Clear</button>
+                type="button" class="btn btn-secondary" data-action="clear">Clear</button>
       </div>
     </form>
   </div>
 
 </main>
-<script>
-function onWriteInChange(cb) {
-  var f = document.getElementById('printableName');
-  if (cb.checked) { f.value = 'Write-In'; f.readOnly = true; }
-  else { if (f.value === 'Write-In') f.value = ''; f.readOnly = false; }
-}
-</script>
 <style>
 tr.row-editing td { background: #fffbe6; }
 </style>
-<script>
-function syncRecordName() {
-  var pn = document.getElementById('printableName');
-  var rn = document.getElementById('recordName');
-  if (pn && rn && rn.value.trim() === '') {
-    rn.value = pn.value;
-  }
-}
-window.addEventListener('DOMContentLoaded', function () {
-  var pn = document.getElementById('printableName');
-  var rn = document.getElementById('recordName');
-  if (pn && rn && rn.value.trim() === '' && pn.value.trim() !== '') {
-    rn.value = pn.value;
-  }
-  // Keep existing write-in lock logic
-  var wi = document.getElementById('writeIn');
-  if (wi && wi.checked) {
-    var f = document.getElementById('printableName');
-    if (f) f.readOnly = true;
-  }
-});
-</script>
+<script th:src="@{/js/candidates.js}"></script>
 </body>
 </html>

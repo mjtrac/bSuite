@@ -91,9 +91,6 @@ public class ScanController {
 
     // ── Configuration form ─────────────────────────────────────────────────────
 
-    @org.springframework.beans.factory.annotation.Value("${data.database.dir:${user.home}/bSuite_data/db}")
-    private String databaseDir;
-
     @GetMapping("/")
     public String index(HttpSession httpSession, Model model) {
         ScanSession session = getOrCreate(httpSession);
@@ -101,7 +98,7 @@ public class ScanController {
         model.addAttribute("hasSession", session.isStarted());
         // Show viewer link if a previous scan DB exists
         java.nio.file.Path dbPath = java.nio.file.Paths.get(
-            databaseDir, "counter_results.db");
+            System.getProperty("user.dir"), "counter_results.db");
         model.addAttribute("dbExists", java.nio.file.Files.exists(dbPath));
         model.addAttribute("viewerUrl", "http://localhost:${viewer.server.port:8082}/viewer/");
         return "index";
@@ -363,16 +360,27 @@ public class ScanController {
                     int idx = nextIndex.getAndIncrement();
                     if (idx >= total) break;
                     Path imagePath = session.imageQueue.get(idx);
+                    // Atomically advance submittedCount to at least idx+1 so the
+                    // /progress UI counter updates immediately when this image is
+                    // picked up, not only when the writer loop commits it to the DB.
+                    session.submittedCount.updateAndGet(v -> Math.max(v, idx + 1));
                     try {
                         ScanResult result = scanner.scanOne(imagePath, session);
                         completedQueue.add(new Object[]{imagePath, result, idx});
                     } catch (java.util.ConcurrentModificationException cme) {
                         // Transient race from concurrent access to shared layout data.
-                        // Queue for a same-pass re-scan once worker contention clears,
-                        // rather than immediately flagging for manual review.
+                        // Queue for a same-pass re-scan once worker contention clears.
+                        // IMPORTANT: still add a placeholder to completedQueue so the
+                        // writer loop can advance its count — otherwise the writer spins
+                        // forever waiting for an item that will never arrive.
                         log.warn("CME scanning " + imagePath.getFileName()
                             + " — queuing for re-scan after main pass", cme);
                         scanRetryList.add(new Object[]{imagePath, idx});
+                        ScanResult placeholder = new ScanResult();
+                        placeholder.imagePath  = imagePath.toString();
+                        placeholder.imageName  = imagePath.getFileName().toString();
+                        placeholder.errorMessage = "CME_RETRY";   // writer skips persist
+                        completedQueue.add(new Object[]{imagePath, placeholder, idx});
                     } catch (Exception e) {
                         String msg = e.getMessage() != null ? e.getMessage()
                                    : e.getClass().getSimpleName();
@@ -409,16 +417,20 @@ public class ScanController {
                 auditLog.log("SCAN", username, imageName);
 
                 try {
-                    gov.election.counter.service.CornerDetectionService.Point2D[] corners = null;
+                    gov.election.counter.service.Point2D[] corners = null;
                     if (result.cornersFound) {
-                        corners = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                        corners = new gov.election.counter.service.Point2D[]{
+                            new gov.election.counter.service.Point2D(result.bboxTLx, result.bboxTLy),
+                            new gov.election.counter.service.Point2D(result.bboxTRx, result.bboxTRy),
+                            new gov.election.counter.service.Point2D(result.bboxBRx, result.bboxBRy),
+                            new gov.election.counter.service.Point2D(result.bboxBLx, result.bboxBLy),
                         };
                     }
                     if (result.errorMessage != null) {
+                        if ("CME_RETRY".equals(result.errorMessage)) {
+                            // Placeholder for CME — actual re-scan handled in scanRetryList below
+                            log.debug("Writer: skipping CME placeholder for {}", imageName);
+                        } else {
                         session.reviewRequired.add(imagePath.toAbsolutePath().toString()
                             + " — " + result.errorMessage);
                         log.warn("Flagged for review: " + imageName
@@ -448,6 +460,7 @@ public class ScanController {
                                 + "). Fix the issue and rescan uncounted images.";
                             session.stopRequested = true;
                         }
+                        }   // end else (not CME_RETRY)
                     } else {
                         var pStatus = voteRecord.persist(result, imagePath, session.threshold,
                             corners, result.contentAreaWidth, result.contentAreaHeight,
@@ -497,13 +510,13 @@ public class ScanController {
                     Path retryPath = (Path) retryItem[0];
                     ScanResult retryResult = (ScanResult) retryItem[1];
                     try {
-                        gov.election.counter.service.CornerDetectionService.Point2D[] rc = null;
+                        gov.election.counter.service.Point2D[] rc = null;
                         if (retryResult.cornersFound) {
-                            rc = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxTLx, retryResult.bboxTLy),
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxTRx, retryResult.bboxTRy),
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxBRx, retryResult.bboxBRy),
-                                new gov.election.counter.service.CornerDetectionService.Point2D(retryResult.bboxBLx, retryResult.bboxBLy),
+                            rc = new gov.election.counter.service.Point2D[]{
+                                new gov.election.counter.service.Point2D(retryResult.bboxTLx, retryResult.bboxTLy),
+                                new gov.election.counter.service.Point2D(retryResult.bboxTRx, retryResult.bboxTRy),
+                                new gov.election.counter.service.Point2D(retryResult.bboxBRx, retryResult.bboxBRy),
+                                new gov.election.counter.service.Point2D(retryResult.bboxBLx, retryResult.bboxBLy),
                             };
                         }
                         var retryStatus = voteRecord.persist(
@@ -524,13 +537,20 @@ public class ScanController {
                     }
                 }
             }
-            // Pass complete — outer loop will check for new files
-            // Wait for all workers to finish, then drain any remaining items
-            for (Future<?> f : futures) {
-                try { f.get(); } catch (Exception ignored) {}
+            // Pass complete — wait for all workers to finish, then drain.
+            // Each future gets a 60-second timeout — a hung worker must not
+            // block the tally permanently. If a worker times out it is
+            // cancelled and its image (if any) will appear uncounted.
+            for (int fi = 0; fi < futures.size(); fi++) {
+                Future<?> f = futures.get(fi);
+                try {
+                    f.get(60, java.util.concurrent.TimeUnit.SECONDS);
+                } catch (java.util.concurrent.TimeoutException te) {
+                    log.error("Worker thread {} timed out after 60s — cancelling. "
+                        + "One image may be uncounted.", fi);
+                    f.cancel(true);
+                } catch (Exception ignored) {}
             }
-
-            // ── Re-scan images that hit a transient ConcurrentModificationException ──
             // All worker threads are now idle (joined above), so whatever shared
             // state caused the race is no longer being mutated concurrently.
             // Re-scan single-threaded on this (background) thread, then persist
@@ -576,13 +596,13 @@ public class ScanController {
                         }
                     } else {
                         try {
-                            gov.election.counter.service.CornerDetectionService.Point2D[] rc = null;
+                            gov.election.counter.service.Point2D[] rc = null;
                             if (result.cornersFound) {
-                                rc = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
-                                    new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                                rc = new gov.election.counter.service.Point2D[]{
+                                    new gov.election.counter.service.Point2D(result.bboxTLx, result.bboxTLy),
+                                    new gov.election.counter.service.Point2D(result.bboxTRx, result.bboxTRy),
+                                    new gov.election.counter.service.Point2D(result.bboxBRx, result.bboxBRy),
+                                    new gov.election.counter.service.Point2D(result.bboxBLx, result.bboxBLy),
                                 };
                             }
                             voteRecord.persist(result, retryPath, session.threshold,
@@ -609,13 +629,13 @@ public class ScanController {
                 auditLog.log("SCAN", username, imageName);
                 log.warn("Late-arriving result processed in drain: {}", imageName);
                 try {
-                    gov.election.counter.service.CornerDetectionService.Point2D[] corners = null;
+                    gov.election.counter.service.Point2D[] corners = null;
                     if (result.cornersFound) {
-                        corners = new gov.election.counter.service.CornerDetectionService.Point2D[]{
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTLx, result.bboxTLy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxTRx, result.bboxTRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBRx, result.bboxBRy),
-                            new gov.election.counter.service.CornerDetectionService.Point2D(result.bboxBLx, result.bboxBLy),
+                        corners = new gov.election.counter.service.Point2D[]{
+                            new gov.election.counter.service.Point2D(result.bboxTLx, result.bboxTLy),
+                            new gov.election.counter.service.Point2D(result.bboxTRx, result.bboxTRy),
+                            new gov.election.counter.service.Point2D(result.bboxBRx, result.bboxBRy),
+                            new gov.election.counter.service.Point2D(result.bboxBLx, result.bboxBLy),
                         };
                     }
                     voteRecord.persist(result, imagePath, session.threshold,

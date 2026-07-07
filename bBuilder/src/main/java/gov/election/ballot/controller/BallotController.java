@@ -53,13 +53,24 @@ public class BallotController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','PRINTER')")
     public String printForm(Model model) {
-        model.addAttribute("combinations", combinationRepo.findAll());
-        var allJurisdictions = combinationRepo.findAll().stream()
+        // Filter out any combinations whose election was deleted (orphaned rows)
+        var allCombos = combinationRepo.findAll().stream()
+            .filter(c -> c.getElection() != null)
+            .toList();
+        model.addAttribute("combinations", allCombos);
+
+        if (allCombos.isEmpty()) {
+            model.addAttribute("info",
+                "No ballot combinations are available. " +
+                "Create an election and ballot combination first.");
+            return "print/form";
+        }
+
+        allCombos.stream()
             .map(c -> c.getElection().getJurisdiction())
             .filter(j -> j != null)
-            .findFirst();
-        allJurisdictions.ifPresent(j ->
-            model.addAttribute("languages",
+            .findFirst()
+            .ifPresent(j -> model.addAttribute("languages",
                 langRepo.findByJurisdictionIdOrderByDisplayOrderAsc(j.getId())));
         return "print/form";
     }

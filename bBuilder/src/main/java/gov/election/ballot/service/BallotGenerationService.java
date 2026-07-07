@@ -84,7 +84,7 @@ public class BallotGenerationService {
     private final ExportService            exportService;
     private final BallotTranslationService translationService;
 
-    @Value("${ballot.export.dir:${user.home}/bBuilder_ballots}")
+    @Value("${ballot.export.dir:${user.home}/bSuite_data/ballot_templates}")
     private String exportDir;
 
     @Value("${ballot.export.format:yaml}")
@@ -108,6 +108,10 @@ public class BallotGenerationService {
     private static final float OVAL_WIDTH      = 22f;
     private static final float OVAL_HEIGHT     = 11f;
     private static final float ARROW_WIDTH     = 30f;
+    /** Total width of the connect-dots indicator (both markers + gap between points). */
+    private static final float CONNECT_DOTS_WIDTH  = 40f;
+    /** Radius of the circular half of each marker (4pt diameter). */
+    private static final float CONNECT_DOTS_DOT_R  = 2f;
     private static final float HEADER_ZONE_PT  = 90f;
     private static final float CBOX_INDENT     = 4f;
     private static final float LINE_GAP        = 2f;
@@ -118,8 +122,13 @@ public class BallotGenerationService {
     private static final float FIRST_RANK_BOX_W     = 22f;
     /** Width of subsequent (lower priority) rank boxes. */
     private static final float OTHER_RANK_BOX_W     = 12f;
-    /** Gap between rank boxes. */
-    private static final float RANK_BOX_GAP         = 3f;
+    /** Gap between consecutive rank boxes. */
+    private static final float RANK_BOX_GAP         = 5f;
+    /** Extra gap between rank-1 (wide) box and rank-2 (narrow), to visually
+     *  separate the first-choice box from the rest. */
+    private static final float RANK_BOX_GAP_AFTER_1 = 8f;
+    /** Minimum gap between indicators and column border on either side. */
+    private static final float IND_BORDER_GAP       = 4f;
 
     // Corner registration marks — placed directly above/below the bbox.
     // TL mark is a rectangle (wider) to identify orientation; others are squares.
@@ -146,21 +155,32 @@ public class BallotGenerationService {
                                   User user,
                                   int copies,
                                   String languageCode) throws Exception {
-        this._currentTranslator = translationService.forLanguage(
+        BallotTranslationService.Translator tr = translationService.forLanguage(
             languageCode != null ? languageCode : "en");
+        _translator.set(tr);
+        _template.set(template);
         try {
             return generateBallotCore(combination, template, user, copies);
         } finally {
-            this._currentTranslator = null;
+            _translator.remove();
+            _template.remove();
         }
     }
 
-    /** Active translator for the current generateBallot call (thread-safe via Spring prototype or single-thread use). */
-    private BallotTranslationService.Translator _currentTranslator;
+    /**
+     * ThreadLocal storage for per-call state.
+     * Using ThreadLocal rather than instance fields ensures that concurrent
+     * calls to generateBallot() from different HTTP threads cannot corrupt
+     * each other's translator or template — each thread has its own copy.
+     */
+    private static final ThreadLocal<BallotTranslationService.Translator>
+        _translator = new ThreadLocal<>();
+    private static final ThreadLocal<BallotDesignTemplate>
+        _template   = new ThreadLocal<>();
 
     private BallotTranslationService.Translator tx() {
-        return _currentTranslator != null ? _currentTranslator
-               : translationService.forLanguage("en");
+        BallotTranslationService.Translator t = _translator.get();
+        return t != null ? t : translationService.forLanguage("en");
     }
 
     private byte[] generateBallotCore(BallotCombination combination,
@@ -172,6 +192,8 @@ public class BallotGenerationService {
             throw new IllegalArgumentException(
                 "combination, template, and user must not be null");
 
+        _template.set(template);
+
         List<Contest> contests = assignmentService.resolveContestsForPrecinct(
             combination.getRegion().getId(),
             combination.getElection().getId());
@@ -182,7 +204,7 @@ public class BallotGenerationService {
         // Scaled whitespace
         float aboveGroupLabel  = template.getGroupingLabelFontSize() * 0.8f;
         float belowGroupLabel  = template.getGroupingLabelFontSize() * 0.4f;
-        float interContestGap  = template.getContestTitleFontSize()  * 0.9f;
+        float interContestGap  = Math.max(4f, template.getContestTitleFontSize() * 0.9f);
         float wrappedLineExtra = template.getCandidateNameFontSize()  * 0.25f;
         float rowSpacing       = template.getCandidateNameFontSize()  + OVAL_HEIGHT + 2f;
 
@@ -306,7 +328,8 @@ public class BallotGenerationService {
                     currentY = drawWrappedText(canvas,
                         contest.getGroupingLabel(), textWidth,
                         font(template.isGroupingLabelBold(),
-                             template.isGroupingLabelItalic()),
+                             template.isGroupingLabelItalic(),
+                             template.isGroupingLabelAltFont()),
                         template.getGroupingLabelFontSize(),
                         currentX + CBOX_INDENT, currentY);
                     currentY -= belowGroupLabel;
@@ -314,12 +337,40 @@ public class BallotGenerationService {
                     drawnBottom   = currentY;
                 }
 
+                // ── Contest box top — determined BEFORE any content is drawn ─
+                // The grouping label (if any) is outside the box; contestStartY
+                // is already updated past it.
+                //
+                // PDF text coordinates: moveText(x, y) places the BASELINE at y.
+                // The visible cap-height of the font extends approximately
+                // fontSize * 0.75 ABOVE the baseline.
+                //
+                // So to place the first title line fully inside the box:
+                //   cboxT = top border (at contestStartY)
+                //   title baseline = cboxT - CBOX_TOP_PAD - titleFontSize * 0.75
+                //                  (pad above caps + cap height itself)
+                final float CBOX_TOP_PAD    = 3f;
+                final float CBOX_BOTTOM_PAD = 4f;
+                float titleFontSize = template.getContestTitleFontSize();
+                // Use actual font ascender (distance from baseline to cap-top)
+                // rather than the approximate 0.75 factor, so indicator Y positions
+                // in the YAML are not shifted by approximation error.
+                PdfFont titleFont = font(template.isContestTitleBold(),
+                                         template.isContestTitleItalic(),
+                                         template.isContestTitleAltFont());
+                float titleAscender = titleFont.getFontProgram().getFontMetrics()
+                                          .getTypoAscender() * titleFontSize / 1000f;
+                float cboxT  = contestStartY;
+                currentY     = cboxT - CBOX_TOP_PAD - titleAscender;
+                drawnBottom  = currentY;
+
                 // ── Contest title ─────────────────────────────────────────
                 canvas.setFillColor(ColorConstants.BLACK)
                       .setStrokeColor(ColorConstants.BLACK);
                 currentY = drawWrappedText(canvas,
                     contest.getTitle(), textWidth,
-                    font(template.isContestTitleBold(), template.isContestTitleItalic()),
+                    font(template.isContestTitleBold(), template.isContestTitleItalic(),
+                    template.isContestTitleAltFont()),
                     template.getContestTitleFontSize(),
                     currentX + CBOX_INDENT, currentY);
                 drawnBottom = currentY;
@@ -332,7 +383,8 @@ public class BallotGenerationService {
                     : buildInstruction(contest);
                 currentY = drawWrappedText(canvas,
                     instrText, textWidth,
-                    font(template.isInstructionBold(), template.isInstructionItalic()),
+                    font(template.isInstructionBold(), template.isInstructionItalic(),
+                    template.isInstructionAltFont()),
                     template.getInstructionFontSize(),
                     currentX + CBOX_INDENT, currentY - LINE_GAP);
                 drawnBottom = currentY;
@@ -343,7 +395,8 @@ public class BallotGenerationService {
                         !contest.getPreamble().isBlank()) {
                     currentY = drawWrappedText(canvas,
                         contest.getPreamble(), textWidth,
-                        font(template.isPreambleBold(), template.isPreambleItalic()),
+                        font(template.isPreambleBold(), template.isPreambleItalic(),
+                        template.isPreambleAltFont()),
                         template.getPreambleFontSize(),
                         currentX + CBOX_INDENT, currentY - LINE_GAP);
                     drawnBottom = currentY;
@@ -351,18 +404,63 @@ public class BallotGenerationService {
 
                 // ── Candidates ────────────────────────────────────────────
                 float indW  = effectiveIndicatorWidth(template, contest);
-                float nameW = textWidth - indW - 4f;
+                // nameW: available width for candidate name.
+                // In indRight mode, leave IND_BORDER_GAP on the right between
+                // the last indicator and the column border.
+                // In default mode, leave IND_BORDER_GAP on the left so indicators
+                // don't butt against the left column border.
+                float borderGap = IND_BORDER_GAP;
+                float nameW = textWidth - indW - 4f - borderGap;
+                // indicatorsRight applies to ALL contest types (not just RCV)
+                boolean indRight = template.isRcvIndicatorsRight();
+
+                // When rank numbers are shown, reserve space above the first
+                // candidate row for the labels: labelFontSize + 4pt gap below them.
+                // This shifts the ENTIRE first row (indicators + name) down together
+                // so they remain vertically aligned with each other.
+                final float RCV_LABEL_GAP = 4f;
+                boolean firstCandidate = true;
 
                 for (Candidate candidate : contest.getCandidates()) {
+                    // For the first RCV candidate with rank numbers, push the row
+                    // down to make room for labels above the indicators.
+                    if (isRankedChoice && firstCandidate
+                            && template.isRcvShowRankNumbers()) {
+                        currentY -= template.getRcvRankNumberFontPt() + RCV_LABEL_GAP;
+                    }
+
                     float targetX = currentX + CBOX_INDENT + 2f;
                     float targetY = currentY - OVAL_HEIGHT;
+
+                    // ── Compute x positions for indicator and name ──────────
+                    float indX, nameX;
+                    if (indRight) {
+                        // Indicators to the right, name left.
+                        // Leave borderGap between last indicator and right column border.
+                        indX  = targetX + nameW + 4f;
+                        nameX = targetX;
+                    } else {
+                        // Indicators left, name right. Leave borderGap on left side.
+                        indX  = targetX + borderGap;
+                        nameX = indX + indW + 4f;
+                    }
 
                     canvas.setFillColor(ColorConstants.BLACK)
                           .setStrokeColor(ColorConstants.BLACK);
                     float drawnIndW = drawEffectiveVoteTarget(canvas, template, contest,
-                                                               targetX, targetY);
+                                                               indX, targetY);
 
-                    float nameX = targetX + drawnIndW + 4f;
+                    // ── Rank-number labels above first candidate's boxes ────
+                    if (isRankedChoice && firstCandidate
+                            && template.isRcvShowRankNumbers()) {
+                        try {
+                            drawRankNumberLabels(canvas, template, contest,
+                                                 indX, targetY);
+                        } catch (Exception e) {
+                            log.warn("Could not draw rank number labels: {}", e.getMessage());
+                        }
+                    }
+                    firstCandidate = false;
                     float fontSize = template.getCandidateNameFontSize();
 
                     // Build name string (write-in candidates show name only; line drawn below)
@@ -376,61 +474,73 @@ public class BallotGenerationService {
                              && candidate.getExplanatoryText() != null
                              && !candidate.getExplanatoryText().isBlank());
 
-                    // For single-line candidates with no note: vertically centre
-                    // the text baseline within the oval height.
-                    // Oval occupies targetY to targetY+OVAL_HEIGHT.
-                    // Font baseline visually sits ~0.25*fontSize below cap-top.
-                    // Centre: oval_midY + fontSize*0.25
                     float nameY;
                     if (singleNoNote) {
                         float ovalMidY = targetY + OVAL_HEIGHT / 2f;
-                        // Baseline sits ~0.7 of cap-height above the visual glyph centre.
-                        // Subtract 0.15*fontSize so the visual centre of the text
-                        // aligns with the oval centre rather than riding above it.
                         nameY = ovalMidY - fontSize * 0.15f;
                     } else {
                         nameY = currentY - 2f;
                     }
 
                     PdfFont candFont = font(template.isCandidateNameBold(),
-                                           template.isCandidateNameItalic());
+                                           template.isCandidateNameItalic(),
+                                           template.isCandidateNameAltFont());
                     for (int li = 0; li < nameLines.size(); li++) {
                         float lineY = nameY - li * (fontSize + LINE_GAP);
+                        float lineX;
+                        if (indRight) {
+                            // Pixel-perfect right-justify using iText font metrics.
+                            // getWidth() returns width in text space units (1/1000 of fontSize).
+                            float lineW = candFont.getWidth(nameLines.get(li), fontSize);
+                            lineW = Math.min(lineW, nameW - 2f);
+                            lineX = targetX + nameW - lineW - 2f;
+                        } else {
+                            lineX = nameX;
+                        }
                         canvas.setFillColor(ColorConstants.BLACK)
                               .beginText()
                               .setFontAndSize(candFont, fontSize)
-                              .moveText(nameX, lineY)
+                              .moveText(lineX, lineY)
                               .showText(nameLines.get(li))
                               .endText();
                         drawnBottom = Math.min(drawnBottom, lineY);
                     }
 
                     float nameTotalH = nameLines.size() * (fontSize + LINE_GAP);
-                    float extraGap = nameLines.size() > 1 ? wrappedLineExtra : 0f;
+                    float extraGap   = nameLines.size() > 1 ? wrappedLineExtra : 0f;
+                    // For RCV contests: when name wraps, add extra spacing so indicators
+                    // don't crowd the next candidate's row
+                    if (isRankedChoice && nameLines.size() > 1) extraGap += 2f;
                     currentY -= Math.max(rowSpacing, nameTotalH) + extraGap;
 
                     // ── Explanatory note (just below name, before next row) ───
                     if (candidate.isPrintExplanatoryText() &&
                             candidate.getExplanatoryText() != null &&
                             !candidate.getExplanatoryText().isBlank()) {
-                        // Start note just below the bottom name line
                         float noteStartY = nameY - nameTotalH + LINE_GAP * 0.5f;
+                        float noteX = indRight ? targetX : nameX;
                         currentY = drawWrappedText(canvas,
                             candidate.getExplanatoryText(), nameW,
                             font(template.isCandidateNoteBold(),
-                                 template.isCandidateNoteItalic()),
+                                 template.isCandidateNoteItalic(),
+                                 template.isCandidateNoteAltFont()),
                             template.getCandidateNoteFontSize(),
-                            nameX, noteStartY);
-                        // Add extra gap after a note so the next candidate stands apart
+                            noteX, noteStartY, indRight);
                         currentY -= template.getCandidateNoteFontSize() * 0.5f;
                         drawnBottom = currentY;
                     }
 
                     // ── Write-in line (below the candidate name row) ──────────
+                    // Add one full row of spacing between the "Write-In:" label
+                    // and the write line, matching the inter-candidate gap.
+                    // The line is centered in the full text column width.
                     if (candidate.isWriteIn()) {
-                        float lineY = currentY + fontSize * 0.5f;
-                        float lineLeft  = nameX;
-                        float lineRight = nameX + nameW - 10f;
+                        currentY -= rowSpacing;   // extra gap matching inter-candidate spacing
+                        float lineY      = currentY + fontSize * 0.5f;
+                        float lineLen    = textWidth * 0.65f;   // 65% of column width
+                        float colCentreX = currentX + CBOX_INDENT + textWidth / 2f;
+                        float lineLeft   = colCentreX - lineLen / 2f;
+                        float lineRight  = colCentreX + lineLen / 2f;
                         canvas.setStrokeColor(ColorConstants.BLACK).setLineWidth(0.5f)
                               .moveTo(lineLeft, lineY)
                               .lineTo(lineRight, lineY).stroke();
@@ -444,19 +554,13 @@ public class BallotGenerationService {
                     // For ranked-choice contests, each rank box gets its own entry.
                     // For other indicator styles, one entry covers the whole indicator.
                     if (contest.getVotingMethod() == Contest.VotingMethod.RANKED_CHOICE) {
-                        // Record each rank box individually.
-                        // Rank boxes are drawn left-to-right: rank N (narrow) down to rank 1 (wide).
-                        // offsetTop is from the content-box upper-left to the TOP of the box:
-                        //   pageBbTop - (targetY + OVAL_HEIGHT)
-                        // because targetY is the BOTTOM of the box in PDF coords (Y increases upward).
-                        // Record each rank box with a 3pt inset on each side
-                        // (matching the oval/checkbox inset) so sampling is well inside
-                        // the stroke border of the rank box.
-                        final float RANK_INSET_X = 2f;  // 1pt less than y-inset to align left edge
+                        final float RANK_INSET_X = 2f;
                         final float RANK_INSET_Y = 3f;
                         int n = rankBoxCount(contest);
-                        float rankX = targetX;
-                        for (int rank = n; rank >= 1; rank--) {
+                        float rankX = indX;
+                        // Iterate in draw order: indRight → rank 1,2…N; else → rank N…1
+                        for (int i = 0; i < n; i++) {
+                            int rank = indRight ? (i + 1) : (n - i);
                             float bw = (rank == 1) ? FIRST_RANK_BOX_W : OTHER_RANK_BOX_W;
                             double rLeft = MeasurementUtil.ptToInches(rankX + RANK_INSET_X);
                             double rTop  = MeasurementUtil.ptToInches(ph - (targetY + OVAL_HEIGHT - RANK_INSET_Y));
@@ -468,22 +572,59 @@ public class BallotGenerationService {
                                 candidate.isWriteIn(),
                                 rLeft, rTop, rW, rH,
                                 template.getVoteIndicatorStyle().name()));
-                            rankX += bw + RANK_BOX_GAP;
+                            rankX += bw + (indRight ? (rank == 1 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP)
+                                                     : (rank == 2 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP));
                         }
+                    } else if (template.getVoteIndicatorStyle()
+                            == BallotDesignTemplate.VoteIndicatorStyle.CONNECT_DOTS) {
+                        // CONNECT_DOTS: sample the center 10% of the gap between
+                        // the inner ends of the two leader lines.
+                        // Both dots shift inward by SHIFT=9pt; leaders extend 9pt inward.
+                        // Leader inner ends:
+                        //   left:  indX + 2r + SHIFT + LINE
+                        //   right: indX + WIDTH - 2r - SHIFT - LINE
+                        final float r     = CONNECT_DOTS_DOT_R;
+                        final float SHIFT = 8f;
+                        final float LINE  = 2f;
+                        float lLeaderEnd = indX + 2 * r + SHIFT + LINE;
+                        float rLeaderEnd = indX + CONNECT_DOTS_WIDTH - 2 * r - SHIFT - LINE;
+                        float gapW    = rLeaderEnd - lLeaderEnd;
+                        float sampleW = Math.max(2f, gapW * 0.10f);
+                        float sampleX = lLeaderEnd + (gapW - sampleW) / 2f;
+                        final float INDICATOR_INSET_START = 3f;
+                        final float INDICATOR_INSET_END   = 3f;
+                        // Vertical: use only 1pt inset top/bottom so the sampling
+                        // zone is tall enough to catch voter lines drawn up to 4pt
+                        // above or below the dot midline.
+                        // Zone height = OVAL_HEIGHT - 2pt = 9pt → ±4.5pt from midY.
+                        final float CD_V_INSET = 1f;
+                        double cdOffLeft = MeasurementUtil.ptToInches(sampleX);
+                        double cdOffTop  = MeasurementUtil.ptToInches(
+                            ph - (targetY + OVAL_HEIGHT - CD_V_INSET));
+                        double cdW_in    = MeasurementUtil.ptToInches(sampleW);
+                        double cdH_in    = MeasurementUtil.ptToInches(
+                            OVAL_HEIGHT - 2 * CD_V_INSET);
+                        candPositions.add(new BallotDimensions.CandidatePosition(
+                            candidate.getId(), candidate.getRecordName(),
+                            candidate.isWriteIn(),
+                            cdOffLeft, cdOffTop, cdW_in, cdH_in,
+                            "CONNECT_DOTS"));
                     } else {
-                        // offsetTop = distance from content-box upper-left to TOP of indicator.
-                        // targetY is the bottom edge in PDF coords; top = targetY + OVAL_HEIGHT.
-                        // Record the indicator position with a 3pt inset on each side.
-                        // The 1pt stroke of an oval contributes ~12% darkness by itself
-                        // (stroke pixels ≈ circumference * strokeWidth / area).
-                        // A 3pt inset clears the 0.5pt inner stroke edge with 2.5pt margin,
-                        // ensuring sampling is well inside the oval interior only.
-                        final float INDICATOR_INSET_START = 2f;  // left/top: 2pt inset
-                        final float INDICATOR_INSET_END   = 3f;  // right/bottom: 3pt inset
-                        double indOffLeft = MeasurementUtil.ptToInches(targetX     + INDICATOR_INSET_START);
-                        double indOffTop  = MeasurementUtil.ptToInches(ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
-                        double indW_in    = MeasurementUtil.ptToInches(drawnIndW   - INDICATOR_INSET_START - INDICATOR_INSET_END);
-                        double indH_in    = MeasurementUtil.ptToInches(OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
+                        // Inset the sampling region from the oval border on all sides.
+                        // INSET_START applies to the left edge and top edge.
+                        // INSET_END applies to the right edge and bottom edge.
+                        // At 300 DPI, 1pt = 4.17px. The oval stroke is 0.5pt (~2px).
+                        // 3pt inset gives ~1pt clearance beyond the stroke on top/left.
+                        final float INDICATOR_INSET_START = 3f;
+                        final float INDICATOR_INSET_END   = 3f;
+                        double indOffLeft = MeasurementUtil.ptToInches(
+                            indX + INDICATOR_INSET_START);
+                        double indOffTop  = MeasurementUtil.ptToInches(
+                            ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
+                        double indW_in    = MeasurementUtil.ptToInches(
+                            drawnIndW - INDICATOR_INSET_START - INDICATOR_INSET_END);
+                        double indH_in    = MeasurementUtil.ptToInches(
+                            OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
                         candPositions.add(new BallotDimensions.CandidatePosition(
                             candidate.getId(), candidate.getRecordName(),
                             candidate.isWriteIn(),
@@ -498,17 +639,19 @@ public class BallotGenerationService {
                         !contest.getPostamble().isBlank()) {
                     currentY = drawWrappedText(canvas,
                         contest.getPostamble(), textWidth,
-                        font(template.isPostambleBold(), template.isPostambleItalic()),
+                        font(template.isPostambleBold(), template.isPostambleItalic(),
+                        template.isPostambleAltFont()),
                         template.getPostambleFontSize(),
                         currentX + CBOX_INDENT, currentY - LINE_GAP);
                     drawnBottom = currentY;
                 }
 
                 // ── Contest bounding box ──────────────────────────────────
+                // cboxT was set before content was drawn; cboxB computed from
+                // the lowest drawn element with bottom padding.
                 float cboxL = currentX;
                 float cboxR = currentX + colWidth - 8f;
-                float cboxT = contestStartY + template.getContestTitleFontSize();
-                float cboxB = drawnBottom - LINE_GAP;
+                float cboxB = drawnBottom - CBOX_BOTTOM_PAD;
                 canvas.setStrokeColor(ColorConstants.BLACK).setLineWidth(0.75f)
                       .rectangle(cboxL, cboxB, cboxR - cboxL, cboxT - cboxB).stroke();
 
@@ -652,7 +795,9 @@ public class BallotGenerationService {
     private float rankedChoiceIndicatorWidth(Contest contest) {
         int n = rankBoxCount(contest);
         if (n <= 0) return FIRST_RANK_BOX_W;
-        return FIRST_RANK_BOX_W + (n - 1) * (OTHER_RANK_BOX_W + RANK_BOX_GAP);
+        // rank-1 box + extra gap + (n-1) other boxes with standard gaps
+        return FIRST_RANK_BOX_W + RANK_BOX_GAP_AFTER_1
+             + (n - 1) * (OTHER_RANK_BOX_W + RANK_BOX_GAP);
     }
 
     /**
@@ -675,39 +820,117 @@ public class BallotGenerationService {
                                            Contest contest,
                                            float x, float y) {
         if (contest.getVotingMethod() == Contest.VotingMethod.RANKED_CHOICE) {
-            return drawRankedChoiceBoxes(canvas, contest, x, y);
+            return drawRankedChoiceBoxes(canvas, tmpl, contest, x, y);
         }
-        drawVoteTarget(canvas, tmpl.getVoteIndicatorStyle(), contest, x, y);
+        drawVoteTarget(canvas, tmpl.getVoteIndicatorStyle(), contest, x, y, false);
         return indicatorWidth(tmpl.getVoteIndicatorStyle(), contest);
     }
 
     /**
      * Draws ranked-choice rank boxes for one candidate row.
-     * The widest box (rank 1 = first choice) is drawn RIGHTMOST, closest to
-     * the candidate name.  Lower-priority ranks are drawn to the left, narrower.
      *
-     * Layout (left to right, widths not to scale):
-     *   [ 5 ] [ 4 ] [ 3 ] [ 2 ] [  1  ]   candidate name →
-     *   nar    nar   nar   nar   wide
+     * DEFAULT layout (rcvIndicatorsRight=false):
+     *   [ N ]…[ 2 ][  1  ]  Candidate Name
+     *   rank-1 (widest) is rightmost, closest to the name.
      *
-     * Returns the total width drawn.
+     * RIGHT-SIDE layout (rcvIndicatorsRight=true):
+     *   Candidate Name  [  1  ][ 2 ]…[ N ]
+     *   rank-1 (widest) is leftmost, still closest to the name.
+     *   In this mode x is the LEFT edge of the indicator group
+     *   (caller has already placed it to the right of the name).
+     *
+     * Returns the total width drawn (pts).
      */
-    private float drawRankedChoiceBoxes(PdfCanvas canvas, Contest contest,
+    private float drawRankedChoiceBoxes(PdfCanvas canvas,
+                                         BallotDesignTemplate tmpl,
+                                         Contest contest,
                                          float x, float y) {
-        // Boxes drawn left-to-right: narrow (lower ranks) first, wide (rank 1) last.
-        // The widest box is rightmost, closest to the candidate name.
-        // Layout:  [ 5 ][ 4 ][ 3 ][ 2 ][  1  ] CandidateName
-        //           nar  nar  nar  nar   wide
-        canvas.setStrokeColor(ColorConstants.BLACK).setLineWidth(1f);
-        int n = rankBoxCount(contest);
+        float   lineW = tmpl.getRcvBoxLineWidthPt();
+        boolean dash  = tmpl.isIndicatorDashed();
+        canvas.saveState();
+        canvas.setStrokeColor(ColorConstants.BLACK).setLineWidth(lineW);
+        if (dash)
+            canvas.setLineDash(new float[]{INDICATOR_DASH_ON, INDICATOR_DASH_OFF}, 0f);
+        int   n    = rankBoxCount(contest);
         float curX = x;
-        // Draw boxes n down to 2 (narrow), then box 1 (wide)
-        for (int rank = n; rank >= 1; rank--) {
-            float bw = (rank == 1) ? FIRST_RANK_BOX_W : OTHER_RANK_BOX_W;
-            canvas.rectangle(curX, y, bw, OVAL_HEIGHT).stroke();
-            curX += bw + RANK_BOX_GAP;
+        boolean right = tmpl.isRcvIndicatorsRight();
+
+        if (right) {
+            // rank-1 first (leftmost, closest to name), then rank-2…N
+            for (int rank = 1; rank <= n; rank++) {
+                float bw  = (rank == 1) ? FIRST_RANK_BOX_W : OTHER_RANK_BOX_W;
+                canvas.rectangle(curX, y, bw, OVAL_HEIGHT).stroke();
+                // Extra gap after rank-1 to visually separate it from rank-2
+                curX += bw + (rank == 1 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP);
+            }
+        } else {
+            // rank-N first (leftmost), rank-1 last (rightmost, closest to name)
+            for (int rank = n; rank >= 1; rank--) {
+                float bw  = (rank == 1) ? FIRST_RANK_BOX_W : OTHER_RANK_BOX_W;
+                canvas.rectangle(curX, y, bw, OVAL_HEIGHT).stroke();
+                // Extra gap before rank-1 (it's the next box when rank==2)
+                curX += bw + (rank == 2 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP);
+            }
         }
-        return curX - x - RANK_BOX_GAP; // total width excluding trailing gap
+        canvas.restoreState();
+        // Subtract the trailing gap that was added after the last box
+        boolean right2 = tmpl.isRcvIndicatorsRight();
+        // In right mode last box drawn is rank-N (narrow), gap was RANK_BOX_GAP
+        // In left  mode last box drawn is rank-1 (wide),  gap was RANK_BOX_GAP_AFTER_1
+        float trailingGap = right2 ? RANK_BOX_GAP : RANK_BOX_GAP_AFTER_1;
+        return curX - x - trailingGap;
+    }
+
+    /**
+     * Draws rank-number labels ("1", "2", … "N") centered above each rank box.
+     * Called only for the first candidate in a ranked-choice contest.
+     * Labels are drawn at rcvRankNumberFontPt, centered above each box.
+     *
+     * @param x      left edge of the indicator group (same as passed to drawRankedChoiceBoxes)
+     * @param y      bottom of the indicator row in PDF coords
+     */
+    private void drawRankNumberLabels(PdfCanvas canvas,
+                                       BallotDesignTemplate tmpl,
+                                       Contest contest,
+                                       float x, float y) throws Exception {
+        // Gap between bottom of label text and top of the indicator box below.
+        // Must match the RCV_LABEL_GAP used when offsetting currentY in the
+        // candidate loop — so labels and indicators align correctly.
+        final float RCV_LABEL_GAP_ABOVE = 4f;
+        float fontSize = tmpl.getRcvRankNumberFontPt();
+        PdfFont numFont = font(false, false);
+        int   n    = rankBoxCount(contest);
+        float curX = x;
+        boolean right = tmpl.isRcvIndicatorsRight();
+
+        // Determine order: same order as drawRankedChoiceBoxes
+        int[] ranks = new int[n];
+        if (right) {
+            for (int i = 0; i < n; i++) ranks[i] = i + 1;       // 1,2,3…N
+        } else {
+            for (int i = 0; i < n; i++) ranks[i] = n - i;        // N,N-1…1
+        }
+
+        for (int i = 0; i < n; i++) {
+            int   rank  = ranks[i];
+            float bw    = (rank == 1) ? FIRST_RANK_BOX_W : OTHER_RANK_BOX_W;
+            String label = "#" + rank;
+            float labelW  = numFont.getWidth(label, fontSize);
+            float labelX  = curX + (bw - labelW) / 2f;
+            float labelY  = y + OVAL_HEIGHT + RCV_LABEL_GAP_ABOVE;
+            canvas.setFillColor(ColorConstants.BLACK)
+                  .beginText()
+                  .setFontAndSize(numFont, fontSize)
+                  .moveText(labelX, labelY)
+                  .showText(label)
+                  .endText();
+            // Match gap logic from drawRankedChoiceBoxes
+            if (right) {
+                curX += bw + (rank == 1 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP);
+            } else {
+                curX += bw + (rank == 2 ? RANK_BOX_GAP_AFTER_1 : RANK_BOX_GAP);
+            }
+        }
     }
 
     /**
@@ -733,36 +956,125 @@ public class BallotGenerationService {
      * (with wrapping and blank-line separators), and padding.
      * Returns at least HEADER_ZONE_PT to preserve a minimum header area.
      */
+    /**
+     * Measures the actual rendered height of the header HTML by performing a
+     * dry-run layout into a throwaway in-memory PDF at the correct column width.
+     * Returns the true occupied height in points, or -1 if measurement fails.
+     *
+     * This is called from computeHeaderZoneHeight() so the header zone is sized
+     * precisely to the content — no more clipping or excess whitespace.
+     */
+    private float measureHeaderHeight(String wrappedHtml, float width) {
+        try {
+            java.io.ByteArrayOutputStream dummy = new java.io.ByteArrayOutputStream();
+            com.itextpdf.kernel.pdf.PdfWriter  dw  =
+                new com.itextpdf.kernel.pdf.PdfWriter(dummy);
+            com.itextpdf.kernel.pdf.PdfDocument dpdf =
+                new com.itextpdf.kernel.pdf.PdfDocument(dw);
+
+            // Tall throwaway page — content must not be clipped
+            float tallH = 10000f;
+            com.itextpdf.kernel.geom.PageSize ps =
+                new com.itextpdf.kernel.geom.PageSize(width, tallH);
+            dpdf.addNewPage(ps);
+
+            com.itextpdf.html2pdf.ConverterProperties props =
+                new com.itextpdf.html2pdf.ConverterProperties();
+
+            // Use Document.add() for each element and read how far down the
+            // renderer has moved after all elements are added.
+            // iText Y goes UP from the bottom; the renderer starts at the top
+            // of the page (Y = tallH - topMargin) and moves downward.
+            com.itextpdf.layout.Document ddoc =
+                new com.itextpdf.layout.Document(dpdf, ps);
+            ddoc.setMargins(0, 0, 0, 0);
+
+            java.util.List<com.itextpdf.layout.element.IBlockElement> els =
+                com.itextpdf.html2pdf.HtmlConverter.convertToElements(wrappedHtml, props)
+                    .stream()
+                    .filter(e -> e instanceof com.itextpdf.layout.element.IBlockElement)
+                    .map(e -> (com.itextpdf.layout.element.IBlockElement) e)
+                    .toList();
+
+            for (com.itextpdf.layout.element.IBlockElement el : els)
+                ddoc.add(el);
+
+            // getCurrentArea() returns the remaining free area on the page.
+            // Its top edge = where the next element would start = bottom of last element.
+            // Consumed height = tallH - currentArea.top
+            float currentTop = ddoc.getRenderer()
+                .getCurrentArea().getBBox().getTop();
+            ddoc.close();   // also closes dpdf
+
+            // currentTop is now the Y of the bottom of the last rendered element
+            // (in iText's upward coordinate system).
+            // Consumed height = tallH - currentTop.
+            // Add a descender allowance: ~25% of the body font size (9pt → ~2.25pt),
+            // plus a small general margin. Use 8pt to be safe.
+            float consumed = tallH - currentTop + 8f;
+            return consumed > 8f ? consumed : -1f;
+
+        } catch (Exception e) {
+            log.debug("measureHeaderHeight failed (will use estimate): {}", e.getMessage());
+            return -1f;
+        }
+    }
+
     private float computeHeaderZoneHeight(BallotDesignTemplate tmpl,
                                            float pw, boolean codeAtRight) {
-        float minH = Math.max(HEADER_ZONE_PT, tmpl.getBarcodeHeightPt() + 8f);
-        int   qrSz      = (int) Math.min(tmpl.getBarcodeHeightPt(), HEADER_ZONE_PT - 20f);
-        float codeBlockW = qrSz + 6f + tmpl.getBarcodeWidthPt() + 8f;
-        float textW      = pw - tmpl.getMarginLeftPt() - tmpl.getMarginRightPt()
-                           - codeBlockW - 10f;
-        if (textW < 50f) textW = 50f;
+        float qrH = tmpl.getBarcodeHeightPt() + 8f;
 
-        float needed = 4f;
-        String headline = tmpl.getHeaderHeadline();
-        if (headline != null && !headline.isBlank()) {
-            float hSz = tmpl.getHeaderHeadlineFontSize();
-            needed += estimateWrappedLines(headline.trim(), textW, hSz)
-                      * (hSz + LINE_GAP) + 3f;
-        }
-        String body = tmpl.getHeaderBodyText();
-        if (body != null && !body.isBlank()) {
-            float bSz = tmpl.getHeaderBodyFontSize();
-            for (String para : body.split("\\n|\n")) {
-                if (para.isBlank()) {
-                    needed += bSz;
-                } else {
-                    needed += estimateWrappedLines(para.trim(), textW, bSz)
-                              * (bSz + LINE_GAP);
-                }
-            }
-        }
-        needed += 8f;
-        return Math.max(minH, needed);
+        String html = tmpl.getHeaderHtml();
+        if (html == null || html.isBlank())
+            return Math.max(HEADER_ZONE_PT, qrH);
+
+        // Build the same wrapped HTML that drawHeaderZone will use,
+        // substituting placeholder token values for measurement purposes.
+        // Token values don't affect layout height (same font/size regardless).
+        String measured = html
+            .replace("{electionName}",     "Election Name")
+            .replace("{jurisdictionName}", "Jurisdiction")
+            .replace("{regionName}",       "Region")
+            .replace("{partyName}",        "Party")
+            .replace("{ballotTypeName}",   "Ballot Type")
+            .replace("{indicatorName}",    "oval")
+            .replace("{pageNum}",          "1")
+            // Apply the same Quill class → style conversion as drawHeaderZone
+            .replace("class=\"ql-align-center\"",  "style=\"text-align:center\"")
+            .replace("class=\"ql-align-right\"",   "style=\"text-align:right\"")
+            .replace("class=\"ql-align-justify\"", "style=\"text-align:justify\"")
+            .replaceAll("<p>\\s*</p>", "")
+            .replaceAll("<p>\\s*&nbsp;\\s*</p>", "")
+            .stripTrailing();
+
+        // Width available for header text = page width minus QR code and margins
+        float headerW = codeAtRight
+            ? pw - tmpl.getBarcodeHeightPt() - tmpl.getMarginRightPt() - 8f
+                 - tmpl.getMarginLeftPt()
+            : pw - tmpl.getBarcodeHeightPt() - tmpl.getMarginLeftPt() - 8f
+                 - tmpl.getMarginRightPt();
+        headerW = Math.max(72f, headerW);   // at least 1"
+
+        String wrapped = String.format(
+            "<html><head><style>"
+            + "body{font-family:Helvetica,Arial,sans-serif;font-size:9pt;line-height:1.4;}"
+            + "p{margin:0;padding:0;font-size:9pt;}"
+            + "strong{font-weight:bold;}em{font-style:italic;}"
+            + "</style></head><body style=\"margin:0;padding:0;width:%.1fpt;\">%s</body></html>",
+            headerW, measured);
+
+        // Try precise measurement first
+        float measured_h = measureHeaderHeight(wrapped, headerW);
+        if (measured_h > 0f)
+            return Math.max(HEADER_ZONE_PT, Math.max(qrH, measured_h));
+
+        // Fallback: estimate from paragraph count
+        int paraCount = 0;
+        java.util.regex.Matcher m =
+            java.util.regex.Pattern.compile("<p[^>]*>").matcher(html);
+        while (m.find()) paraCount++;
+        float estimatedH = paraCount * 12.6f + 8f;
+        return Math.max(HEADER_ZONE_PT, Math.max(qrH, estimatedH));
     }
 
     /**
@@ -809,10 +1121,9 @@ public class BallotGenerationService {
 
         PdfCanvas canvas = new PdfCanvas(pdf.addNewPage(new PageSize(pw, ph)));
         // ── Barcode / code placement ─────────────────────────────────────
-        // Every side gets its own uniquely-encoded QR + Code128 pair (with pageNum).
-        // Codes are placed side-by-side (QR left, Code128 right) in the zone
-        // indicated by barcodePosition.  The content bounding box is shrunk on the
-        // appropriate side so it always clears the codes.
+        // Every side gets its own uniquely-encoded QR code (with pageNum).
+        // The QR code is right-justified at the margin within the header zone.
+        // No linear barcode is drawn — QR alone provides reliable identification.
         String bcPos  = tmpl.getBarcodePosition() != null
                         ? tmpl.getBarcodePosition() : "TOP_LEFT";
         boolean codeAtTop    = !bcPos.startsWith("BOTTOM");
@@ -876,10 +1187,12 @@ public class BallotGenerationService {
         float pageMarkH  = MARK_H;                // 9pt tall
         // Place marks just inside the top margin — below the margin line.
         // In PDF coords (origin=bottom): top margin line is at ph - marginTop.
-        // Mark sits below it with a small gap: centre = ph - marginTop - MARK_GAP - markH/2.
+        // The extra PAGE_MARK_DROP (1/4") prevents PTL/PTR being clipped by
+        // printers and scanners that cannot image the very top of the page.
         // Page marks sit near the physical top of the page, not relative to the
         // content margin — so they work correctly even with large header templates.
-        float pageMarkCY = ph - MARK_GAP - pageMarkH / 2f;  // fixed distance from page top
+        final float PAGE_MARK_DROP = 18f;   // 1/4" extra distance from top edge
+        float pageMarkCY = ph - MARK_GAP - pageMarkH / 2f - PAGE_MARK_DROP;
         // Align horizontally with the content-box TL/TR marks (bbLeft/bbRight = margin+5pt)
         float ptlCX = bbLeft  + pageMarkW / 2f;
         float ptrCX = bbRight - pageMarkW / 2f;
@@ -904,10 +1217,10 @@ public class BallotGenerationService {
 
         // Metadata line (page 1: full detail; other pages: slim)
         if (pageNum == 1) {
-            drawBallotHeader(canvas, combo, tmpl, pw, ph, textLeft, textRight,
-                             codeZoneTop, codeZoneBottom);
+            drawBallotHeader(canvas, pdf, combo, tmpl, pw, ph, textLeft, textRight,
+                             codeZoneTop, codeZoneBottom, pageNum);
         } else {
-            drawSlimHeader(canvas, combo, tmpl, pw, ph, pageNum, textLeft, textRight,
+            drawSlimHeader(canvas, pdf, combo, tmpl, pw, ph, pageNum, textLeft, textRight,
                            codeZoneTop, codeZoneBottom);
         }
 
@@ -951,12 +1264,25 @@ public class BallotGenerationService {
     private float drawWrappedText(PdfCanvas canvas, String text, float maxWidthPt,
                                    PdfFont f, float fontSize,
                                    float x, float startY) throws Exception {
+        return drawWrappedText(canvas, text, maxWidthPt, f, fontSize, x, startY, false);
+    }
+
+    /** Right-justify each wrapped line within maxWidthPt when rightAlign=true. */
+    private float drawWrappedText(PdfCanvas canvas, String text, float maxWidthPt,
+                                   PdfFont f, float fontSize,
+                                   float x, float startY,
+                                   boolean rightAlign) throws Exception {
         if (text == null || text.isBlank()) return startY;
         canvas.setFillColor(ColorConstants.BLACK);
         float y = startY;
         for (String line : wrapText(text, maxWidthPt, fontSize)) {
+            float lineX = x;
+            if (rightAlign) {
+                float lineW = f.getWidth(line, fontSize);
+                lineX = x + maxWidthPt - lineW - 2f;
+            }
             canvas.beginText().setFontAndSize(f, fontSize)
-                  .moveText(x, y).showText(line).endText();
+                  .moveText(lineX, y).showText(line).endText();
             y -= (fontSize + LINE_GAP);
         }
         return y;
@@ -967,7 +1293,15 @@ public class BallotGenerationService {
     // ══════════════════════════════════════════════════════════════════════
 
     private PdfFont font(boolean bold, boolean italic) throws Exception {
-        return PdfFontFactory.createFont(BallotDesignTemplate.fontName(bold, italic));
+        return font(bold, italic, false);
+    }
+
+    private PdfFont font(boolean bold, boolean italic, boolean altFont) throws Exception {
+        BallotDesignTemplate tmpl = _template.get();
+        String name = (tmpl != null) ? tmpl.fontName(bold, italic, altFont)
+                                      : BallotDesignTemplate.fontName(bold, italic,
+                                            BallotDesignTemplate.FontFamily.HELVETICA);
+        return PdfFontFactory.createFont(name);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -975,42 +1309,33 @@ public class BallotGenerationService {
     // ══════════════════════════════════════════════════════════════════════
 
     /**
-     * Draws QR code and Code128 barcode side-by-side in the code zone.
-     * QR is always on the left of the pair; Code128 is to its right.
-     * The pair is placed flush against the left or right page margin
-     * depending on codeAtRight.
+     * Draws a QR code only — right-justified at the right margin when codeAtRight,
+     * or left-justified at the left margin otherwise.
+     * No linear barcode is drawn; the QR code alone is used for identification.
      *
-     * Returns float[4] = {pairLeft, pairRight, zoneTop, zoneBottom}
-     * so the caller can position text on the opposite side.
+     * Returns float[4] = {codeLeft, codeRight, zoneTop, codeBottom}
+     * so the caller can position header text on the opposite side.
      */
     private float[] drawBarcodesSideBySide(PdfCanvas canvas, String data,
                                             BallotDesignTemplate tmpl,
                                             float pw, float ph,
                                             boolean codeAtRight,
                                             float zoneTop, int qrSz) throws Exception {
-        int bcWidth  = (int) tmpl.getBarcodeWidthPt();
-        int bcHeight = qrSz;   // make barcode same height as QR for clean alignment
-        float gap    = 6f;     // gap between QR and Code128
-        float pairW  = qrSz + gap + bcWidth;
-
-        float pairLeft;
+        // QR code only — right-justified at the margin (or left-justified if codeAtRight=false)
+        float codeLeft;
         if (codeAtRight) {
-            pairLeft = pw - tmpl.getMarginRightPt() - 5f - pairW;
+            codeLeft = pw - tmpl.getMarginRightPt() - 5f - qrSz;
         } else {
-            pairLeft = tmpl.getMarginLeftPt() + 5f;
+            codeLeft = tmpl.getMarginLeftPt() + 5f;
         }
 
-        float codeY  = zoneTop - 4f - qrSz;  // top-aligned within zone
+        float codeY = zoneTop - 4f - qrSz;  // top-aligned within zone
 
         MultiFormatWriter writer = new MultiFormatWriter();
-        // QR code (left of pair)
         BitMatrix qrMatrix = writer.encode(data, BarcodeFormat.QR_CODE, qrSz, qrSz);
-        drawBitMatrix(canvas, qrMatrix, pairLeft, codeY, qrSz, qrSz);
-        // Code128 (right of pair, same height as QR)
-        BitMatrix bcMatrix = writer.encode(data, BarcodeFormat.CODE_128, bcWidth, bcHeight);
-        drawBitMatrix(canvas, bcMatrix, pairLeft + qrSz + gap, codeY, bcWidth, bcHeight);
+        drawBitMatrix(canvas, qrMatrix, codeLeft, codeY, qrSz, qrSz);
 
-        return new float[]{ pairLeft, pairLeft + pairW, zoneTop, codeY };
+        return new float[]{ codeLeft, codeLeft + qrSz, zoneTop, codeY };
     }
 
     private void drawBitMatrix(PdfCanvas canvas, BitMatrix m,
@@ -1024,37 +1349,100 @@ public class BallotGenerationService {
                         y + (m.getHeight() - row - 1) * mh, mw, mh).fill();
     }
 
-    private void drawHeaderZoneText(PdfCanvas canvas, BallotCombination combo,
-                                     BallotDesignTemplate tmpl,
-                                     float left, float right,
-                                     float zoneTop, float zoneBottom) throws Exception {
-        float aw = right - left, y = zoneTop - 4f;
-        String indName = switch (tmpl.getVoteIndicatorStyle()) {
-            case OVAL -> "oval"; case CHECKBOX -> "box";
-            case ARROW -> "arrow"; case NUMBER_FIELD -> "number box";
-        };
-        Function<String, String> tok = s ->
-            s.replace("{electionName}",     combo.getElection().getName())
-             .replace("{jurisdictionName}", combo.getRegion().getJurisdiction().getName())
-             .replace("{indicatorName}",    indName);
+    /**
+     * Renders the header zone HTML into the fixed rectangular area to the side
+     * of the barcodes, using iText html2pdf for full layout flexibility.
+     *
+     * The HTML may use inline CSS, tables, images (as data URIs), and any
+     * standard HTML elements. The following tokens are replaced before rendering:
+     *   {electionName}, {jurisdictionName}, {regionName}, {partyName},
+     *   {ballotTypeName}, {indicatorName}, {pageNum}
+     */
+    private void drawHeaderZone(com.itextpdf.kernel.pdf.PdfDocument pdfDoc,
+                                 BallotCombination combo,
+                                 BallotDesignTemplate tmpl,
+                                 float left, float bottom, float width, float height,
+                                 int pageNum) throws Exception {
+        String html = tmpl.getHeaderHtml();
+        if (html == null || html.isBlank()) return;
 
-        String headline = tmpl.getHeaderHeadline();
-        if (headline != null && !headline.isBlank()) {
-            y -= tmpl.getHeaderHeadlineFontSize();
-            y = drawWrappedText(canvas, tok.apply(headline.trim()),
-                aw, font(true, false), tmpl.getHeaderHeadlineFontSize(), left, y);
-            y -= 3f;
+        // Convert Quill-generated CSS classes to inline styles so iText
+        // html2pdf can render them. Quill writes alignment as class="ql-align-center"
+        // rather than style="text-align:center", which html2pdf ignores.
+        html = html
+            .replace("class=\"ql-align-center\"", "style=\"text-align:center\"")
+            .replace("class=\"ql-align-right\"",  "style=\"text-align:right\"")
+            .replace("class=\"ql-align-justify\"", "style=\"text-align:justify\"")
+            // Quill sometimes combines existing style with class — handle both
+            .replace(" class=\"ql-align-center\"", " style=\"text-align:center\"")
+            .replace(" class=\"ql-align-right\"",  " style=\"text-align:right\"")
+            .replace(" class=\"ql-align-justify\"", " style=\"text-align:justify\"")
+            // Remove empty paragraphs that cause excess vertical whitespace
+            .replaceAll("<p>\\s*</p>", "")
+            .replaceAll("<p>\\s*&nbsp;\\s*</p>", "")
+            .replaceAll("<p>\\s*\\*\\s*</p>", "")
+            .replaceAll("<p>\\s*</p>\\s*$", "")
+            .stripTrailing();
+
+        // Token substitution
+        String party     = combo.getParty() != null ? combo.getParty().getName() : "Nonpartisan";
+        String indName   = switch (tmpl.getVoteIndicatorStyle()) {
+            case OVAL         -> "oval";
+            case CHECKBOX     -> "box";
+            case ARROW        -> "arrow";
+            case NUMBER_FIELD -> "number box";
+            case CONNECT_DOTS -> "connection line";
+        };
+        html = html
+            .replace("{electionName}",     combo.getElection().getName())
+            .replace("{jurisdictionName}", combo.getRegion().getJurisdiction().getName())
+            .replace("{regionName}",       combo.getRegion().getName())
+            .replace("{partyName}",        party)
+            .replace("{ballotTypeName}",   combo.getBallotType().getName())
+            .replace("{indicatorName}",    indName)
+            .replace("{pageNum}",          String.valueOf(pageNum));
+
+        // Wrap in a sized container so html2pdf knows the available area
+        String wrapped = String.format(
+            "<html><head><style>"+ "body{font-family:Helvetica,Arial,sans-serif;font-size:9pt;line-height:1.4;}"+ "p{margin:0;padding:0;font-size:9pt;}"+ "strong{font-weight:bold;}"+ "em{font-style:italic;}"+ "</style></head><body style=\"margin:0;padding:0;width:%.1fpt;\">%s</body></html>",
+            width, html);
+
+        com.itextpdf.html2pdf.ConverterProperties props =
+            new com.itextpdf.html2pdf.ConverterProperties();
+
+        // Render into the zone rectangle on the correct page
+        com.itextpdf.kernel.geom.Rectangle zone =
+            new com.itextpdf.kernel.geom.Rectangle(left, bottom, width, height);
+
+        com.itextpdf.layout.Document doc =
+            new com.itextpdf.layout.Document(pdfDoc,
+                new com.itextpdf.kernel.geom.PageSize(
+                    pdfDoc.getPage(pageNum).getPageSize()));
+        doc.setMargins(0, 0, 0, 0);
+
+        java.util.List<com.itextpdf.layout.element.IBlockElement> elements =
+            com.itextpdf.html2pdf.HtmlConverter.convertToElements(wrapped, props)
+                .stream()
+                .filter(e -> e instanceof com.itextpdf.layout.element.IBlockElement)
+                .map(e -> (com.itextpdf.layout.element.IBlockElement) e)
+                .toList();
+
+        com.itextpdf.layout.element.Div container =
+            new com.itextpdf.layout.element.Div();
+        container.setFixedPosition(pageNum, left, bottom, width);
+        container.setHeight(height);
+        container.setMargin(0).setPadding(0);
+        container.setProperty(
+            com.itextpdf.layout.properties.Property.OVERFLOW_Y,
+            com.itextpdf.layout.properties.OverflowPropertyValue.HIDDEN);
+
+        for (com.itextpdf.layout.element.IBlockElement el : elements) {
+            container.add(el);
         }
-        String body = tmpl.getHeaderBodyText();
-        if (body != null && !body.isBlank()) {
-            PdfFont bf = font(false, false);
-            float bSz  = tmpl.getHeaderBodyFontSize();
-            for (String para : tok.apply(body).split("\\\\n|\\n")) {
-                if (y < zoneBottom + bSz) break;
-                if (para.isBlank()) { y -= bSz; continue; }
-                y = drawWrappedText(canvas, para, aw, bf, bSz, left, y);
-            }
-        }
+
+        doc.add(container);
+        doc.flush();
+        // Do NOT close doc — it shares the PdfDocument with the canvas
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1118,18 +1506,20 @@ public class BallotGenerationService {
      * textLeft/textRight bound the horizontal area that clears the code block.
      * The header zone text (headline + body) is placed in that area.
      */
-    private void drawBallotHeader(PdfCanvas canvas, BallotCombination combo,
+    private void drawBallotHeader(PdfCanvas canvas,
+                                   com.itextpdf.kernel.pdf.PdfDocument pdfDoc,
+                                   BallotCombination combo,
                                    BallotDesignTemplate tmpl, float pw, float ph,
                                    float textLeft, float textRight,
-                                   float zoneTop, float zoneBottom) throws Exception {
+                                   float zoneTop, float zoneBottom,
+                                   int pageNum) throws Exception {
         // Single-line metadata above the zone — centred between page margins
-        // so it clears the new page-level orientation marks at left and right edges.
         String party = combo.getParty() != null ? combo.getParty().getName() : "Nonpartisan";
         String hdr   = String.format("%s  |  %s  |  %s  |  %s  |  %s",
             combo.getRegion().getJurisdiction().getName(), combo.getRegion().getName(),
             party, combo.getBallotType().getName(), combo.getElection().getName());
         {
-            PdfFont hdrFont = font(false, false);
+            PdfFont hdrFont = font(false, false, tmpl.isHeaderAltFont());
             float   hdrSz   = tmpl.getHeaderFontSize();
             float   hdrW    = hdrFont.getWidth(hdr, hdrSz);
             float   centreX = (pw - hdrW) / 2f;
@@ -1139,20 +1529,20 @@ public class BallotGenerationService {
                   .moveText(centreX, hdrY)
                   .showText(hdr).endText();
         }
-        // Headline + body instruction text in the zone, on the side away from the codes
-        drawHeaderZoneText(canvas, combo, tmpl, textLeft, textRight, zoneTop, zoneBottom);
+        drawHeaderZone(pdfDoc, combo, tmpl,
+            textLeft, zoneBottom, textRight - textLeft, zoneTop - zoneBottom,
+            pageNum);
     }
 
-    /**
-     * Slim header for page 2+: election name and page number only, on the side away from codes.
-     */
-    private void drawSlimHeader(PdfCanvas canvas, BallotCombination combo,
+    private void drawSlimHeader(PdfCanvas canvas,
+                                 com.itextpdf.kernel.pdf.PdfDocument pdfDoc,
+                                 BallotCombination combo,
                                  BallotDesignTemplate tmpl, float pw, float ph, int page,
                                  float textLeft, float textRight,
                                  float zoneTop, float zoneBottom) throws Exception {
         // Brief metadata line above zone — centred between page margins
         {
-            PdfFont slimFont = font(false, false);
+            PdfFont slimFont = font(false, false, tmpl.isHeaderAltFont());
             float   slimSz   = tmpl.getHeaderFontSize();
             String  slimTxt  = combo.getElection().getName() + "   —   Page " + page;
             float   slimW    = slimFont.getWidth(slimTxt, slimSz);
@@ -1162,8 +1552,9 @@ public class BallotGenerationService {
                   .moveText(slimX, ph - tmpl.getMarginTopPt() + 4f)
                   .showText(slimTxt).endText();
         }
-        // Also draw a scaled-down instruction zone on page 2+ (page number encoded in QR)
-        drawHeaderZoneText(canvas, combo, tmpl, textLeft, textRight, zoneTop, zoneBottom);
+        drawHeaderZone(pdfDoc, combo, tmpl,
+            textLeft, zoneBottom, textRight - textLeft, zoneTop - zoneBottom,
+            page);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1173,20 +1564,26 @@ public class BallotGenerationService {
     // Oval/checkbox stroke style: dashed, thin, mid-gray so the indicator
     // region is visually clear but does not contribute significant dark pixels
     // to the vote-detection sampling.
-    private static final float  INDICATOR_LINE_WIDTH = 0.25f; // thinnest visible in print
+    private static final float  INDICATOR_LINE_WIDTH = 0.5f; // thinnest visible in print
     private static final float  INDICATOR_DASH_ON    = 2f;    // 2pt dash
     private static final float  INDICATOR_DASH_OFF   = 3f;    // 3pt gap
     private static final float  INDICATOR_GRAY       = 0.45f; // just above 50% = mid-gray
 
     private void drawVoteTarget(PdfCanvas canvas,
                                  BallotDesignTemplate.VoteIndicatorStyle style,
-                                 Contest contest, float x, float y) {
+                                 Contest contest, float x, float y,
+                                 boolean indRight) {
+        BallotDesignTemplate tmpl = _template.get();
+        float lineW  = (tmpl != null) ? tmpl.getIndicatorLineWidthPt() : 0.5f;
+        boolean dash = (tmpl == null) || tmpl.isIndicatorDashed();
+
         switch (style) {
             case OVAL, CHECKBOX -> {
                 canvas.saveState();
                 canvas.setStrokeColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
-                canvas.setLineWidth(INDICATOR_LINE_WIDTH);
-                canvas.setLineDash(new float[]{INDICATOR_DASH_ON, INDICATOR_DASH_OFF}, 0f);
+                canvas.setLineWidth(lineW);
+                if (dash)
+                    canvas.setLineDash(new float[]{INDICATOR_DASH_ON, INDICATOR_DASH_OFF}, 0f);
                 if (style == BallotDesignTemplate.VoteIndicatorStyle.OVAL)
                     canvas.ellipse(x, y, x + OVAL_WIDTH, y + OVAL_HEIGHT).stroke();
                 else
@@ -1194,12 +1591,87 @@ public class BallotGenerationService {
                 canvas.restoreState();
             }
             case ARROW -> {
-                // Draw two inward-pointing triangles using the oval bounding box dimensions
                 ArrowIndicatorDrawer.draw(canvas, x, y, OVAL_WIDTH, OVAL_HEIGHT);
             }
+            case CONNECT_DOTS -> {
+                // Connect-dots indicator: two half-circle/half-triangle markers.
+                //
+                // Both dots move INWARD by SHIFT (8pt) from their
+                // respective edges, so:
+                //   - The outer dot (near column border) moves away from the border
+                //   - The inner dot (near candidate name) moves away from the name
+                //   - The gap between the tips SHRINKS by 2×SHIFT = 16pt
+                //
+                // This gives the voter a shorter line to draw while keeping
+                // both markers visually separated from the ballot borders.
+                //
+                // Each tip has a 1/8" (9pt) horizontal leader line extending
+                // from the triangle vertex toward the center of the gap,
+                // guiding the voter where to draw.
+                //
+                // Geometry constants:
+                //   r     = CONNECT_DOTS_DOT_R = 2pt  (circle radius)
+                //   WIDTH = CONNECT_DOTS_WIDTH  = 40pt (total allocated width)
+                //   SHIFT = 8pt  (each dot moves inward this far from its edge)
+                //   LINE  = 9pt  (leader line length from each tip toward center)
+                //
+                // Left  dot: circle centre at x + r + SHIFT
+                //            tip at x + 2r + SHIFT (points right)
+                // Right dot: circle centre at x + WIDTH - r - SHIFT
+                //            tip at x + WIDTH - 2r - SHIFT (points left)
+                // Gap between tips: WIDTH - 4r - 2×SHIFT
+
+                final float r     = CONNECT_DOTS_DOT_R;
+                final float SHIFT = 8f;     // dots shifted inward from each edge
+                final float LINE  = 2f;     // 2pt leader line from each tip
+                final float midY  = y + OVAL_HEIGHT / 2f;
+
+                float lCx  = x + r + SHIFT;
+                float rCx  = x + CONNECT_DOTS_WIDTH - r - SHIFT;
+                float lTip = x + 2 * r + SHIFT;
+                float rTip = x + CONNECT_DOTS_WIDTH - 2 * r - SHIFT;
+
+                canvas.saveState();
+                canvas.setFillColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
+                canvas.setStrokeColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
+                canvas.setLineWidth(1.0f);
+                canvas.setLineDash(new float[0], 0f); // always solid
+
+                // ── Left marker: semicircle left + triangle pointing right ──
+                canvas.moveTo(lCx, midY + r);
+                canvas.arc(lCx - r, midY - r, lCx + r, midY + r, 90, 180);
+                canvas.lineTo(lTip, midY);
+                canvas.closePath();
+                canvas.fillStroke();
+
+                // ── Right marker: semicircle right + triangle pointing left ──
+                canvas.moveTo(rCx, midY + r);
+                canvas.arc(rCx - r, midY - r, rCx + r, midY + r, 90, -180);
+                canvas.lineTo(rTip, midY);
+                canvas.closePath();
+                canvas.fillStroke();
+
+                // ── Leader lines: 1/8" from each tip toward center ──────────
+                canvas.moveTo(lTip, midY).lineTo(lTip + LINE, midY).stroke();
+                canvas.moveTo(rTip, midY).lineTo(rTip - LINE, midY).stroke();
+
+                canvas.restoreState();
+            }
             case NUMBER_FIELD -> {
-                // Fallback: draw ordinary rank boxes using contest's configured count
-                drawRankedChoiceBoxes(canvas, contest, x, y);
+                // Fallback: draw ordinary rank boxes using indicator settings
+                float rcvW = (tmpl != null) ? tmpl.getRcvBoxLineWidthPt() : 0.5f;
+                canvas.saveState();
+                canvas.setStrokeColor(ColorConstants.BLACK).setLineWidth(rcvW);
+                if (dash)
+                    canvas.setLineDash(new float[]{INDICATOR_DASH_ON, INDICATOR_DASH_OFF}, 0f);
+                int n = rankBoxCount(contest);
+                float curX = x;
+                for (int rank = n; rank >= 1; rank--) {
+                    float bw = (rank == 1) ? FIRST_RANK_BOX_W : OTHER_RANK_BOX_W;
+                    canvas.rectangle(curX, y, bw, OVAL_HEIGHT).stroke();
+                    curX += bw + RANK_BOX_GAP;
+                }
+                canvas.restoreState();
             }
         }
     }
@@ -1207,9 +1679,10 @@ public class BallotGenerationService {
     private float indicatorWidth(BallotDesignTemplate.VoteIndicatorStyle style,
                                   Contest contest) {
         return switch (style) {
-            case OVAL, CHECKBOX -> OVAL_WIDTH;
-            case ARROW          -> ARROW_WIDTH;
-            case NUMBER_FIELD   -> rankedChoiceIndicatorWidth(contest);
+            case OVAL, CHECKBOX   -> OVAL_WIDTH;
+            case ARROW            -> ARROW_WIDTH;
+            case CONNECT_DOTS     -> CONNECT_DOTS_WIDTH;
+            case NUMBER_FIELD     -> rankedChoiceIndicatorWidth(contest);
         };
     }
 
@@ -1223,6 +1696,12 @@ public class BallotGenerationService {
                                          float aboveGroupLabel,
                                          float belowGroupLabel) throws Exception {
         float h = 0f;
+        // Use same ascender approximation as drawing code.
+        // getTypoAscender() not available here without a canvas, so use
+        // the standard Helvetica ascender ratio of ~0.718 as the estimate.
+        final float CBOX_TOP_PAD_EST    = 3f + tmpl.getContestTitleFontSize() * 0.718f;
+        final float CBOX_BOTTOM_PAD_EST = 4f;
+        h += CBOX_TOP_PAD_EST;
         if (contest.isPrintGroupingLabel() &&
                 contest.getGroupingLabel() != null &&
                 !contest.getGroupingLabel().isBlank()) {
@@ -1247,6 +1726,11 @@ public class BallotGenerationService {
 
         float indW  = effectiveIndicatorWidth(tmpl, contest);
         float nameW = textWidth - indW - 4f;
+        boolean isRcv = contest.getVotingMethod() == Contest.VotingMethod.RANKED_CHOICE;
+        // If rank numbers are shown, the first candidate row needs extra space above it
+        if (isRcv && tmpl.isRcvShowRankNumbers()) {
+            h += tmpl.getRcvRankNumberFontPt() + 4f;  // labelFontSize + RCV_LABEL_GAP
+        }
         for (Candidate c : contest.getCandidates()) {
             int nl = wrapText(buildInlineName(c), nameW, tmpl.getCandidateNameFontSize()).size();
             h += Math.max(rowSpacing, nl * (tmpl.getCandidateNameFontSize() + LINE_GAP))
@@ -1259,6 +1743,7 @@ public class BallotGenerationService {
                 contest.getPostamble() != null && !contest.getPostamble().isBlank())
             h += wrapText(contest.getPostamble(), textWidth, tmpl.getPostambleFontSize()).size()
                  * (tmpl.getPostambleFontSize() + LINE_GAP) + LINE_GAP;
+        h += CBOX_BOTTOM_PAD_EST;  // space below last element inside box
         h += 12f;
         return h;
     }

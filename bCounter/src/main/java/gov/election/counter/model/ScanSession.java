@@ -7,6 +7,7 @@ package gov.election.counter.model;
 
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Holds the state of one scanning session, stored in the HTTP session.
@@ -32,6 +33,15 @@ public class ScanSession {
     public volatile boolean tallyDone        = false;  // set after processTally() completes
     public volatile int     passNumber       = 1;      // current scan pass
     public volatile int     passWritten      = 0;      // images written this pass
+
+    /**
+     * Count of images picked up by worker threads (submitted to scan).
+     * Updated atomically as workers claim images. Used by processed() so
+     * the UI counter advances immediately when threads start an image,
+     * preventing the end-of-scan stall where in-flight images make the
+     * counter appear frozen.
+     */
+    public final AtomicInteger submittedCount = new AtomicInteger(0);
     /** Paths of images already in the DB (found during this session). Thread-safe list. */
     public java.util.List<String> duplicatePaths =
         java.util.Collections.synchronizedList(new java.util.ArrayList<>());
@@ -53,7 +63,7 @@ public class ScanSession {
     // Minimum dark-pixel percentage to count as marked.
     // Set to 5% to handle bilinear interpolation blending at warp edges
     // and slight luminance reduction through the distortion pipeline.
-    public double darkPctMin = 5.0;
+    public double darkPctMin = 8.0;
 
     /** Expected scan resolution in DPI (used as warp resolution and fallback). */
     public int dpi = 300;
@@ -134,7 +144,9 @@ public class ScanSession {
     public boolean isStarted()   { return !imageQueue.isEmpty(); }
     public boolean isComplete()  { return isStarted() && currentIndex >= imageQueue.size(); }
     public int     totalImages() { return imageQueue.size(); }
-    public int     processed()   { return Math.min(currentIndex, imageQueue.size()); }
+    /** Returns images written OR in-flight — whichever is higher. */
+    public int     processed()   { return Math.min(
+        Math.max(currentIndex, submittedCount.get()), imageQueue.size()); }
 
     public Path nextImage() {
         if (currentIndex < imageQueue.size()) return imageQueue.get(currentIndex);

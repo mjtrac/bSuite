@@ -12,7 +12,7 @@ import gov.election.counter.model.BboxReport.ContestBox;
 import gov.election.counter.model.BboxReport.IndicatorBox;
 import gov.election.counter.model.BboxReport.PageLayout;
 import gov.election.counter.model.ScanSession;
-import gov.election.counter.service.CornerDetectionService.Point2D;
+import gov.election.counter.service.Point2D;
 import org.springframework.stereotype.Service;
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -62,22 +62,19 @@ public class ScannerService {
     private final MarkerAnalysisService  markerAnalysis;
     private final CoordinateDebugService coordinateDebug;
     private final BboxReportLoader       loader;
-    private final ScribbleDetectionService scribbleDetection;
 
     public ScannerService(BarcodeReaderService barcodeReader,
                           CornerDetectionService cornerDetector,
                           HomographyService homographyService,
                           MarkerAnalysisService markerAnalysis,
                           CoordinateDebugService coordinateDebug,
-                          BboxReportLoader loader,
-                          ScribbleDetectionService scribbleDetection) {
+                          BboxReportLoader loader) {
         this.barcodeReader    = barcodeReader;
         this.cornerDetector   = cornerDetector;
         this.homographyService = homographyService;
         this.markerAnalysis   = markerAnalysis;
         this.coordinateDebug  = coordinateDebug;
         this.loader           = loader;
-        this.scribbleDetection = scribbleDetection;
     }
 
     public ScanResult scanOne(Path imagePath, ScanSession session) {
@@ -307,31 +304,14 @@ public class ScannerService {
             return result;
         }
 
-        // ── Scribble detection ──────────────────────────────────────────────
-        // Requires the full-page warp; skipped in patch-warp mode.
-        if (scribbleDetection.isEnabled()) {
-            if (patchWarp) {
-                log.debug("[{}] Scribble detection skipped: patch-warp mode active",
-                    result.imageName);
-            } else {
-                ScribbleDetectionService.ScribbleResult scribble =
-                    scribbleDetection.analyse(warped, result.barcodeData, layout,
-                        warpDpi, imagePath);
-                result.scribblePixels      = scribble.suspiciousPixels();
-                result.scribbleFlagged     = scribble.flagged();
-                result.scribbleOutlinePath = scribble.outlineImagePath();
-                if (scribble.flagged()) {
-                    log.warn("[{}] Scribble flag: {} suspicious pixels{}",
-                        result.imageName, scribble.suspiciousPixels(),
-                        scribble.outlineImagePath() != null
-                            ? " — outline: " + scribble.outlineImagePath() : "");
-                }
-            }
-        }
-
         // ── Adjusted YAML (debug mode) ──────────────────────────────────────
-        coordinateDebug.writeAdjustedYaml(imagePath, session.yamlReportPath,
-            layout, corners, session);
+        // Only write adjusted YAMLs when explicitly enabled — writing one file
+        // per image from parallel worker threads causes filesystem lock contention
+        // that can hang a worker indefinitely on the last image of a pass.
+        if (session.debugCoordinates) {
+            coordinateDebug.writeAdjustedYaml(imagePath, session.yamlReportPath,
+                layout, corners, session);
+        }
 
         // ── H⁻¹ for debug service (not used for sampling coordinates) ───────
         double[] Hinv = null;

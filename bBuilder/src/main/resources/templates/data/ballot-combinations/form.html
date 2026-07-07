@@ -28,8 +28,7 @@
 
     <!-- Election — changing this reloads the dependent dropdowns -->
     <label>Election *
-      <select name="electionId" id="electionSelect"
-              onchange="reloadForElection(this)">
+      <select name="electionId" id="electionSelect">
         <option value="">-- select election --</option>
         <option th:each="e : ${elections}"
                 th:value="${e.id}" th:text="${e.name}"
@@ -146,15 +145,6 @@
   </div>
 
 </main>
-<script>
-function reloadForElection(select) {
-  var electionId = select.value;
-  if (!electionId) return;
-  var idField = document.querySelector('input[name="id"]');
-  var idParam = idField ? '&id=' + idField.value : '';
-  window.location.href = '/data/ballot-combinations/for-election?electionId='
-                         + electionId + idParam;
-}
-</script>
+<script th:src="@{/js/ballot-combination-form.js}"></script>
 </body>
 </html>

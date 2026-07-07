@@ -1,102 +1,181 @@
-/*
- * Copyright (C) 2026 Mitch Trachtenberg — GPL v3
- * generate-ballot.js — handles the Generate PDF button on print/form.html
- */
+// Track the last successfully generated combination ID
+var lastGeneratedComboId = null;
+
+// ── Overlay open/close ────────────────────────────────────────────────────────
+// Uses a plain <div> overlay instead of <dialog showModal()> to avoid the
+// Chrome/Safari bug where the native focus-trap is deactivated when a new
+// PDF tab opens, making the OK button unclickable.
+
+function closeFilesDialog() {
+  var dlg = document.getElementById('filesDialog');
+  if (dlg) {
+    dlg.style.display = 'none';
+    var gen = document.getElementById('generateBtn');
+    if (gen) gen.focus();
+  }
+}
+
+function openFilesDialog(sentToPrinter) {
+  var dlg  = document.getElementById('filesDialog');
+  var note = document.getElementById('printerNote');
+  if (!dlg) return;
+  if (note) note.style.display = sentToPrinter ? 'block' : 'none';
+  dlg.style.display = 'flex';
+  setTimeout(function () {
+    var ok = document.getElementById('filesDialogOk');
+    if (ok) ok.focus();
+  }, 50);
+}
+
+// ── Printer section ───────────────────────────────────────────────────────────
+
+function togglePrinter(checkbox) {
+  var section = document.getElementById('printerSection');
+  if (!section) { console.error('[bBuilder] printerSection not found!'); return; }
+  section.style.display = checkbox.checked ? 'block' : 'none';
+  console.log('[bBuilder] togglePrinter checked=', checkbox.checked,
+              'section display=', section.style.display);
+  if (checkbox.checked) loadPrinters();
+}
+
+function loadPrinters() {
+  var sel = document.getElementById('printerSelect');
+  var btn = document.getElementById('generateBtn');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— loading printers… —</option>';
+  sel.style.display = 'block';
+  if (btn) btn.disabled = true;
+  console.log('[bBuilder] Fetching /print/printers...');
+  fetch('/print/printers', { credentials: 'include' })
+    .then(function (r) {
+      console.log('[bBuilder] /print/printers status:', r.status, r.url);
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' from ' + r.url);
+      return r.json();
+    })
+    .then(function (data) {
+      console.log('[bBuilder] Printers:', data);
+      sel.innerHTML = '';
+      var printers = data.printers || [];
+      if (printers.length === 0) {
+        var opt = document.createElement('option');
+        opt.value = ''; opt.textContent = '— no printers found —';
+        sel.appendChild(opt);
+      } else {
+        printers.forEach(function (p) {
+          var opt = document.createElement('option');
+          opt.value = p; opt.textContent = p;
+          if (p === data.defaultPrinter) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+    })
+    .catch(function (err) {
+      console.error('[bBuilder] Printer load error:', err);
+      sel.innerHTML = '<option value="">— error: ' + err.message + ' —</option>';
+    })
+    .finally(function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Generate PDF'; }
+    });
+}
+
+// ── Ballot generation ─────────────────────────────────────────────────────────
 
 function generateBallot() {
-  const btn      = document.getElementById('generateBtn');
-  const comboId  = document.getElementById('combinationId').value;
-  const copies   = document.getElementById('copies')?.value || '1';
-  const lang     = document.getElementById('langSelect')?.value || 'en';
-  const csrf     = document.getElementById('csrfToken')?.value || '';
-  const csrfHdr  = document.getElementById('csrfHeader')?.value || 'X-CSRF-TOKEN';
+  var combinationId = document.getElementById('combinationId').value;
+  if (!combinationId) { alert('Please select a ballot combination.'); return; }
 
-  // Printer — only send if the checkbox is checked and a printer is selected
-  const printNow    = document.getElementById('printNow');
-  const printerSel  = document.getElementById('printerName');
-  const printerName = (printNow?.checked && printerSel?.value)
+  var copies  = document.getElementById('copies').value || '1';
+  var csrf    = document.getElementById('csrfToken').value;
+  var csrfH   = document.getElementById('csrfHeader').value;
+  var btn     = document.getElementById('generateBtn');
+  btn.disabled    = true;
+  btn.textContent = 'Generating\u2026';
+
+  var langSel  = document.getElementById('langSelect');
+  var langCode = langSel ? langSel.value : 'en';
+
+  var enablePrinter = document.getElementById('enablePrinter');
+  var printerSel    = document.getElementById('printerSelect');
+  var printerName   = (enablePrinter && enablePrinter.checked && printerSel)
                       ? printerSel.value : '';
 
-  if (!comboId) {
-    alert('Please select a ballot combination first.');
-    return;
-  }
+  var formData = new FormData();
+  formData.append('combinationId', combinationId);
+  formData.append('copies', copies);
+  formData.append('lang', langCode);
+  formData.append('_csrf', csrf);
+  if (printerName) formData.append('printerName', printerName);
 
-  btn.disabled    = true;
-  btn.textContent = 'Generating…';
-
-  const body = new URLSearchParams();
-  body.append('combinationId', comboId);
-  body.append('copies',        copies);
-  body.append('lang',          lang);
-  if (printerName) body.append('printerName', printerName);
+  var headers = {};
+  headers[csrfH] = csrf;
 
   fetch('/print/generate', {
-    method:  'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      [csrfHdr]:      csrf,
-    },
-    body: body.toString(),
+    method: 'POST',
+    headers: headers,
+    body: formData
   })
-  .then(response => {
-    if (!response.ok) throw new Error('Server returned ' + response.status);
-    const filesHeader = response.headers.get('X-Ballot-Files') || '';
-    const files = filesHeader ? filesHeader.split('|') : [];
-    return response.blob().then(blob => ({ blob, files }));
+  .then(function (response) {
+    var filesHeader = response.headers.get('X-Ballot-Files') || '';
+    var files = filesHeader ? filesHeader.split('|') : [];
+    return response.blob().then(function (blob) {
+      return { blob: blob, files: files };
+    });
   })
-  .then(({ blob, files }) => {
-    // Open PDF in a new tab for visual confirmation
-    const url = URL.createObjectURL(blob);
+  .then(function (result) {
+    var url = URL.createObjectURL(result.blob);
     window.open(url, '_blank');
-
-    if (files.length > 0) {
-      const list = document.getElementById('filesDialogList');
+    if (result.files.length > 0) {
+      var list = document.getElementById('filesDialogList');
       list.innerHTML = '';
-      files.forEach(f => {
-        const li = document.createElement('li');
+      result.files.forEach(function (f) {
+        var li = document.createElement('li');
         li.textContent = f;
         list.appendChild(li);
       });
-      // Add printed-to note if a printer was used
-      if (printerName) {
-        const li = document.createElement('li');
-        li.style.cssText = 'margin-top:.5rem;color:#166534;font-style:italic';
-        li.textContent = '🖨 Sent to printer: ' + printerName;
-        list.appendChild(li);
-      }
-
       lastGeneratedComboId = document.getElementById('combinationId').value;
-      const note = document.getElementById('exportNote');
-      if (note) note.style.display = 'none';
-      const dlg = document.getElementById('filesDialog');
-      dlg.showModal();
-      setTimeout(() => {
-        const ok = document.getElementById('filesDialogOk');
-        if (ok) ok.focus();
-      }, 100);
+      var exportNote = document.getElementById('exportNote');
+      if (exportNote) exportNote.style.display = 'none';
+      openFilesDialog(!!printerName);
     }
   })
-  .catch(err => {
+  .catch(function (err) {
     alert('Error generating ballot: ' + err.message);
   })
-  .finally(() => {
+  .finally(function () {
     btn.disabled    = false;
     btn.textContent = 'Generate PDF';
   });
 }
 
+// ── Wire up on DOM ready ──────────────────────────────────────────────────────
+
 document.addEventListener('DOMContentLoaded', function () {
   var btn = document.getElementById('generateBtn');
   if (btn) btn.addEventListener('click', generateBallot);
 
+  var enablePrinter = document.getElementById('enablePrinter');
+  if (enablePrinter) {
+    enablePrinter.addEventListener('change', function () {
+      togglePrinter(this);
+    });
+  }
+
   var ok = document.getElementById('filesDialogOk');
   if (ok) ok.addEventListener('click', closeFilesDialog);
 
+  // Click backdrop to close
   var dlg = document.getElementById('filesDialog');
   if (dlg) {
     dlg.addEventListener('click', function (e) {
       if (e.target === dlg) closeFilesDialog();
     });
   }
+
+  // Esc key closes overlay
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var d = document.getElementById('filesDialog');
+      if (d && d.style.display !== 'none') closeFilesDialog();
+    }
+  });
 });

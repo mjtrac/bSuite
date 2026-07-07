@@ -37,6 +37,15 @@ def parse_args():
                    help="Comma-separated list of scenario names to run (default: all)")
     p.add_argument("--style-config",  default="indicator_style.yaml",
                    help="YAML file specifying indicator_style: oval|arrow")
+    p.add_argument("--auto-scenario", action="store_true",
+                   help="Generate voting scenarios automatically from the YAML "
+                        "rather than using the hardcoded SCENARIOS table. "
+                        "Works with any ballot, not just the test election.")
+    p.add_argument("--ballot-pdf",    default=None,
+                   help="Path to an existing bBuilder ballot PDF to use directly "
+                        "(skips election_data.json; pair with --ballot-yaml)")
+    p.add_argument("--ballot-yaml",   default=None,
+                   help="Path to the YAML layout file matching --ballot-pdf")
     return p.parse_args()
 
 def load_indicator_style(config_path: str) -> str:
@@ -167,73 +176,6 @@ def draw_messy(draw: ImageDraw.ImageDraw, x, y, w, h, color=(20,20,20)):
     overflow = int(min(w,h) * 0.4)
     draw.ellipse([x-overflow, y-overflow, x+w+overflow, y+h+overflow], fill=color)
 
-def draw_scribble_line(draw: ImageDraw.ImageDraw,
-                       boxes: list[dict],
-                       img_width: int,
-                       img_height: int,
-                       dpi: int,
-                       color=(20, 20, 20)):
-    """
-    Draw a 4-pt thick, 600-pixel horizontal line somewhere inside the
-    contest area but clear of all indicator bounding boxes.
-
-    Strategy: scan candidate Y positions (in 10-pixel steps) and find
-    the first row that has at least 600 px of horizontal clearance from
-    all indicator boxes, with 5 px vertical margin above and below.
-    Falls back to drawing near the top of the content area if no such
-    gap is found (should not happen on a normal ballot).
-    """
-    LINE_LEN   = 600   # pixels
-    LINE_WIDTH = 4     # pt / pixels
-    V_MARGIN   = 5     # vertical clearance above and below each box
-    H_MARGIN   = 10    # horizontal clearance from left/right edge
-
-    # Build a set of (x0, x1, y0, y1) exclusion zones from all indicators
-    zones = [(b["x"], b["x"] + b["w"],
-              b["y"] - V_MARGIN, b["y"] + b["h"] + V_MARGIN)
-             for b in boxes]
-
-    # Content area bounds from box positions
-    ca_left  = min(b["x"] for b in boxes) if boxes else H_MARGIN
-    ca_right = max(b["x"] + b["w"] for b in boxes) if boxes else img_width - H_MARGIN
-    ca_top   = min(b["y"] for b in boxes) if boxes else 0
-    ca_bot   = max(b["y"] + b["h"] for b in boxes) if boxes else img_height
-
-    line_x0 = ca_left + H_MARGIN
-    line_x1 = line_x0 + LINE_LEN
-
-    # Scan Y rows inside the content area looking for a clear horizontal band
-    chosen_y = None
-    for y in range(ca_top, ca_bot, 10):
-        # Check that no indicator zone overlaps this Y band
-        clear = True
-        for (bx0, bx1, by0, by1) in zones:
-            if by0 <= y <= by1:
-                # This Y row is inside a box — skip
-                clear = False
-                break
-        if not clear:
-            continue
-        # Also check that the horizontal span [line_x0, line_x1] doesn't
-        # overlap any box at this Y level
-        for (bx0, bx1, by0, by1) in zones:
-            if by0 <= y <= by1 and not (line_x1 < bx0 or line_x0 > bx1):
-                clear = False
-                break
-        if clear and line_x1 <= ca_right:
-            chosen_y = y
-            break
-
-    if chosen_y is None:
-        # Fallback: draw just above the first box
-        chosen_y = ca_top - 20
-        if chosen_y < V_MARGIN:
-            chosen_y = ca_bot + 20  # below all boxes
-
-    draw.line([(line_x0, chosen_y), (line_x1, chosen_y)],
-              fill=color, width=LINE_WIDTH)
-    return line_x0, chosen_y, line_x1, chosen_y
-
 def draw_arrow_vote(draw: ImageDraw.ImageDraw, x, y, w, h, color=(5,5,5)):
     """Fill the central zone of an arrow indicator (between the two triangles).
     The analyser detects any dark pixel in a zone 1/4 the box size centred on the box.
@@ -246,13 +188,15 @@ def draw_arrow_vote(draw: ImageDraw.ImageDraw, x, y, w, h, color=(5,5,5)):
 def draw_write_in_text(draw: ImageDraw.ImageDraw, x, y, w, h, name: str,
                        color=(20,20,20)):
     """Draw handwritten-style text in a write-in region.
-    Fills the oval (so bCounter detects a write-in mark) and writes the
-    candidate name to the right of the oval on the write-in line.
+    Fills the oval and writes the candidate name on the write-in line below
+    the indicator row.  bBuilder draws the write-in line centered in the
+    column, roughly one full row-height below the indicator.
     """
     # Fill the oval so bCounter's darkPct threshold is met
     draw_x_mark(draw, x, y, w, h, color)
-    # Write the name to the right of the oval, vertically centred on it —
-    # this is where a real voter would write on the fill line
+    # The write-in line is centered in the column, one row below the indicator.
+    # Row height ≈ indicator height * 3 (candidateFontSize + OVAL_HEIGHT + gap).
+    # We write the name centered below the indicator at that offset.
     try:
         from PIL import ImageFont
         font = ImageFont.load_default(size=max(16, h // 2))
@@ -262,9 +206,112 @@ def draw_write_in_text(draw: ImageDraw.ImageDraw, x, y, w, h, name: str,
             font = ImageFont.load_default()
         except Exception:
             font = None
-    text_x = x + w + 8          # just to the right of the oval
-    text_y = y + int(h * 0.15)  # vertically centred on the oval
+    row_gap = int(h * 3.0)     # one row-height below indicator
+    text_y  = y + row_gap      # on the write-in line
+    text_x  = x - w * 2       # start a bit left of the indicator to appear centered
     draw.text((text_x, text_y), name, fill=color, font=font)
+
+
+# ── Auto-scenario generation ──────────────────────────────────────────────────
+
+def auto_scenarios_from_boxes(boxes: list[dict]) -> dict[str, dict]:
+    """
+    Generate a set of voting scenarios automatically from indicator boxes
+    read from a YAML file.  Works with any bSuite ballot regardless of
+    contest titles or candidate names.
+
+    Scenarios generated:
+      auto_valid       — one valid vote per contest (first eligible candidate)
+      auto_overvote    — two votes in every plurality/approval contest
+      auto_abstain     — no votes anywhere
+      auto_write_in    — fill every write-in oval (if present)
+      auto_rcv_top2    — vote rank-1 and rank-2 in RCV contests, first candidate elsewhere
+
+    Returns a dict of {scenario_name: {contest_title: {candidate_name: action}}}
+    suitable for passing to apply_scenario().
+    """
+    # Group boxes by contest
+    from collections import defaultdict
+    contests: dict[str, dict] = {}
+    for box in boxes:
+        ct = box["contest"]
+        if ct not in contests:
+            contests[ct] = {
+                "type":      box["contestType"],
+                "maxVotes":  box["maxVotes"],
+                "candidates": [],
+            }
+        contests[ct]["candidates"].append(box)
+
+    valid:    dict = {}
+    overvote: dict = {}
+    abstain:  dict = {}
+    write_in: dict = {}
+    rcv_top2: dict = {}
+
+    for title, info in contests.items():
+        cands    = info["candidates"]
+        ctype    = info["type"].upper()
+        maxvotes = info["maxVotes"]
+        is_rcv   = (ctype == "RANKED_CHOICE")
+
+        # Separate write-in and regular candidates
+        regulars  = [c for c in cands if not c["writeIn"]
+                     and "(Rank" not in c["candidate"]]
+        write_ins = [c for c in cands if c["writeIn"]]
+        # For RCV, get rank-1 candidates (closest to candidate name)
+        rank1s    = [c for c in cands if "(Rank 1)" in c["candidate"]]
+        rank2s    = [c for c in cands if "(Rank 2)" in c["candidate"]]
+
+        # ── auto_valid ───────────────────────────────────────────────
+        if is_rcv:
+            # Vote rank-1 for the first candidate
+            if rank1s:
+                valid.setdefault(title, {})[rank1s[0]["candidate"]] = "rank:1"
+        else:
+            # Vote for first regular candidate (or "Yes" if present)
+            yes_cands = [c for c in regulars if c["candidate"].lower() == "yes"]
+            first = yes_cands[0] if yes_cands else (regulars[0] if regulars else None)
+            if first:
+                valid.setdefault(title, {})[first["candidate"]] = "vote"
+
+        # ── auto_overvote ────────────────────────────────────────────
+        if not is_rcv and len(regulars) >= 2:
+            # Vote for first two candidates (overvote in vote-for-one contests)
+            if maxvotes == 1:
+                overvote.setdefault(title, {})[regulars[0]["candidate"]] = "vote"
+                overvote.setdefault(title, {})[regulars[1]["candidate"]] = "vote"
+            else:
+                # Already allows multiple — just vote for first
+                overvote.setdefault(title, {})[regulars[0]["candidate"]] = "vote"
+
+        # ── auto_write_in ────────────────────────────────────────────
+        if write_ins:
+            write_in.setdefault(title, {})[write_ins[0]["candidate"]] =                 "write_in:Test Candidate"
+
+        # ── auto_rcv_top2 ────────────────────────────────────────────
+        if is_rcv:
+            if rank1s:
+                rcv_top2.setdefault(title, {})[rank1s[0]["candidate"]] = "rank:1"
+            if rank2s:
+                rcv_top2.setdefault(title, {})[rank2s[0]["candidate"]] = "rank:2"
+        else:
+            # Non-RCV: vote for first candidate
+            if regulars:
+                rcv_top2.setdefault(title, {})[regulars[0]["candidate"]] = "vote"
+
+        # ── auto_abstain ─────────────────────────────────────────────
+        # No actions — all boxes left unmarked (empty dict per contest)
+        abstain.setdefault(title, {})
+
+    return {
+        "auto_valid":    valid,
+        "auto_overvote": overvote,
+        "auto_abstain":  abstain,
+        "auto_write_in": write_in    if write_in else {},
+        "auto_rcv_top2": rcv_top2,
+    }
+
 
 # ── Scenario engine ───────────────────────────────────────────────────────────
 
@@ -387,22 +434,7 @@ SCENARIOS = {
         "Measure A — Infrastructure Bond": {"Yes": "vote"},
     },
 
-    # Scenario 8: scribble test — valid votes + an extraneous line in the
-    # contest area outside all indicator boxes.  Exercises scribble detection.
-    # The line is drawn in the main loop (not via apply_scenario) because it
-    # needs access to all box positions to avoid indicator regions.
-    "scribble_test": {
-        "President of the United States": {"Alexandria Washington (Rank 1)": "rank:1",
-                                            "Benjamin Adams (Rank 2)":       "rank:2"},
-        "Representative in Congress":     {"Alice Smith":           "vote"},
-        "State Senator":                  {"Patricia Chen":         "vote"},
-        "City Council Member":            {"Anna Park":      "vote",
-                                           "Brian Foster":   "vote",
-                                           "Carmen Lopez":   "vote"},
-        "School Board Member":            {"Patricia Chen":  "vote"},
-        "Mayor":                          {"Bill de Blasio": "vote"},
-        "Measure A — Infrastructure Bond":{"Yes":            "vote"},
-    },
+    # ── RCV split scenarios ──────────────────────────────────────────────────
     # Three equal-copy scenarios giving different rank-1 preferences for the
     # President ranked-choice contest.  With equal copies:
     #   Round 1: Benjamin leads, Alexandria second, Carolina last (fewest rank-1)
@@ -510,10 +542,74 @@ def main():
     global_style = load_indicator_style(args.style_config)
     print(f"Indicator style: {global_style}")
 
+    all_ground_truth = {}
+
+    # ── Existing ballot mode ───────────────────────────────────────────────────
+    # If --ballot-pdf and --ballot-yaml are provided, use those directly instead
+    # of reading election_data.json.  Useful for testing ballots printed by bBuilder
+    # without running build_election.py first.
+    if args.ballot_pdf or args.ballot_yaml:
+        if not (args.ballot_pdf and args.ballot_yaml):
+            print("ERROR: --ballot-pdf and --ballot-yaml must both be provided.")
+            sys.exit(1)
+        pdf_path  = args.ballot_pdf
+        yaml_path = args.ballot_yaml
+        if not Path(pdf_path).exists():
+            print(f"ERROR: PDF not found: {pdf_path}"); sys.exit(1)
+        if not Path(yaml_path).exists():
+            print(f"ERROR: YAML not found: {yaml_path}"); sys.exit(1)
+
+        print(f"\n── Existing ballot mode ─────────────────────────────────────")
+        print(f"  PDF:  {pdf_path}")
+        print(f"  YAML: {yaml_path}")
+
+        pages = pdf_to_pngs(pdf_path, args.dpi)
+        if not pages:
+            print("ERROR: No pages rasterized from PDF"); sys.exit(1)
+        src_image = pages[0]
+
+        yaml_data = load_yaml(yaml_path)
+        boxes     = indicators_from_yaml(yaml_data, args.dpi)
+        print(f"  ✓ {len(boxes)} indicators found in YAML")
+
+        stem    = Path(pdf_path).stem
+        # Choose scenario table
+        if args.auto_scenario:
+            scenario_table = auto_scenarios_from_boxes(boxes)
+            print(f"  ✓ Auto-generated {len(scenario_table)} scenarios from YAML")
+        else:
+            scenario_table = SCENARIOS
+
+        allowed = set(args.scenarios.split(",")) if args.scenarios else None
+        for scenario_name, scenario in scenario_table.items():
+            if allowed and scenario_name not in allowed:
+                continue
+            img  = src_image.copy().convert("RGB")
+            draw = ImageDraw.Draw(img)
+            truth = apply_scenario(draw, boxes, scenario, rng, global_style)
+            fname = f"{stem}__{scenario_name}.png"
+            fpath = out / fname
+            fpath.parent.mkdir(parents=True, exist_ok=True)
+            img.save(str(fpath), dpi=(args.dpi, args.dpi))
+            voted = sum(1 for t in truth if t["counted_as"] == "VOTED")
+            print(f"    ✓ {fname}  ({voted}/{len(truth)} marked)")
+            all_ground_truth[str(fpath)] = {
+                "combo_id":    "existing",
+                "precinct":    "existing",
+                "party":       "existing",
+                "scenario":    scenario_name,
+                "yaml_source": yaml_path,
+                "indicators":  truth,
+            }
+        gt_path = out / "ground_truth.json"
+        with open(gt_path, "w") as f:
+            json.dump(all_ground_truth, f, indent=2)
+        print(f"\n── Ground truth written to {gt_path}")
+        return
+
+    # ── Standard election_data.json mode ──────────────────────────────────────
     with open(args.election_data) as f:
         election = json.load(f)
-
-    all_ground_truth = {}
 
     for combo in election["combinations"]:
         combo_id = combo["combinationId"]
@@ -552,10 +648,17 @@ def main():
                 continue
             print(f"  ✓ {Path(yaml_path).name}: {len(boxes)} indicators")
 
+            # Choose scenario table: auto-generated or hardcoded
+            if args.auto_scenario:
+                scenario_table = auto_scenarios_from_boxes(boxes)
+                print(f"  ✓ Auto-generated {len(scenario_table)} scenarios from YAML")
+            else:
+                scenario_table = SCENARIOS
+
             # Apply each scenario
             stem = Path(pdf_path).stem
             allowed = set(args.scenarios.split(",")) if args.scenarios else None
-            for scenario_name, scenario in SCENARIOS.items():
+            for scenario_name, scenario in scenario_table.items():
                 if allowed and scenario_name not in allowed:
                     continue
                 img  = src_image.copy().convert("RGB")
@@ -563,23 +666,12 @@ def main():
 
                 truth = apply_scenario(draw, boxes, scenario, rng, global_style)
 
-                # For the scribble_test scenario, add an extra line in the
-                # contest area outside all indicator boxes.
-                scribble_coords = None
-                if scenario_name == "scribble_test":
-                    sx0, sy0, sx1, sy1 = draw_scribble_line(
-                        draw, boxes, img.width, img.height, args.dpi)
-                    scribble_coords = {"x0": sx0, "y0": sy0,
-                                       "x1": sx1, "y1": sy1}
-                    print(f"    ✎ Scribble line drawn at y={sy0} "
-                          f"({sx0},{sy0})→({sx1},{sy1})")
-
                 fname = f"{stem}__{scenario_name}.png"
                 fpath = out / precinct.replace(" ", "_") / fname
                 fpath.parent.mkdir(parents=True, exist_ok=True)
                 img.save(str(fpath), dpi=(args.dpi, args.dpi))
 
-                gt_entry = {
+                all_ground_truth[str(fpath)] = {
                     "combo_id":    combo_id,
                     "precinct":    precinct,
                     "party":       party,
@@ -587,10 +679,6 @@ def main():
                     "yaml_source": yaml_path,
                     "indicators":  truth,
                 }
-                if scribble_coords:
-                    gt_entry["scribble_line"] = scribble_coords
-
-                all_ground_truth[str(fpath)] = gt_entry
                 voted = sum(1 for t in truth if t["counted_as"] == "VOTED")
                 print(f"    ✓ {fname}  ({voted}/{len(truth)} marked)")
 

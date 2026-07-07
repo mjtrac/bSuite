@@ -7,7 +7,7 @@
 
   <groupId>gov.election</groupId>
   <artifactId>bBuilder</artifactId>
-  <version>0.9.5-beta</version>
+  <version>0.9.7-beta</version>
   <packaging>jar</packaging>
 
   <parent>
@@ -109,7 +109,11 @@
       <artifactId>commons</artifactId>
       <version>${itext.version}</version>
     </dependency>
-
+    <dependency>
+      <groupId>com.itextpdf</groupId>
+      <artifactId>html2pdf</artifactId>
+      <version>5.0.4</version>
+    </dependency>
     <!--
       PDFBox is used by PrinterService to rasterise PDF pages for printing.
       It does not conflict with iText — they operate independently.

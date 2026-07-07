@@ -90,6 +90,12 @@ public class JurisdictionController {
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         Jurisdiction j = jurisdictionRepo.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Jurisdiction not found: " + id));
+        // Never allow deleting the last jurisdiction — it can be edited instead
+        if (jurisdictionRepo.count() <= 1) {
+            ra.addFlashAttribute("error",
+                "Cannot delete the only jurisdiction. Edit it to update its details instead.");
+            return "redirect:/admin/jurisdictions";
+        }
         try {
             jurisdictionRepo.delete(j);
             ra.addFlashAttribute("success", "Deleted jurisdiction \"" + j.getName() + "\".");

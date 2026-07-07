@@ -8,7 +8,7 @@ package gov.election.counter.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import gov.election.counter.model.BboxReport.*;
-import gov.election.counter.service.CornerDetectionService.Point2D;
+import gov.election.counter.service.Point2D;
 import gov.election.counter.service.HomographyService;
 import org.springframework.stereotype.Service;
 
@@ -124,6 +124,14 @@ public class MarkerAnalysisService {
         result.imageX = (int) Math.round(indicator.offsetLeft * imageDpi);
         result.imageY = (int) Math.round(indicator.offsetTop  * imageDpi);
 
+        // ── Contest column bounds in original image pixels ──────────────────
+        // Used by VoteTallyService to crop write-in images to the correct column.
+        if (contest.offsetLeft > 0 && contest.width > 0) {
+            result.contestBoxImageLeft  = (int) Math.round(contest.offsetLeft * imageDpi);
+            result.contestBoxImageRight = (int) Math.round(
+                (contest.offsetLeft + contest.width) * imageDpi);
+        }
+
         // ── Arrow indicator: use central-zone presence detection ────────────
         // Arrow-style indicators use two inward-pointing triangles at the
         // left/right edges; the voter marks the empty centre zone.
@@ -140,6 +148,36 @@ public class MarkerAnalysisService {
                 contest.title, indicator.candidateName,
                 marked ? "VOTED" : "unmarked",
                 ArrowIndicatorAnalyzer.zoneDescription(px, py, pw, ph));
+            return result;
+        }
+
+        // ── Connect-dots indicator: check centered vertical stripe ───────────
+        // YAML bounding box covers only the gap between the two pointed tips.
+        // A vote is detected if any dark pixel appears in a centered vertical
+        // stripe 10% of the bounding box width — where the voter draws.
+        if ("CONNECT_DOTS".equalsIgnoreCase(indicator.indicatorStyle)) {
+            int imgWcd  = warped.getWidth(), imgHcd = warped.getHeight();
+            int stripeW  = Math.max(1, pw / 10);
+            int stripeX0 = Math.max(0, px + (pw - stripeW) / 2);
+            int stripeX1 = Math.min(imgWcd, stripeX0 + stripeW);
+            boolean marked = false;
+            outer:
+            for (int sy = Math.max(0, py); sy < Math.min(imgHcd, py + ph); sy++) {
+                for (int sx = stripeX0; sx < stripeX1; sx++) {
+                    if (luminance(warped.getRGB(sx, sy)) < threshold) {
+                        marked = true;
+                        break outer;
+                    }
+                }
+            }
+            result.marked        = marked;
+            result.darkPct       = marked ? 100.0 : 0.0;
+            result.darkPixels    = marked ? 1 : 0;
+            result.totalPixels   = stripeW * ph;
+            result.meanIntensity = marked ? 0.0 : 255.0;
+            log.debug("[CONNECT_DOTS] {}/{}: {} (stripe x={}-{})",
+                contest.title, indicator.candidateName,
+                marked ? "VOTED" : "unmarked", stripeX0, stripeX1);
             return result;
         }
 

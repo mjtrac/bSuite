@@ -18,6 +18,9 @@ package gov.election.ballot.controller;
 
 import gov.election.ballot.model.Election;
 import gov.election.ballot.model.Jurisdiction;
+import gov.election.ballot.repository.BallotCombinationRepository;
+import gov.election.ballot.repository.BallotDesignTemplateRepository;
+import gov.election.ballot.repository.ContestRepository;
 import gov.election.ballot.repository.ElectionRepository;
 import gov.election.ballot.repository.JurisdictionRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -33,20 +36,35 @@ import java.time.LocalDate;
 @PreAuthorize("hasAnyRole('ADMIN','DATA_ENTRY')")
 public class ElectionController {
 
-    private final ElectionRepository     electionRepo;
-    private final JurisdictionRepository jurisdictionRepo;
+    private final ElectionRepository          electionRepo;
+    private final JurisdictionRepository      jurisdictionRepo;
+    private final BallotCombinationRepository combinationRepo;
+    private final BallotDesignTemplateRepository templateRepo;
+    private final ContestRepository           contestRepo;
 
     public ElectionController(ElectionRepository electionRepo,
-                              JurisdictionRepository jurisdictionRepo) {
+                              JurisdictionRepository jurisdictionRepo,
+                              BallotCombinationRepository combinationRepo,
+                              BallotDesignTemplateRepository templateRepo,
+                              ContestRepository contestRepo) {
         this.electionRepo     = electionRepo;
         this.jurisdictionRepo = jurisdictionRepo;
+        this.combinationRepo  = combinationRepo;
+        this.templateRepo     = templateRepo;
+        this.contestRepo      = contestRepo;
     }
 
     @GetMapping
     public String list(Model model) {
-        model.addAttribute("elections",     electionRepo.findAll());
+        var elections = electionRepo.findAll();
+        model.addAttribute("elections",     elections);
         model.addAttribute("jurisdictions", jurisdictionRepo.findAll());
         model.addAttribute("electionTypes", Election.ElectionType.values());
+        if (elections.isEmpty()) {
+            model.addAttribute("info",
+                "No elections yet. Use Quick Setup to create your first election, " +
+                "or create one here and then add contests and ballot combinations.");
+        }
         return "data/elections/list";
     }
 
@@ -60,9 +78,14 @@ public class ElectionController {
     }
 
     @GetMapping("/{id}/edit")
-    public String editForm(@PathVariable Long id, Model model) {
-        Election e = electionRepo.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Election not found: " + id));
+    public String editForm(@PathVariable Long id, Model model,
+                           RedirectAttributes ra) {
+        Election e = electionRepo.findById(id).orElse(null);
+        if (e == null) {
+            ra.addFlashAttribute("error",
+                "Election not found — it may have been deleted.");
+            return "redirect:/data/elections";
+        }
         model.addAttribute("election",      e);
         model.addAttribute("jurisdictions", jurisdictionRepo.findAll());
         model.addAttribute("electionTypes", Election.ElectionType.values());
@@ -122,15 +145,50 @@ public class ElectionController {
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        Election e = electionRepo.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Election not found: " + id));
+        Election e = electionRepo.findById(id).orElse(null);
+        if (e == null) {
+            ra.addFlashAttribute("error", "Election not found (already deleted?).");
+            return "redirect:/data/elections";
+        }
+        String name = e.getName();
         try {
+            // Cascade delete in dependency order:
+            // 1. Ballot combinations (reference election directly)
+            var combos = combinationRepo.findByElectionId(id);
+            if (!combos.isEmpty()) {
+                combinationRepo.deleteAll(combos);
+            }
+            // 2. Design templates (reference election directly)
+            var templates = templateRepo.findByElectionId(id);
+            if (!templates.isEmpty()) {
+                templateRepo.deleteAll(templates);
+            }
+            // 3. Contests (each cascades to its candidates via CascadeType.ALL)
+            var contests = contestRepo.findByElectionId(id);
+            if (!contests.isEmpty()) {
+                contestRepo.deleteAll(contests);
+            }
+            // 4. Election itself
             electionRepo.delete(e);
-            ra.addFlashAttribute("success", "Deleted election \"" + e.getName() + "\".");
+
+            int nCombos    = combos.size();
+            int nTemplates = templates.size();
+            int nContests  = contests.size();
+            StringBuilder msg = new StringBuilder(
+                "Deleted election \"" + name + "\"");
+            if (nCombos + nTemplates + nContests > 0) {
+                msg.append(" and its ");
+                if (nCombos    > 0) msg.append(nCombos).append(" combination(s), ");
+                if (nTemplates > 0) msg.append(nTemplates).append(" template(s), ");
+                if (nContests  > 0) msg.append(nContests).append(" contest(s) ");
+                msg.append("(candidates removed automatically).");
+            } else {
+                msg.append(".");
+            }
+            ra.addFlashAttribute("success", msg.toString());
         } catch (Exception ex) {
             ra.addFlashAttribute("error",
-                "Cannot delete \"" + e.getName() + "\": it still has contests, ballot " +
-                "combinations, or print records linked to it. Remove those first.");
+                "Could not delete \"" + name + "\": " + ex.getMessage());
         }
         return "redirect:/data/elections";
     }

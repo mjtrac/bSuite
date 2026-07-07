@@ -84,8 +84,8 @@
         <div class="full">
           <label for="imageFolder">Ballot Image Folder *</label>
           <input type="text" id="imageFolder" name="imageFolder"
-                 placeholder="/Users/you/scanned-ballots"
-                 th:value="${ss.imageFolder}"
+                 th:placeholder="${defaultImageDir}"
+                 th:value="${ss.imageFolder != null && !ss.imageFolder.isEmpty() ? ss.imageFolder : defaultImageDir}"
                  required/>
           <p class="field-hint">
             Folder containing scanned ballot images (.png, .jpg, .tif, .bmp).
@@ -97,8 +97,8 @@
         <div class="full">
           <label for="reportFolder">Bounding-Box Report Folder</label>
           <input type="text" id="reportFolder" name="reportFolder"
-                 placeholder="Leave blank to use the application's working directory"
-                 th:value="${ss.reportFolder}"/>
+                 th:placeholder="${defaultReportDir}"
+                 th:value="${ss.reportFolder != null && !ss.reportFolder.isEmpty() ? ss.reportFolder : defaultReportDir}"/>
           <p class="field-hint">
             Folder containing the XML or YAML bounding-box report produced by the
             ballot generator (e.g. <code>ballot_1_2_0_3_4_1.xml</code>).

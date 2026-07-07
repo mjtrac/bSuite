@@ -59,6 +59,7 @@ public class BallotDesignTemplateController {
         model.addAttribute("elections",       electionRepo.findAll());
         model.addAttribute("paperSizes",      BallotDesignTemplate.PaperSize.values());
         model.addAttribute("indicatorStyles", SUPPORTED_INDICATOR_STYLES);
+        model.addAttribute("fontFamilies",      BallotDesignTemplate.FontFamily.values());
         model.addAttribute("formTitle",       "New Ballot Design Template");
         return "data/ballot-templates/form";
     }
@@ -71,6 +72,7 @@ public class BallotDesignTemplateController {
         model.addAttribute("elections",       electionRepo.findAll());
         model.addAttribute("paperSizes",      BallotDesignTemplate.PaperSize.values());
         model.addAttribute("indicatorStyles", SUPPORTED_INDICATOR_STYLES);
+        model.addAttribute("fontFamilies",      BallotDesignTemplate.FontFamily.values());
         model.addAttribute("formTitle",       "Edit Template: " + t.getElection().getName());
         return "data/ballot-templates/form";
     }
@@ -115,13 +117,29 @@ public class BallotDesignTemplateController {
             @RequestParam(defaultValue = "false") boolean candidateNoteItalic,
             @RequestParam(defaultValue = "false") boolean postambleItalic,
             // header zone text
-            @RequestParam(required = false)           String  headerHeadline,
-            @RequestParam(defaultValue = "13")        float   headerHeadlineFontSize,
-            @RequestParam(required = false)           String  headerBodyText,
-            @RequestParam(defaultValue = "9")         float   headerBodyFontSize,
+            @RequestParam(required = false)           String  headerHtml,
             // misc
             @RequestParam(defaultValue = "TOP_RIGHT") String  barcodePosition,
+            @RequestParam(defaultValue = "0")         float   barcodeWidthPt,
+            @RequestParam(defaultValue = "72")        float   barcodeHeightPt,
             @RequestParam(defaultValue = "false")     boolean multiSheet,
+            @RequestParam(defaultValue = "HELVETICA") String  fontFamilyPrimary,
+            @RequestParam(defaultValue = "TIMES")     String  fontFamilyAlternate,
+            @RequestParam(defaultValue = "false")     boolean groupingLabelAltFont,
+            @RequestParam(defaultValue = "false")     boolean contestTitleAltFont,
+            @RequestParam(defaultValue = "false")     boolean instructionAltFont,
+            @RequestParam(defaultValue = "false")     boolean preambleAltFont,
+            @RequestParam(defaultValue = "false")     boolean candidateNameAltFont,
+            @RequestParam(defaultValue = "false")     boolean prefixSuffixAltFont,
+            @RequestParam(defaultValue = "false")     boolean candidateNoteAltFont,
+            @RequestParam(defaultValue = "false")     boolean postambleAltFont,
+            @RequestParam(defaultValue = "false")     boolean headerAltFont,
+            @RequestParam(defaultValue = "false")     boolean rcvIndicatorsRight,
+            @RequestParam(defaultValue = "false")     boolean rcvShowRankNumbers,
+            @RequestParam(defaultValue = "7")         float   rcvRankNumberFontPt,
+            @RequestParam(defaultValue = "0.5")       float   rcvBoxLineWidthPt,
+            @RequestParam(defaultValue = "0.5")       float   indicatorLineWidthPt,
+            @RequestParam(defaultValue = "false")     boolean indicatorDashed,
             Model model,
             RedirectAttributes ra) {
 
@@ -190,12 +208,32 @@ public class BallotDesignTemplateController {
         t.setPostambleItalic(postambleItalic);
         // misc
         // header zone text (null/blank = use built-in default)
-        t.setHeaderHeadline(headerHeadline);
-        t.setHeaderHeadlineFontSize(headerHeadlineFontSize > 0 ? headerHeadlineFontSize : 13f);
-        t.setHeaderBodyText(headerBodyText);
-        t.setHeaderBodyFontSize(headerBodyFontSize > 0 ? headerBodyFontSize : 9f);
+        t.setHeaderHtml(headerHtml != null && !headerHtml.isBlank()
+            ? headerHtml
+            : BallotDesignTemplate.DEFAULT_HEADER_HTML);
         t.setBarcodePosition(barcodePosition);
+        t.setBarcodeWidthPt(barcodeWidthPt >= 0 ? barcodeWidthPt : 0f);
+        t.setBarcodeHeightPt(barcodeHeightPt > 0 ? barcodeHeightPt : 72f);
         t.setMultiSheet(multiSheet);
+        try { t.setFontFamilyPrimary(BallotDesignTemplate.FontFamily.valueOf(fontFamilyPrimary)); }
+        catch (IllegalArgumentException ex) { t.setFontFamilyPrimary(BallotDesignTemplate.FontFamily.HELVETICA); }
+        try { t.setFontFamilyAlternate(BallotDesignTemplate.FontFamily.valueOf(fontFamilyAlternate)); }
+        catch (IllegalArgumentException ex) { t.setFontFamilyAlternate(BallotDesignTemplate.FontFamily.TIMES); }
+        t.setGroupingLabelAltFont(groupingLabelAltFont);
+        t.setContestTitleAltFont(contestTitleAltFont);
+        t.setInstructionAltFont(instructionAltFont);
+        t.setPreambleAltFont(preambleAltFont);
+        t.setCandidateNameAltFont(candidateNameAltFont);
+        t.setPrefixSuffixAltFont(prefixSuffixAltFont);
+        t.setCandidateNoteAltFont(candidateNoteAltFont);
+        t.setPostambleAltFont(postambleAltFont);
+        t.setHeaderAltFont(headerAltFont);
+        t.setRcvIndicatorsRight(rcvIndicatorsRight);
+        t.setRcvShowRankNumbers(rcvShowRankNumbers);
+        t.setRcvRankNumberFontPt(rcvRankNumberFontPt > 0 ? rcvRankNumberFontPt : 7f);
+        t.setRcvBoxLineWidthPt(rcvBoxLineWidthPt > 0 ? rcvBoxLineWidthPt : 0.5f);
+        t.setIndicatorLineWidthPt(indicatorLineWidthPt > 0 ? indicatorLineWidthPt : 0.5f);
+        t.setIndicatorDashed(indicatorDashed);
 
         BallotDesignTemplate saved = templateRepo.save(t);
         ra.addFlashAttribute("success",
@@ -221,6 +259,7 @@ public class BallotDesignTemplateController {
         model.addAttribute("elections",       electionRepo.findAll());
         model.addAttribute("paperSizes",      BallotDesignTemplate.PaperSize.values());
         model.addAttribute("indicatorStyles", SUPPORTED_INDICATOR_STYLES);
+        model.addAttribute("fontFamilies",      BallotDesignTemplate.FontFamily.values());
         model.addAttribute("formTitle",       id != null ? "Edit Template" : "New Ballot Design Template");
         model.addAttribute("error",           error);
         return "data/ballot-templates/form";

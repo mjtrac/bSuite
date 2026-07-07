@@ -15,7 +15,7 @@ from pathlib import Path
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--db",  default="../bSuite/bCounter/counter_results.db")
+    p.add_argument("--db",  default="${HOME}/bSuite_data/db/counter_results.db")
     p.add_argument("--gt",  default="images/ground_truth_all.json")
     p.add_argument("--out", default="verify_report.json")
     return p.parse_args()
