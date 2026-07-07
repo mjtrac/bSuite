@@ -48,8 +48,7 @@
         <input type="radio" name="regionType" value="SINGLE_PRECINCT"
                id="typeSinglePrecinctRadio"
                th:checked="${region.regionType == null
-                             or region.regionType.name() == 'SINGLE_PRECINCT'}"
-               onchange="onRegionTypeChange(this)"/>
+                             or region.regionType.name() == 'SINGLE_PRECINCT'}"/>
         <span class="radio-title">SinglePrecinct</span>
         <span class="radio-desc">
           An individual voting precinct. Voters are registered to exactly one SinglePrecinct.
@@ -62,8 +61,7 @@
         <input type="radio" name="regionType" value="PRECINCT_GROUP"
                id="typePrecinctGroupRadio"
                th:checked="${region.regionType != null
-                             and region.regionType.name() == 'PRECINCT_GROUP'}"
-               onchange="onRegionTypeChange(this)"/>
+                             and region.regionType.name() == 'PRECINCT_GROUP'}"/>
         <span class="radio-title">PrecinctGroup</span>
         <span class="radio-desc">
           A named grouping spanning multiple SinglePrecincts (Water District, City, Township, etc.).
@@ -149,15 +147,6 @@
   </div>
 
 </main>
-<script>
-function onRegionTypeChange(radio) {
-  var isGroup = (radio.value === 'PRECINCT_GROUP');
-  document.getElementById('groupTypeField').style.display = isGroup ? 'block' : 'none';
-}
-window.addEventListener('DOMContentLoaded', function () {
-  var checked = document.querySelector('input[name="regionType"]:checked');
-  if (checked) onRegionTypeChange(checked);
-});
-</script>
+<script th:src="@{/js/region-form.js}"></script>
 </body>
 </html>

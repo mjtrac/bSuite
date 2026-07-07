@@ -155,24 +155,32 @@ public class BallotGenerationService {
                                   User user,
                                   int copies,
                                   String languageCode) throws Exception {
-        this._currentTranslator = translationService.forLanguage(
+        BallotTranslationService.Translator tr = translationService.forLanguage(
             languageCode != null ? languageCode : "en");
+        _translator.set(tr);
+        _template.set(template);
         try {
             return generateBallotCore(combination, template, user, copies);
         } finally {
-            this._currentTranslator = null;
+            _translator.remove();
+            _template.remove();
         }
     }
 
-    /** Active translator for the current generateBallot call (thread-safe via Spring prototype or single-thread use). */
-    private BallotTranslationService.Translator _currentTranslator;
-
-    /** Active template for the current generateBallot call — used by font() helper. */
-    private BallotDesignTemplate _currentTemplate;
+    /**
+     * ThreadLocal storage for per-call state.
+     * Using ThreadLocal rather than instance fields ensures that concurrent
+     * calls to generateBallot() from different HTTP threads cannot corrupt
+     * each other's translator or template — each thread has its own copy.
+     */
+    private static final ThreadLocal<BallotTranslationService.Translator>
+        _translator = new ThreadLocal<>();
+    private static final ThreadLocal<BallotDesignTemplate>
+        _template   = new ThreadLocal<>();
 
     private BallotTranslationService.Translator tx() {
-        return _currentTranslator != null ? _currentTranslator
-               : translationService.forLanguage("en");
+        BallotTranslationService.Translator t = _translator.get();
+        return t != null ? t : translationService.forLanguage("en");
     }
 
     private byte[] generateBallotCore(BallotCombination combination,
@@ -184,7 +192,7 @@ public class BallotGenerationService {
             throw new IllegalArgumentException(
                 "combination, template, and user must not be null");
 
-        _currentTemplate = template;
+        _template.set(template);
 
         List<Contest> contests = assignmentService.resolveContestsForPrecinct(
             combination.getRegion().getId(),
@@ -585,12 +593,17 @@ public class BallotGenerationService {
                         float sampleX = lLeaderEnd + (gapW - sampleW) / 2f;
                         final float INDICATOR_INSET_START = 3f;
                         final float INDICATOR_INSET_END   = 3f;
+                        // Vertical: use only 1pt inset top/bottom so the sampling
+                        // zone is tall enough to catch voter lines drawn up to 4pt
+                        // above or below the dot midline.
+                        // Zone height = OVAL_HEIGHT - 2pt = 9pt → ±4.5pt from midY.
+                        final float CD_V_INSET = 1f;
                         double cdOffLeft = MeasurementUtil.ptToInches(sampleX);
                         double cdOffTop  = MeasurementUtil.ptToInches(
-                            ph - (targetY + OVAL_HEIGHT - INDICATOR_INSET_START));
+                            ph - (targetY + OVAL_HEIGHT - CD_V_INSET));
                         double cdW_in    = MeasurementUtil.ptToInches(sampleW);
                         double cdH_in    = MeasurementUtil.ptToInches(
-                            OVAL_HEIGHT - INDICATOR_INSET_START - INDICATOR_INSET_END);
+                            OVAL_HEIGHT - 2 * CD_V_INSET);
                         candPositions.add(new BallotDimensions.CandidatePosition(
                             candidate.getId(), candidate.getRecordName(),
                             candidate.isWriteIn(),
@@ -943,12 +956,125 @@ public class BallotGenerationService {
      * (with wrapping and blank-line separators), and padding.
      * Returns at least HEADER_ZONE_PT to preserve a minimum header area.
      */
+    /**
+     * Measures the actual rendered height of the header HTML by performing a
+     * dry-run layout into a throwaway in-memory PDF at the correct column width.
+     * Returns the true occupied height in points, or -1 if measurement fails.
+     *
+     * This is called from computeHeaderZoneHeight() so the header zone is sized
+     * precisely to the content — no more clipping or excess whitespace.
+     */
+    private float measureHeaderHeight(String wrappedHtml, float width) {
+        try {
+            java.io.ByteArrayOutputStream dummy = new java.io.ByteArrayOutputStream();
+            com.itextpdf.kernel.pdf.PdfWriter  dw  =
+                new com.itextpdf.kernel.pdf.PdfWriter(dummy);
+            com.itextpdf.kernel.pdf.PdfDocument dpdf =
+                new com.itextpdf.kernel.pdf.PdfDocument(dw);
+
+            // Tall throwaway page — content must not be clipped
+            float tallH = 10000f;
+            com.itextpdf.kernel.geom.PageSize ps =
+                new com.itextpdf.kernel.geom.PageSize(width, tallH);
+            dpdf.addNewPage(ps);
+
+            com.itextpdf.html2pdf.ConverterProperties props =
+                new com.itextpdf.html2pdf.ConverterProperties();
+
+            // Use Document.add() for each element and read how far down the
+            // renderer has moved after all elements are added.
+            // iText Y goes UP from the bottom; the renderer starts at the top
+            // of the page (Y = tallH - topMargin) and moves downward.
+            com.itextpdf.layout.Document ddoc =
+                new com.itextpdf.layout.Document(dpdf, ps);
+            ddoc.setMargins(0, 0, 0, 0);
+
+            java.util.List<com.itextpdf.layout.element.IBlockElement> els =
+                com.itextpdf.html2pdf.HtmlConverter.convertToElements(wrappedHtml, props)
+                    .stream()
+                    .filter(e -> e instanceof com.itextpdf.layout.element.IBlockElement)
+                    .map(e -> (com.itextpdf.layout.element.IBlockElement) e)
+                    .toList();
+
+            for (com.itextpdf.layout.element.IBlockElement el : els)
+                ddoc.add(el);
+
+            // getCurrentArea() returns the remaining free area on the page.
+            // Its top edge = where the next element would start = bottom of last element.
+            // Consumed height = tallH - currentArea.top
+            float currentTop = ddoc.getRenderer()
+                .getCurrentArea().getBBox().getTop();
+            ddoc.close();   // also closes dpdf
+
+            // currentTop is now the Y of the bottom of the last rendered element
+            // (in iText's upward coordinate system).
+            // Consumed height = tallH - currentTop.
+            // Add a descender allowance: ~25% of the body font size (9pt → ~2.25pt),
+            // plus a small general margin. Use 8pt to be safe.
+            float consumed = tallH - currentTop + 8f;
+            return consumed > 8f ? consumed : -1f;
+
+        } catch (Exception e) {
+            log.debug("measureHeaderHeight failed (will use estimate): {}", e.getMessage());
+            return -1f;
+        }
+    }
+
     private float computeHeaderZoneHeight(BallotDesignTemplate tmpl,
                                            float pw, boolean codeAtRight) {
-        // With HTML header, we use a fixed zone height based on barcode needs.
-        // The HTML content is flowed by iText Layout and will clip to fit.
-        // The zone must be at least as tall as the QR code + padding.
-        return Math.max(HEADER_ZONE_PT, tmpl.getBarcodeHeightPt() + 8f);
+        float qrH = tmpl.getBarcodeHeightPt() + 8f;
+
+        String html = tmpl.getHeaderHtml();
+        if (html == null || html.isBlank())
+            return Math.max(HEADER_ZONE_PT, qrH);
+
+        // Build the same wrapped HTML that drawHeaderZone will use,
+        // substituting placeholder token values for measurement purposes.
+        // Token values don't affect layout height (same font/size regardless).
+        String measured = html
+            .replace("{electionName}",     "Election Name")
+            .replace("{jurisdictionName}", "Jurisdiction")
+            .replace("{regionName}",       "Region")
+            .replace("{partyName}",        "Party")
+            .replace("{ballotTypeName}",   "Ballot Type")
+            .replace("{indicatorName}",    "oval")
+            .replace("{pageNum}",          "1")
+            // Apply the same Quill class → style conversion as drawHeaderZone
+            .replace("class=\"ql-align-center\"",  "style=\"text-align:center\"")
+            .replace("class=\"ql-align-right\"",   "style=\"text-align:right\"")
+            .replace("class=\"ql-align-justify\"", "style=\"text-align:justify\"")
+            .replaceAll("<p>\\s*</p>", "")
+            .replaceAll("<p>\\s*&nbsp;\\s*</p>", "")
+            .stripTrailing();
+
+        // Width available for header text = page width minus QR code and margins
+        float headerW = codeAtRight
+            ? pw - tmpl.getBarcodeHeightPt() - tmpl.getMarginRightPt() - 8f
+                 - tmpl.getMarginLeftPt()
+            : pw - tmpl.getBarcodeHeightPt() - tmpl.getMarginLeftPt() - 8f
+                 - tmpl.getMarginRightPt();
+        headerW = Math.max(72f, headerW);   // at least 1"
+
+        String wrapped = String.format(
+            "<html><head><style>"
+            + "body{font-family:Helvetica,Arial,sans-serif;font-size:9pt;line-height:1.4;}"
+            + "p{margin:0;padding:0;font-size:9pt;}"
+            + "strong{font-weight:bold;}em{font-style:italic;}"
+            + "</style></head><body style=\"margin:0;padding:0;width:%.1fpt;\">%s</body></html>",
+            headerW, measured);
+
+        // Try precise measurement first
+        float measured_h = measureHeaderHeight(wrapped, headerW);
+        if (measured_h > 0f)
+            return Math.max(HEADER_ZONE_PT, Math.max(qrH, measured_h));
+
+        // Fallback: estimate from paragraph count
+        int paraCount = 0;
+        java.util.regex.Matcher m =
+            java.util.regex.Pattern.compile("<p[^>]*>").matcher(html);
+        while (m.find()) paraCount++;
+        float estimatedH = paraCount * 12.6f + 8f;
+        return Math.max(HEADER_ZONE_PT, Math.max(qrH, estimatedH));
     }
 
     /**
@@ -1171,7 +1297,7 @@ public class BallotGenerationService {
     }
 
     private PdfFont font(boolean bold, boolean italic, boolean altFont) throws Exception {
-        BallotDesignTemplate tmpl = _currentTemplate;
+        BallotDesignTemplate tmpl = _template.get();
         String name = (tmpl != null) ? tmpl.fontName(bold, italic, altFont)
                                       : BallotDesignTemplate.fontName(bold, italic,
                                             BallotDesignTemplate.FontFamily.HELVETICA);
@@ -1240,6 +1366,24 @@ public class BallotGenerationService {
         String html = tmpl.getHeaderHtml();
         if (html == null || html.isBlank()) return;
 
+        // Convert Quill-generated CSS classes to inline styles so iText
+        // html2pdf can render them. Quill writes alignment as class="ql-align-center"
+        // rather than style="text-align:center", which html2pdf ignores.
+        html = html
+            .replace("class=\"ql-align-center\"", "style=\"text-align:center\"")
+            .replace("class=\"ql-align-right\"",  "style=\"text-align:right\"")
+            .replace("class=\"ql-align-justify\"", "style=\"text-align:justify\"")
+            // Quill sometimes combines existing style with class — handle both
+            .replace(" class=\"ql-align-center\"", " style=\"text-align:center\"")
+            .replace(" class=\"ql-align-right\"",  " style=\"text-align:right\"")
+            .replace(" class=\"ql-align-justify\"", " style=\"text-align:justify\"")
+            // Remove empty paragraphs that cause excess vertical whitespace
+            .replaceAll("<p>\\s*</p>", "")
+            .replaceAll("<p>\\s*&nbsp;\\s*</p>", "")
+            .replaceAll("<p>\\s*\\*\\s*</p>", "")
+            .replaceAll("<p>\\s*</p>\\s*$", "")
+            .stripTrailing();
+
         // Token substitution
         String party     = combo.getParty() != null ? combo.getParty().getName() : "Nonpartisan";
         String indName   = switch (tmpl.getVoteIndicatorStyle()) {
@@ -1260,7 +1404,7 @@ public class BallotGenerationService {
 
         // Wrap in a sized container so html2pdf knows the available area
         String wrapped = String.format(
-            "<html><body style=\"margin:0;padding:0;width:%.1fpt;\">%s</body></html>",
+            "<html><head><style>"+ "body{font-family:Helvetica,Arial,sans-serif;font-size:9pt;line-height:1.4;}"+ "p{margin:0;padding:0;font-size:9pt;}"+ "strong{font-weight:bold;}"+ "em{font-style:italic;}"+ "</style></head><body style=\"margin:0;padding:0;width:%.1fpt;\">%s</body></html>",
             width, html);
 
         com.itextpdf.html2pdf.ConverterProperties props =
@@ -1429,7 +1573,7 @@ public class BallotGenerationService {
                                  BallotDesignTemplate.VoteIndicatorStyle style,
                                  Contest contest, float x, float y,
                                  boolean indRight) {
-        BallotDesignTemplate tmpl = _currentTemplate;
+        BallotDesignTemplate tmpl = _template.get();
         float lineW  = (tmpl != null) ? tmpl.getIndicatorLineWidthPt() : 0.5f;
         boolean dash = (tmpl == null) || tmpl.isIndicatorDashed();
 

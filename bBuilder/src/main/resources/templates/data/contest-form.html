@@ -72,42 +72,30 @@
       </label>
     </div>
 
-    <div style="margin-top:.5rem;max-width:200px">
-      <label>Display Order
-        <small style="font-weight:normal;color:#666">(lower = earlier on ballot)</small>
-        <input type="number" name="displayOrder"
-               th:value="${contest.displayOrder}" min="0"/>
-      </label>
-    </div>
-
     <!-- ── Voting Method ──────────────────────────────────────────── -->
     <fieldset class="voting-method-fieldset">
       <legend>Voting Method *</legend>
       <label class="radio-label">
         <input type="radio" name="votingMethod" value="PLURALITY"
-               th:checked="${contest.votingMethod == null or contest.votingMethod.name() == 'PLURALITY'}"
-               onchange="onVotingMethodChange(this)"/>
+               th:checked="${contest.votingMethod == null or contest.votingMethod.name() == 'PLURALITY'}"/>
         <span class="radio-title">Plurality</span>
         <span class="radio-desc">Voter selects one candidate (or up to N if Max Choices &gt; 1). Standard for most races.</span>
       </label>
       <label class="radio-label">
         <input type="radio" name="votingMethod" value="RANKED_CHOICE"
-               th:checked="${contest.votingMethod != null and contest.votingMethod.name() == 'RANKED_CHOICE'}"
-               onchange="onVotingMethodChange(this)"/>
+               th:checked="${contest.votingMethod != null and contest.votingMethod.name() == 'RANKED_CHOICE'}"/>
         <span class="radio-title">Ranked Choice</span>
         <span class="radio-desc">Voter ranks candidates in order of preference. A number box appears next to each candidate on the ballot.</span>
       </label>
       <label class="radio-label">
         <input type="radio" name="votingMethod" value="APPROVAL"
-               th:checked="${contest.votingMethod != null and contest.votingMethod.name() == 'APPROVAL'}"
-               onchange="onVotingMethodChange(this)"/>
+               th:checked="${contest.votingMethod != null and contest.votingMethod.name() == 'APPROVAL'}"/>
         <span class="radio-title">Approval</span>
         <span class="radio-desc">Voter marks every candidate they find acceptable. No limit on marks.</span>
       </label>
       <label class="radio-label">
         <input type="radio" name="votingMethod" value="MEASURE"
-               th:checked="${contest.votingMethod != null and contest.votingMethod.name() == 'MEASURE'}"
-               onchange="onVotingMethodChange(this)"/>
+               th:checked="${contest.votingMethod != null and contest.votingMethod.name() == 'MEASURE'}"/>
         <span class="radio-title">Measure / Yes-No</span>
         <span class="radio-desc">A ballot measure — options are typically YES/NO, FOR/AGAINST, or a short list of choices.</span>
       </label>
@@ -127,6 +115,13 @@
           <small style="font-weight:normal;color:#666">(0 = unlimited)</small>
           <input type="number" name="maxRankChoices"
                  th:value="${contest.maxRankChoices}" min="0"/>
+        </label>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <label>Display Order
+          <small style="font-weight:normal;color:#666">(lower = earlier on ballot)</small>
+          <input type="number" name="displayOrder"
+                 th:value="${contest.displayOrder}" min="0"/>
         </label>
       </div>
     </div>
@@ -320,26 +315,6 @@
   </div>
 
 </main>
-<script>
-function onVotingMethodChange(radio) {
-  var isRanked = (radio.value === 'RANKED_CHOICE');
-  document.getElementById('maxRankField').style.display    = isRanked ? 'block' : 'none';
-  document.getElementById('maxChoicesField').style.display = isRanked ? 'none'  : 'block';
-}
-window.addEventListener('DOMContentLoaded', function () {
-  var checked = document.querySelector('input[name="votingMethod"]:checked');
-  if (checked) onVotingMethodChange(checked);
-});
-function syncRecordTitle() {
-  var pt = document.getElementById('printableTitle');
-  var rt = document.getElementById('recordTitle');
-  if (rt && pt && rt.value.trim() === '') rt.value = pt.value;
-}
-window.addEventListener('DOMContentLoaded', function () {
-  var pt = document.getElementById('printableTitle');
-  var rt = document.getElementById('recordTitle');
-  if (rt && pt && rt.value.trim() === '' && pt.value.trim() !== '') rt.value = pt.value;
-});
-</script>
+<script th:src="@{/js/contest-form.js}"></script>
 </body>
 </html>

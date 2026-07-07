@@ -374,76 +374,128 @@
       </summary>
       <div style="font-size:.8rem;margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.5rem">
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('default')">Default (headline + instructions)</button>
+          data-snippet="default">Default (headline + instructions)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('twocol')">Two columns (image + text)</button>
+          data-snippet="twocol">Two columns (image + text)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('minimal')">Minimal (election name only)</button>
+          data-snippet="minimal">Minimal (election name only)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('table')">Table layout</button>
+          data-snippet="table">Table layout</button>
       </div>
     </details>
 
-    <textarea id="headerHtmlArea" name="headerHtml" rows="12"
-              style="font-family:monospace;font-size:.8rem;width:100%;
-                     border:1px solid #ccc;border-radius:4px;padding:.5rem"
-              th:text="${template.headerHtml != null
-                         ? template.headerHtml
-                         : T(gov.election.ballot.model.BallotDesignTemplate).DEFAULT_HEADER_HTML}">
-    </textarea>
-    <p style="font-size:.75rem;color:#666;margin-top:.25rem">
-      Leave blank to use the default (Official Ballot + How to Vote instructions).
-      The barcode, orientation marks, and metadata line above are always drawn
-      automatically regardless of this content.
-    </p>
+    <!-- Dual header editor: raw HTML code on top, Quill WYSIWYG below -->
+    <div style="max-width:576px">  <!-- 6 inches at 96dpi -->
 
-    <script>
-    var HEADER_SNIPPETS = {
-      'default':
-        '<div style="font-family:Helvetica,Arial,sans-serif;padding:4px 0">\n' +
-        '  <p style="font-size:13pt;font-weight:bold;margin:0 0 4px 0">OFFICIAL BALLOT</p>\n' +
-        '  <p style="font-size:9pt;margin:0 0 2px 0">{jurisdictionName}</p>\n' +
-        '  <p style="font-size:9pt;margin:0 0 6px 0">{electionName}</p>\n' +
-        '  <p style="font-size:9pt;font-weight:bold;margin:0 0 2px 0">HOW TO VOTE:</p>\n' +
-        '  <p style="font-size:9pt;margin:0">To vote, completely fill in the {indicatorName} next to your choice.</p>\n' +
-        '</div>',
-      'twocol':
-        '<table style="width:100%;border-collapse:collapse;font-family:Helvetica,Arial,sans-serif">\n' +
-        '  <tr>\n' +
-        '    <td style="width:60pt;vertical-align:middle;padding-right:6pt">\n' +
-        '      <img src="data:image/png;base64,REPLACE_WITH_BASE64" style="max-width:54pt;max-height:54pt"/>\n' +
-        '    </td>\n' +
-        '    <td style="vertical-align:top">\n' +
-        '      <p style="font-size:13pt;font-weight:bold;margin:0 0 3pt 0">OFFICIAL BALLOT</p>\n' +
-        '      <p style="font-size:9pt;margin:0">{jurisdictionName} | {electionName}</p>\n' +
-        '      <p style="font-size:9pt;margin:4pt 0 0 0">Fill the {indicatorName} completely next to your choice.</p>\n' +
-        '    </td>\n' +
-        '  </tr>\n' +
-        '</table>',
-      'minimal':
-        '<div style="font-family:Helvetica,Arial,sans-serif;padding:4px 0">\n' +
-        '  <p style="font-size:11pt;font-weight:bold;margin:0 0 3px 0">OFFICIAL BALLOT</p>\n' +
-        '  <p style="font-size:9pt;margin:0">{electionName}</p>\n' +
-        '</div>',
-      'table':
-        '<table style="width:100%;border-collapse:collapse;font-family:Helvetica,Arial,sans-serif;font-size:9pt">\n' +
-        '  <tr><td colspan="2" style="font-size:13pt;font-weight:bold;padding-bottom:4pt">OFFICIAL BALLOT</td></tr>\n' +
-        '  <tr>\n' +
-        '    <td style="width:50%;vertical-align:top;padding-right:6pt">\n' +
-        '      <strong>{jurisdictionName}</strong><br/>{electionName}\n' +
-        '    </td>\n' +
-        '    <td style="vertical-align:top">\n' +
-        '      <strong>HOW TO VOTE:</strong><br/>\n' +
-        '      Fill the {indicatorName} next to your choice.\n' +
-        '    </td>\n' +
-        '  </tr>\n' +
-        '</table>'
-    };
-    function insertHeaderSnippet(key) {
-      var ta = document.getElementById('headerHtmlArea');
-      if (ta) ta.value = HEADER_SNIPPETS[key] || '';
-    }
-    </script>
+      <!-- Top: raw HTML code -->
+      <div style="margin-bottom:8px">
+        <div style="font-size:.78rem;color:#555;margin-bottom:3px;font-weight:600">
+          HTML / CSS code
+        </div>
+        <textarea id="headerHtmlArea" name="headerHtml" rows="8"
+                  style="font-family:monospace;font-size:.78rem;width:100%;
+                         box-sizing:border-box;
+                         border:1px solid #ccc;border-radius:4px;padding:.5rem;
+                         resize:vertical"
+                  th:text="${template.headerHtml != null
+                             ? template.headerHtml
+                             : T(gov.election.ballot.model.BallotDesignTemplate).DEFAULT_HEADER_HTML}">
+        </textarea>
+      </div>
+
+      <!-- Bottom: Quill WYSIWYG -->
+      <div>
+        <div style="font-size:.78rem;color:#555;margin-bottom:3px;font-weight:600">
+          Visual editor (WYSIWYG)
+        </div>
+        <!-- Quill toolbar -->
+        <div id="quillToolbar" style="border:1px solid #ccc;border-bottom:none;
+             border-radius:4px 4px 0 0;background:#f8f8f8;padding:4px 6px;
+             display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+          <select class="ql-font" title="Font">
+            <option value="">Sans-serif</option>
+            <option value="serif">Serif</option>
+            <option value="monospace">Monospace</option>
+          </select>
+          <select class="ql-size" title="Size">
+            <option value="7pt">7pt</option>
+            <option value="8pt">8pt</option>
+            <option value="9pt" selected>9pt</option>
+            <option value="10pt">10pt</option>
+            <option value="11pt">11pt</option>
+            <option value="12pt">12pt</option>
+            <option value="13pt">13pt</option>
+            <option value="14pt">14pt</option>
+            <option value="16pt">16pt</option>
+            <option value="18pt">18pt</option>
+          </select>
+          <button class="ql-bold"
+                  style="width:auto;padding:2px 6px;font-weight:bold"
+                  title="Bold">B</button>
+          <button class="ql-italic"
+                  style="width:auto;padding:2px 6px;font-style:italic"
+                  title="Italic">I</button>
+          <button class="ql-underline"
+                  style="width:auto;padding:2px 6px;text-decoration:underline"
+                  title="Underline">U</button>
+          <span style="width:1px;height:18px;background:#ccc;display:inline-block;margin:0 2px"></span>
+          <button class="ql-align" value=""
+                  style="width:auto;padding:2px 6px"
+                  title="Align left">≡</button>
+          <button class="ql-align" value="center"
+                  style="width:auto;padding:2px 6px"
+                  title="Align center">≡</button>
+          <button class="ql-align" value="right"
+                  style="width:auto;padding:2px 6px"
+                  title="Align right">≡</button>
+          <span style="width:1px;height:18px;background:#ccc;display:inline-block;margin:0 2px"></span>
+          <select class="ql-lineheight" title="Line spacing">
+            <option value="">Spacing</option>
+            <option value="1">1×</option>
+            <option value="1.2">1.2×</option>
+            <option value="1.4">1.4×</option>
+            <option value="1.5">1.5×</option>
+            <option value="1.6">1.6×</option>
+            <option value="1.8">1.8×</option>
+            <option value="2">2×</option>
+          </select>
+          <button class="ql-clean"
+                  style="width:auto;padding:2px 6px"
+                  title="Remove formatting">✕</button>
+        </div>
+        <!-- Quill editor surface -->
+        <div id="quillEditor"
+             style="border:1px solid #ccc;border-radius:0 0 4px 4px;
+                    min-height:120px;max-height:220px;overflow-y:auto;
+                    font-family:Helvetica,Arial,sans-serif;font-size:9pt;
+                    padding:8px;background:#fff">
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:.75rem;color:#666;margin-top:.25rem">
+      Edit in either pane — changes sync instantly.
+      Leave blank to use the default header.
+      The barcode, orientation marks, and metadata line are always drawn automatically.
+    </p>
+    <div style="margin-top:.4rem">
+      <button type="button" id="headerPreviewBtn"
+              style="font-size:.75rem;padding:.2rem .6rem">
+        Show submitted value
+      </button>
+      <pre id="headerPreviewBox"
+           style="display:none;margin-top:.4rem;padding:.5rem;
+                  background:#f0f4f8;border:1px solid #ccc;
+                  border-radius:4px;font-size:.72rem;
+                  white-space:pre-wrap;word-break:break-all;
+                  max-height:160px;overflow-y:auto"></pre>
+    </div>
+
+    <!-- Quill (local copy) -->
+    <link th:href="@{/vendor/quill/quill.snow.css}" rel="stylesheet"/>
+    <script th:src="@{/vendor/quill/quill.js}"></script>
+    <!-- Header editor — external to satisfy Content-Security-Policy script-src 'self' -->
+    <script th:src="@{/js/header-editor.js}"></script>
 
     <!-- Barcode position is always TOP_RIGHT — hardcoded for scanning reliability -->
     <input type="hidden" name="barcodePosition" value="TOP_RIGHT"/>

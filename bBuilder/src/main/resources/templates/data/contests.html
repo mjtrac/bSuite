@@ -42,6 +42,7 @@
         <td class="actions">
           <a th:href="@{'/data/contests/' + ${c.id} + '/edit'}" class="btn btn-sm">Edit</a>
           <a th:href="@{'/data/contests/' + ${c.id} + '/candidates'}" class="btn btn-sm">Candidates</a>
+          <a th:href="@{'/data/contests/' + ${c.id} + '/translate'}" class="btn btn-sm">Translate</a>
           <form method="post"
                 th:action="@{'/data/contests/' + ${c.id} + '/delete'}"
                 style="display:inline"
