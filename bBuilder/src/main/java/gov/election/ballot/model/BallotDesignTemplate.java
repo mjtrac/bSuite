@@ -233,17 +233,15 @@ public class BallotDesignTemplate {
      */
     @Column(columnDefinition = "TEXT")
     private String headerHtml = DEFAULT_HEADER_HTML;
-
-    /** Default HTML matches the previous headline + body text defaults. */
     public static final String DEFAULT_HEADER_HTML =
-        "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">" +
-        "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">OFFICIAL BALLOT</p>" +
-        "<p style=\"font-size:9pt;margin:0 0 2px 0\">{jurisdictionName}</p>" +
-        "<p style=\"font-size:9pt;margin:0 0 6px 0\">{electionName}</p>" +
-        "<p style=\"font-size:9pt;font-weight:bold;margin:0 0 2px 0\">HOW TO VOTE:</p>" +
-        "<p style=\"font-size:9pt;margin:0\">To vote, completely fill in the " +
-        "{indicatorName} next to your choice.</p>" +
-        "</div>";
+	"<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">" +
+	"<p style=\"font-size:13pt;font-weight:bold;line-height:1.6\">OFFICIAL BALLOT</p>" +
+	"<p style=\"font-size:9pt;line-height:1.4\">{jurisdictionName}</p>" +
+	"<p style=\"font-size:9pt;line-height:1.8\">{electionName}</p>" +
+	"<p style=\"font-size:9pt;font-weight:bold;line-height:1.4\">HOW TO VOTE:</p>" +
+	"<p style=\"font-size:9pt;line-height:1.4\">To vote, completely fill in the {indicatorName} next to your choice.</p>" +
+    "</div>";
+    
 
     // ── Getters & Setters ─────────────────────────────────────
 
