@@ -45,22 +45,46 @@
   var updatingFromCode  = false;
 
   // ── HTML → Quill ─────────────────────────────────────────────────────────────
-  // Set innerHTML directly rather than going through dangerouslyPasteHTML,
-  // which round-trips through Delta and corrupts inline-styled HTML.
-  // The textarea remains the authoritative value submitted to the server.
+  // Quill 1.x: dangerouslyPasteHTML is required — setting innerHTML directly
+  // is overwritten when Quill syncs its Delta model to the DOM.
+  // Quill 2.x: innerHTML works; dangerouslyPasteHTML corrupts inline styles.
+  var isQuill2 = typeof Quill.version === 'string' && Quill.version.startsWith('2');
+
   function htmlToQuill(html) {
     if (!html || !html.trim()) {
-      quill.root.innerHTML = '';
+      quill.setContents([], 'silent');
       return;
     }
-    // Suppress text-change event during programmatic update
     updatingFromCode = true;
-    quill.root.innerHTML = html;
+    try {
+      if (isQuill2 && quill.clipboard.convert) {
+        var delta = quill.clipboard.convert({ html: html });
+        quill.setContents(delta, 'silent');
+      } else {
+        quill.clipboard.dangerouslyPasteHTML(html);
+      }
+    } catch (e) {
+      console.warn('header-editor htmlToQuill:', e);
+    }
     updatingFromCode = false;
   }
 
-  // Initial load — short delay to ensure Quill is fully initialised
-  setTimeout(function () { htmlToQuill(ta.value); }, 50);
+  // Initial load — use Quill 2.x API: clipboard.convert() + setContents()
+  // innerHTML direct assignment gets overwritten by Quill after init.
+  // Quill.find(container) retrieves the instance Quill stored on the DOM node.
+  setTimeout(function () {
+    var html = ta.value || ta.textContent || '';
+    if (!html.trim()) return;
+    try {
+      var q = Quill.find(document.getElementById('quillEditor'));
+      if (q && q.clipboard) {
+        var delta = q.clipboard.convert({ html: html.trim() });
+        q.setContents(delta, 'silent');
+      }
+    } catch (e) {
+      console.warn('header-editor: initial load failed:', e);
+    }
+  }, 200);
 
   // ── Quill → textarea ─────────────────────────────────────────────────────────
   quill.on('text-change', function (delta, old, source) {
@@ -84,7 +108,7 @@
   // ── Textarea → Quill ─────────────────────────────────────────────────────────
   ta.addEventListener('input', function () {
     if (updatingFromQuill) return;
-    htmlToQuill(ta.value);
+    if (ta.value.trim()) htmlToQuill(ta.value);
   });
 
   // ── Snippets ──────────────────────────────────────────────────────────────────

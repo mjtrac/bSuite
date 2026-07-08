@@ -26,7 +26,7 @@
       <div class="form-group">
         <label>Candidate Name</label>
         <input type="text" th:name="'name_' + ${lang.languageCode}"
-               th:value="${translations.?[languageCode == __${lang.languageCode}__].^[true]?.name}"
+               th:value="${translations.?[languageCode == '__${lang.languageCode}__'].^[true]?.name}"
                th:placeholder="${candidate.name}"
                style="width:100%"/>
       </div>
@@ -34,7 +34,7 @@
         <label>Explanatory Text</label>
         <textarea th:name="'explanatoryText_' + ${lang.languageCode}"
                   rows="2" style="width:100%"
-                  th:text="${translations.?[languageCode == __${lang.languageCode}__].^[true]?.explanatoryText}"></textarea>
+                  th:text="${translations.?[languageCode == '__${lang.languageCode}__'].^[true]?.explanatoryText}"></textarea>
       </div>
     </div>
 

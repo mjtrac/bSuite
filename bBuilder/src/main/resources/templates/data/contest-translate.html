@@ -31,7 +31,7 @@
       <div class="form-group">
         <label>Contest Title</label>
         <input type="text" th:name="'title_' + ${lang.languageCode}"
-               th:value="${translations.?[languageCode == __${lang.languageCode}__].^[true]?.title}"
+               th:value="${translations.?[languageCode == '__${lang.languageCode}__'].^[true]?.title}"
                th:placeholder="${contest.title}"
                style="width:100%"/>
       </div>
@@ -40,19 +40,19 @@
         <textarea th:name="'instructions_' + ${lang.languageCode}"
                   th:placeholder="${'Auto: ' + contest.votingMethod}"
                   rows="2" style="width:100%"
-                  th:text="${translations.?[languageCode == __${lang.languageCode}__].^[true]?.instructions}"></textarea>
+                  th:text="${translations.?[languageCode == '__${lang.languageCode}__'].^[true]?.instructions}"></textarea>
       </div>
       <div class="form-group" th:if="${contest.printPreamble}">
         <label>Preamble</label>
         <textarea th:name="'preamble_' + ${lang.languageCode}"
                   rows="2" style="width:100%"
-                  th:text="${translations.?[languageCode == __${lang.languageCode}__].^[true]?.preamble}"></textarea>
+                  th:text="${translations.?[languageCode == '__${lang.languageCode}__'].^[true]?.preamble}"></textarea>
       </div>
       <div class="form-group" th:if="${contest.printPostamble}">
         <label>Postamble</label>
         <textarea th:name="'postamble_' + ${lang.languageCode}"
                   rows="2" style="width:100%"
-                  th:text="${translations.?[languageCode == __${lang.languageCode}__].^[true]?.postamble}"></textarea>
+                  th:text="${translations.?[languageCode == '__${lang.languageCode}__'].^[true]?.postamble}"></textarea>
       </div>
     </div>
 

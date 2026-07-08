@@ -374,13 +374,13 @@
       </summary>
       <div style="font-size:.8rem;margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.5rem">
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          data-snippet="default">Default (headline + instructions)</button>
+          onclick="insertHeaderSnippet('default')">Default (headline + instructions)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          data-snippet="twocol">Two columns (image + text)</button>
+          onclick="insertHeaderSnippet('twocol')">Two columns (image + text)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          data-snippet="minimal">Minimal (election name only)</button>
+          onclick="insertHeaderSnippet('minimal')">Minimal (election name only)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          data-snippet="table">Table layout</button>
+          onclick="insertHeaderSnippet('table')">Table layout</button>
       </div>
     </details>
 
@@ -478,23 +478,33 @@
       Leave blank to use the default header.
       The barcode, orientation marks, and metadata line are always drawn automatically.
     </p>
-    <div style="margin-top:.4rem">
-      <button type="button" id="headerPreviewBtn"
-              style="font-size:.75rem;padding:.2rem .6rem">
-        Show submitted value
-      </button>
-      <pre id="headerPreviewBox"
-           style="display:none;margin-top:.4rem;padding:.5rem;
-                  background:#f0f4f8;border:1px solid #ccc;
-                  border-radius:4px;font-size:.72rem;
-                  white-space:pre-wrap;word-break:break-all;
-                  max-height:160px;overflow-y:auto"></pre>
-    </div>
 
-    <!-- Quill (local copy) -->
+    <!-- Quill v2 from CDN -->
     <link th:href="@{/vendor/quill/quill.snow.css}" rel="stylesheet"/>
     <script th:src="@{/vendor/quill/quill.js}"></script>
-    <!-- Header editor — external to satisfy Content-Security-Policy script-src 'self' -->
+    <style>
+      #quillEditor .ql-editor {
+        min-height: 100px;
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 9pt;
+        cursor: text;
+        user-select: text;
+        -webkit-user-select: text;
+      }
+      #quillToolbar button {
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+        color: #333;
+        padding: 2px 6px;
+      }
+      #quillToolbar button:hover { background: #e8e8e8; }
+      #quillToolbar select { font-size: 12px; }
+    </style>
+
     <script th:src="@{/js/header-editor.js}"></script>
 
     <!-- Barcode position is always TOP_RIGHT — hardcoded for scanning reliability -->
