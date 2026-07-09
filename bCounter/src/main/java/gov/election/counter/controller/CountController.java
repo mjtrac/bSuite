@@ -43,10 +43,10 @@ import gov.election.counter.service.AuditLogService;
  *   POST /reset     → clear session → redirect /
  */
 @Controller
-public class ScanController {
+public class CountController {
 
     private static final Logger log =
-        LoggerFactory.getLogger(ScanController.class);
+        LoggerFactory.getLogger(CountController.class);
 
     private final Executor taskExecutor;
 
@@ -72,7 +72,7 @@ public class ScanController {
 
     private final VoteRecordService  voteRecord;
 
-    public ScanController(BboxReportLoader loader, ScannerService scanner,
+    public CountController(BboxReportLoader loader, ScannerService scanner,
                           VoteTallyService voteTally, AuditLogService auditLog,
                           VoteRecordService voteRecord) {
         this.loader       = loader;
@@ -198,7 +198,7 @@ public class ScanController {
         ScanSession session = getSession(httpSession);
         if (session == null || !session.isStarted()) return "redirect:/";
         model.addAttribute("ss", session);
-        return "scanning";
+        return "counting";
     }
 
     // ── Run scan ───────────────────────────────────────────────────────────────
@@ -213,14 +213,14 @@ public class ScanController {
         if (session == null || !session.isStarted()) return "redirect:/";
 
         // If already scanning asynchronously, just show the progress page
-        if (session.scanning) return "redirect:/scanning";
+        if (session.scanning) return "redirect:/counting";
 
         // Start scan loop in background thread so the browser isn't blocked
         session.scanning = true;
         final String username = userDetails != null ? userDetails.getUsername() : "(system)";
         taskExecutor.execute(() -> runScanLoop(session, username));
 
-        return "redirect:/scanning";
+        return "redirect:/counting";
     }
 
     /** Runs in a background thread — scans all images, updates session state.
@@ -369,18 +369,11 @@ public class ScanController {
                         completedQueue.add(new Object[]{imagePath, result, idx});
                     } catch (java.util.ConcurrentModificationException cme) {
                         // Transient race from concurrent access to shared layout data.
-                        // Queue for a same-pass re-scan once worker contention clears.
-                        // IMPORTANT: still add a placeholder to completedQueue so the
-                        // writer loop can advance its count — otherwise the writer spins
-                        // forever waiting for an item that will never arrive.
+                        // Queue for a same-pass re-scan once worker contention clears,
+                        // rather than immediately flagging for manual review.
                         log.warn("CME scanning " + imagePath.getFileName()
                             + " — queuing for re-scan after main pass", cme);
                         scanRetryList.add(new Object[]{imagePath, idx});
-                        ScanResult placeholder = new ScanResult();
-                        placeholder.imagePath  = imagePath.toString();
-                        placeholder.imageName  = imagePath.getFileName().toString();
-                        placeholder.errorMessage = "CME_RETRY";   // writer skips persist
-                        completedQueue.add(new Object[]{imagePath, placeholder, idx});
                     } catch (Exception e) {
                         String msg = e.getMessage() != null ? e.getMessage()
                                    : e.getClass().getSimpleName();
@@ -427,10 +420,6 @@ public class ScanController {
                         };
                     }
                     if (result.errorMessage != null) {
-                        if ("CME_RETRY".equals(result.errorMessage)) {
-                            // Placeholder for CME — actual re-scan handled in scanRetryList below
-                            log.debug("Writer: skipping CME placeholder for {}", imageName);
-                        } else {
                         session.reviewRequired.add(imagePath.toAbsolutePath().toString()
                             + " — " + result.errorMessage);
                         log.warn("Flagged for review: " + imageName
@@ -460,7 +449,6 @@ public class ScanController {
                                 + "). Fix the issue and rescan uncounted images.";
                             session.stopRequested = true;
                         }
-                        }   // end else (not CME_RETRY)
                     } else {
                         var pStatus = voteRecord.persist(result, imagePath, session.threshold,
                             corners, result.contentAreaWidth, result.contentAreaHeight,
@@ -538,18 +526,10 @@ public class ScanController {
                 }
             }
             // Pass complete — wait for all workers to finish, then drain.
-            // Each future gets a 60-second timeout — a hung worker must not
-            // block the tally permanently. If a worker times out it is
-            // cancelled and its image (if any) will appear uncounted.
-            for (int fi = 0; fi < futures.size(); fi++) {
-                Future<?> f = futures.get(fi);
-                try {
-                    f.get(60, java.util.concurrent.TimeUnit.SECONDS);
-                } catch (java.util.concurrent.TimeoutException te) {
-                    log.error("Worker thread {} timed out after 60s — cancelling. "
-                        + "One image may be uncounted.", fi);
-                    f.cancel(true);
-                } catch (Exception ignored) {}
+            // session.submittedCount was incremented as each future was submitted,
+            // so the UI counter already shows the correct value during this join.
+            for (Future<?> f : futures) {
+                try { f.get(); } catch (Exception ignored) {}
             }
             // All worker threads are now idle (joined above), so whatever shared
             // state caused the race is no longer being mutated concurrently.

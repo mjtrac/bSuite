@@ -130,7 +130,7 @@
       <div class="printer-section">
         <h3>&#128438; Print Options <span style="font-weight:400;color:#555">(optional)</span></h3>
         <div class="checkbox-row">
-          <input type="checkbox" id="printNow" onchange="togglePrinter(this)"/>
+          <input type="checkbox" id="printNow"/>
           <label for="printNow" style="margin:0;font-weight:400">
             Send each ballot to a printer immediately after generating
           </label>
@@ -148,7 +148,7 @@
       </div>
 
       <div style="margin-top:1.25rem;display:flex;align-items:center;gap:.75rem">
-        <button type="submit" class="btn-primary" onclick="showSpinner()">
+        <button type="submit" class="btn-primary">
           &#9654; Generate All Ballots
         </button>
         <div class="spinner" id="spinner"></div>
@@ -215,60 +215,6 @@
 
 </div><!-- /gen-body -->
 
-<script>
-  // ── Printer discovery ──────────────────────────────────────────────────
-  let printersLoaded = false;
-
-  function togglePrinter(cb) {
-    const sel = document.getElementById('printerSelector');
-    sel.style.display = cb.checked ? 'block' : 'none';
-    if (cb.checked && !printersLoaded) loadPrinters();
-  }
-
-  function loadPrinters() {
-    fetch('/print/printers', { credentials: 'include' })
-      .then(r => r.json())
-      .then(data => {
-        const select = document.getElementById('printerName');
-        select.innerHTML = '';
-        if (!data.printers || data.printers.length === 0) {
-          select.innerHTML =
-            '<option value="">— no printers found on server —</option>';
-          return;
-        }
-        data.printers.forEach(p => {
-          const opt = document.createElement('option');
-          opt.value = p;
-          opt.textContent = p;
-          if (p === data.defaultPrinter) opt.selected = true;
-          select.appendChild(opt);
-        });
-        printersLoaded = true;
-      })
-      .catch(() => {
-        document.getElementById('printerName').innerHTML =
-          '<option value="">— could not load printers —</option>';
-      });
-  }
-
-  // ── Spinner on submit ─────────────────────────────────────────────────
-  function showSpinner() {
-    document.getElementById('spinner').style.display = 'inline-block';
-    document.getElementById('spinnerLabel').style.display = 'inline';
-  }
-
-  // ── Clear printer selection when printing unchecked ────────────────────
-  document.getElementById('genForm').addEventListener('submit', function() {
-    const cb = document.getElementById('printNow');
-    if (!cb.checked) {
-      // Remove the printerName field so the server receives blank
-      const sel = document.getElementById('printerName');
-      sel.disabled = true;
-    }
-  });
-
-  // ── Pre-select election if result is shown ─────────────────────────────
-  // (election is already pre-selected via th:selected above)
-</script>
+<script th:src="@{/js/generate-all.js}"></script>
 </body>
 </html>

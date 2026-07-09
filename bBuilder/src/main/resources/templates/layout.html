@@ -31,10 +31,10 @@
 
     <span class="nav-group">
       <span class="nav-label" sec:authorize="hasAnyRole('ADMIN','DATA_ENTRY')">Ballots</span>
-      <a th:href="@{/data/ballot-templates}"
-         sec:authorize="hasAnyRole('ADMIN','DATA_ENTRY')">Design Templates</a>
       <a th:href="@{/data/ballot-combinations}"
          sec:authorize="hasAnyRole('ADMIN','DATA_ENTRY')">Combinations</a>
+      <a th:href="@{/data/ballot-templates}"
+         sec:authorize="hasAnyRole('ADMIN','DATA_ENTRY')">Design Templates</a>
       <a th:href="@{/print}"
          sec:authorize="hasAnyRole('ADMIN','PRINTER')">Print Ballot</a>
     </span>
@@ -61,52 +61,6 @@
     </span>
   </div>
 </nav>
-<script>
-/*
- * Unsaved-changes warning.
- * Marks any <form class="data-form"> as dirty when a field changes.
- * Shows a browser confirmation if the user tries to navigate away with unsaved changes.
- * Cleared when the form is submitted.
- *
- * Copyright (C) 2026 Mitch Trachtenberg — GPL v3
- */
-(function () {
-  var dirty = false;
-
-  function markDirty() {
-    dirty = true;
-    document.querySelectorAll('button[type="submit"]').forEach(function (btn) {
-      if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
-      if (!btn.textContent.includes('*'))
-        btn.textContent = '* ' + btn.dataset.originalText + ' (unsaved)';
-    });
-  }
-
-  function clearDirty() {
-    dirty = false;
-    document.querySelectorAll('button[type="submit"]').forEach(function (btn) {
-      if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('form.data-form').forEach(function (form) {
-      // Listen for any change inside the form
-      form.addEventListener('input',  markDirty);
-      form.addEventListener('change', markDirty);
-      // Clear dirty state on submit
-      form.addEventListener('submit', clearDirty);
-    });
-  });
-
-  window.addEventListener('beforeunload', function (e) {
-    if (dirty) {
-      e.preventDefault();
-      e.returnValue = 'You have unsaved changes. Leave anyway?';
-      return e.returnValue;
-    }
-  });
-})();
-</script>
+<script th:src="@{/js/unsaved-changes.js}"></script>
 </body>
 </html>

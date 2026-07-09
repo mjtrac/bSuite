@@ -13,6 +13,8 @@ import gov.election.ballot.model.BallotDesignTemplate.PaperSize;
 import gov.election.ballot.model.Region.RegionType;
 import gov.election.ballot.repository.*;
 import gov.election.ballot.service.BallotGenerationService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -34,7 +36,11 @@ public class TestApiController {
     private final BallotCombinationRepository combRepo;
     private final BallotDesignTemplateRepository templateRepo;
     private final BallotGenerationService   ballotService;
-    private final UserRepository            userRepo;
+    private final UserRepository             userRepo;
+    private final BallotLanguageRepository   languageRepo;
+    private final ContestTranslationRepository  contestTranslationRepo;
+    private final CandidateTranslationRepository candidateTranslationRepo;
+    private final PrintLogRepository         printLogRepo;
 
     public TestApiController(
             JurisdictionRepository jurisdictionRepo,
@@ -47,7 +53,11 @@ public class TestApiController {
             BallotCombinationRepository combRepo,
             BallotDesignTemplateRepository templateRepo,
             BallotGenerationService ballotService,
-            UserRepository userRepo) {
+            UserRepository userRepo,
+            BallotLanguageRepository languageRepo,
+            ContestTranslationRepository contestTranslationRepo,
+            CandidateTranslationRepository candidateTranslationRepo,
+            PrintLogRepository printLogRepo) {
         this.jurisdictionRepo = jurisdictionRepo;
         this.electionRepo     = electionRepo;
         this.ballotTypeRepo   = ballotTypeRepo;
@@ -58,7 +68,11 @@ public class TestApiController {
         this.combRepo         = combRepo;
         this.templateRepo     = templateRepo;
         this.ballotService    = ballotService;
-        this.userRepo         = userRepo;
+        this.userRepo                  = userRepo;
+        this.languageRepo              = languageRepo;
+        this.contestTranslationRepo    = contestTranslationRepo;
+        this.candidateTranslationRepo  = candidateTranslationRepo;
+        this.printLogRepo              = printLogRepo;
     }
 
     // ── Health check ──────────────────────────────────────────────────────────
@@ -269,8 +283,6 @@ public class TestApiController {
         if (body.containsKey("suffix"))
             cand.setSuffixText(body.get("suffix").toString());
 
-        if (body.containsKey("displayOrder"))
-            cand.setDisplayOrder(Integer.parseInt(body.get("displayOrder").toString()));
         cand = candidateRepo.save(cand);
         return ok("id", cand.getId(), "name", cand.getName());
     }
@@ -293,30 +305,29 @@ public class TestApiController {
 
         String ind = body.getOrDefault("indicatorType", "OVAL").toString();
         t.setVoteIndicatorStyle(BallotDesignTemplate.VoteIndicatorStyle.valueOf(ind));
-        if (body.containsKey("barcodeHeightPt"))
-            t.setBarcodeHeightPt(Float.parseFloat(body.get("barcodeHeightPt").toString()));
-        if (body.containsKey("barcodeWidthPt"))
-            t.setBarcodeWidthPt(Float.parseFloat(body.get("barcodeWidthPt").toString()));
+        // headerHtml is the single field for header content in this version
         if (body.containsKey("headerHtml"))
             t.setHeaderHtml(body.get("headerHtml").toString());
         else if (body.containsKey("headerHeadline") || body.containsKey("headerBodyText")) {
-            // Legacy: convert old headline+body to HTML
+            // Legacy: build headerHtml from headline + body text
             String headline = body.getOrDefault("headerHeadline", "OFFICIAL BALLOT").toString();
-            String bodyTxt  = body.getOrDefault("headerBodyText", "").toString();
-            String html = "<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">"
-                + "<p style=\"font-size:13pt;font-weight:bold;margin:0 0 4px 0\">" + headline + "</p>";
-            for (String para : bodyTxt.split("\\n|\\\\n"))
-                if (!para.isBlank())
-                    html += "<p style=\"font-size:9pt;margin:0 0 2px 0\">" + para + "</p>";
-            html += "</div>";
-            t.setHeaderHtml(html);
+            String body2    = body.getOrDefault("headerBodyText", "").toString();
+            StringBuilder html = new StringBuilder();
+            html.append("<div style=\"font-family:Helvetica,Arial,sans-serif;padding:4px 0\">");
+            html.append("<p style=\"font-size:13pt;font-weight:bold;line-height:1.6\">")
+               .append(headline).append("</p>");
+            for (String line : body2.split("\\n")) {
+                if (!line.isBlank())
+                    html.append("<p style=\"font-size:9pt;line-height:1.4\">")
+                        .append(line.trim()).append("</p>");
+            }
+            html.append("</div>");
+            t.setHeaderHtml(html.toString());
         }
-        if (body.containsKey("rcvIndicatorsRight"))
-            t.setRcvIndicatorsRight(Boolean.parseBoolean(body.get("rcvIndicatorsRight").toString()));
-        if (body.containsKey("rcvShowRankNumbers"))
-            t.setRcvShowRankNumbers(Boolean.parseBoolean(body.get("rcvShowRankNumbers").toString()));
+        if (body.containsKey("headerHtml"))
+            t.setHeaderHtml(body.get("headerHtml").toString());
 
-        t = templateRepo.save(t);
+        // Optional layout overrides
         if (body.containsKey("marginTopPt"))
             t.setMarginTopPt(Float.parseFloat(body.get("marginTopPt").toString()));
         if (body.containsKey("marginBottomPt"))
@@ -340,104 +351,6 @@ public class TestApiController {
 
         t = templateRepo.save(t);
         return ok("id", t.getId(), "paperSize", t.getPaperSize().name());
-    }
-
-    // ── Status summary ────────────────────────────────────────────────────────
-
-    @GetMapping("/status")
-    public ResponseEntity<Map<String,Object>> status() {
-        Map<String,Object> m = new LinkedHashMap<>();
-        m.put("jurisdictions", jurisdictionRepo.count());
-        m.put("elections",     electionRepo.count());
-        m.put("regions",       regionRepo.count());
-        m.put("parties",       partyRepo.count());
-        m.put("ballotTypes",   ballotTypeRepo.count());
-        m.put("contests",      contestRepo.count());
-        m.put("candidates",    candidateRepo.count());
-        m.put("combinations",  combRepo.count());
-        m.put("templates",     templateRepo.count());
-        return ResponseEntity.ok(m);
-    }
-
-    // ── Get template by id ────────────────────────────────────────────────────
-
-    @GetMapping("/template/{id}")
-    public ResponseEntity<Map<String,Object>> getTemplate(@PathVariable Long id) {
-        BallotDesignTemplate t = templateRepo.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("template not found: " + id));
-        Map<String,Object> m = new LinkedHashMap<>();
-        m.put("id",                 t.getId());
-        m.put("paperSize",          t.getPaperSize().name());
-        m.put("columns",            t.getColumns());
-        m.put("indicatorType",      t.getVoteIndicatorStyle().name());
-        m.put("barcodeHeightPt",    t.getBarcodeHeightPt());
-        m.put("barcodeWidthPt",     t.getBarcodeWidthPt());
-        m.put("candidateNameFontSize", t.getCandidateNameFontSize());
-        m.put("contestTitleFontSize",  t.getContestTitleFontSize());
-        m.put("marginTopPt",        t.getMarginTopPt());
-        m.put("marginBottomPt",     t.getMarginBottomPt());
-        m.put("marginLeftPt",       t.getMarginLeftPt());
-        m.put("marginRightPt",      t.getMarginRightPt());
-        m.put("headerHtml",         t.getHeaderHtml());
-        return ResponseEntity.ok(m);
-    }
-
-    // ── List candidates for a contest ─────────────────────────────────────────
-
-    @GetMapping("/contest/{id}/candidates")
-    public ResponseEntity<List<Map<String,Object>>> listCandidates(
-            @PathVariable Long id) {
-        Contest c = contestRepo.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("contest not found: " + id));
-        List<Map<String,Object>> result = new ArrayList<>();
-        for (Candidate cand : c.getCandidates()) {
-            Map<String,Object> m = new LinkedHashMap<>();
-            m.put("id",             cand.getId());
-            m.put("name",           cand.getName());
-            m.put("writeIn",        cand.isWriteIn());
-            m.put("displayOrder",   cand.getDisplayOrder());
-            if (cand.getExplanatoryText() != null)
-                m.put("explanatoryText", cand.getExplanatoryText());
-            result.add(m);
-        }
-        return ResponseEntity.ok(result);
-    }
-
-    // ── List contests for an election ─────────────────────────────────────────
-
-    @GetMapping("/election/{id}/contests")
-    public ResponseEntity<List<Map<String,Object>>> listContests(
-            @PathVariable Long id) {
-        if (!electionRepo.existsById(id))
-            throw new IllegalArgumentException("election not found: " + id);
-        List<Map<String,Object>> result = new ArrayList<>();
-        for (Contest c : contestRepo.findByElectionIdOrderByDisplayOrder(id)) {
-            Map<String,Object> m = new LinkedHashMap<>();
-            m.put("id",          c.getId());
-            m.put("title",       c.getRecordTitle());
-            m.put("contestType", c.getVotingMethod().name());
-            m.put("maxVotes",    c.getMaxChoices());
-            m.put("candidates",  c.getCandidates().size());
-            result.add(m);
-        }
-        return ResponseEntity.ok(result);
-    }
-
-    // ── List all templates ────────────────────────────────────────────────────
-
-    @GetMapping("/templates")
-    public ResponseEntity<List<Map<String,Object>>> listTemplates() {
-        List<Map<String,Object>> result = new ArrayList<>();
-        for (BallotDesignTemplate t : templateRepo.findAll()) {
-            Map<String,Object> m = new LinkedHashMap<>();
-            m.put("id",           t.getId());
-            m.put("paperSize",    t.getPaperSize().name());
-            m.put("columns",      t.getColumns());
-            m.put("indicatorType", t.getVoteIndicatorStyle().name());
-            m.put("electionId",   t.getElection().getId());
-            result.add(m);
-        }
-        return ResponseEntity.ok(result);
     }
 
     // ── Create ballot combination ─────────────────────────────────────────────
@@ -513,6 +426,213 @@ public class TestApiController {
             result.add(m);
         }
         return ResponseEntity.ok(result);
+    }
+
+    // ── List elections ────────────────────────────────────────────────────────
+
+    @GetMapping("/elections")
+    public ResponseEntity<List<Map<String,Object>>> listElections() {
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Election e : electionRepo.findAll()) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",   e.getId());
+            m.put("name", e.getName());
+            m.put("jurisdictionId", e.getJurisdiction().getId());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── List contests ─────────────────────────────────────────────────────────
+
+    @GetMapping("/contests")
+    public ResponseEntity<List<Map<String,Object>>> listContests(
+            @RequestParam(required = false) Long electionId) {
+        List<Contest> contests = electionId != null
+            ? contestRepo.findByElectionId(electionId)
+            : contestRepo.findAll();
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Contest c : contests) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",    c.getId());
+            m.put("title", c.getRecordTitle());
+            m.put("votingMethod", c.getVotingMethod().name());
+            m.put("maxChoices",   c.getMaxChoices());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── List candidates ───────────────────────────────────────────────────────
+
+    @GetMapping("/candidates")
+    public ResponseEntity<List<Map<String,Object>>> listCandidates(
+            @RequestParam(required = false) Long contestId) {
+        List<Candidate> cands = contestId != null
+            ? contestRepo.findById(contestId)
+                .map(ct -> ct.getCandidates())
+                .orElse(java.util.List.of())
+            : candidateRepo.findAll();
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Candidate c : cands) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",      c.getId());
+            m.put("name",    c.getName());
+            m.put("writeIn", c.isWriteIn());
+            m.put("contestId", c.getContest().getId());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── List templates ────────────────────────────────────────────────────────
+
+    @GetMapping("/templates")
+    public ResponseEntity<List<Map<String,Object>>> listTemplates(
+            @RequestParam(required = false) Long electionId) {
+        List<BallotDesignTemplate> templates = electionId != null
+            ? templateRepo.findByElectionId(electionId)
+            : templateRepo.findAll();
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (BallotDesignTemplate t : templates) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",        t.getId());
+            m.put("paperSize", t.getPaperSize().name());
+            m.put("columns",   t.getColumns());
+            m.put("indicatorStyle", t.getVoteIndicatorStyle().name());
+            m.put("electionId", t.getElection().getId());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── List regions ──────────────────────────────────────────────────────────
+
+    @GetMapping("/regions")
+    public ResponseEntity<List<Map<String,Object>>> listRegions(
+            @RequestParam(required = false) Long jurisdictionId) {
+        List<Region> regions = jurisdictionId != null
+            ? regionRepo.findByJurisdictionIdOrderByName(jurisdictionId)
+            : regionRepo.findAll();
+        List<Map<String,Object>> result = new ArrayList<>();
+        for (Region r : regions) {
+            Map<String,Object> m = new LinkedHashMap<>();
+            m.put("id",   r.getId());
+            m.put("name", r.getName());
+            m.put("type", r.getRegionType().name());
+            result.add(m);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    // ── Create language ───────────────────────────────────────────────────────
+
+    @PostMapping("/language")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> createLanguage(
+            @RequestBody Map<String,Object> body) {
+        Jurisdiction jur = resolveJurisdiction(body.get("jurisdictionId"));
+        BallotLanguage lang = new BallotLanguage();
+        lang.setLanguageCode(body.get("languageCode").toString());
+        lang.setLanguageName(body.get("languageName").toString());
+        lang.setJurisdiction(jur);
+        lang = languageRepo.save(lang);
+        return ok("id", lang.getId(), "languageCode", lang.getLanguageCode());
+    }
+
+    // ── Create contest translation ────────────────────────────────────────────
+
+    @PostMapping("/contest-translation")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> createContestTranslation(
+            @RequestBody Map<String,Object> body) {
+        Contest contest = contestRepo.findById(
+                Long.valueOf(body.get("contestId").toString()))
+            .orElseThrow(() -> new IllegalArgumentException("contest not found"));
+        String langCode = body.get("languageCode").toString();
+        ContestTranslation ct = contestTranslationRepo
+            .findByContestIdAndLanguageCode(contest.getId(), langCode)
+            .orElse(new ContestTranslation());
+        ct.setContest(contest);
+        ct.setLanguageCode(langCode);
+        if (body.containsKey("title"))        ct.setTitle(body.get("title").toString());
+        if (body.containsKey("instructions")) ct.setInstructions(body.get("instructions").toString());
+        if (body.containsKey("preamble"))     ct.setPreamble(body.get("preamble").toString());
+        if (body.containsKey("postamble"))    ct.setPostamble(body.get("postamble").toString());
+        ct = contestTranslationRepo.save(ct);
+        return ok("id", ct.getId(), "languageCode", langCode);
+    }
+
+    // ── Create candidate translation ──────────────────────────────────────────
+
+    @PostMapping("/candidate-translation")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> createCandidateTranslation(
+            @RequestBody Map<String,Object> body) {
+        Candidate cand = candidateRepo.findById(
+                Long.valueOf(body.get("candidateId").toString()))
+            .orElseThrow(() -> new IllegalArgumentException("candidate not found"));
+        String langCode = body.get("languageCode").toString();
+        CandidateTranslation ct = candidateTranslationRepo
+            .findByCandidateIdAndLanguageCode(cand.getId(), langCode)
+            .orElse(new CandidateTranslation());
+        ct.setCandidate(cand);
+        ct.setLanguageCode(langCode);
+        if (body.containsKey("name"))            ct.setName(body.get("name").toString());
+        if (body.containsKey("explanatoryText")) ct.setExplanatoryText(body.get("explanatoryText").toString());
+        ct = candidateTranslationRepo.save(ct);
+        return ok("id", ct.getId(), "languageCode", langCode);
+    }
+
+    // ── Delete individual entities ────────────────────────────────────────────
+
+    @DeleteMapping("/election/{id}")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> deleteElection(@PathVariable Long id) {
+        Election e = electionRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("election not found: " + id));
+        printLogRepo.deleteByElection(e);
+        combRepo.deleteAll(combRepo.findByElectionId(id));
+        contestRepo.deleteAll(contestRepo.findByElectionId(id));
+        templateRepo.deleteAll(templateRepo.findByElectionId(id));
+        electionRepo.delete(e);
+        return ok("deleted", "election", "id", id);
+    }
+
+    @DeleteMapping("/contest/{id}")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> deleteContest(@PathVariable Long id) {
+        Contest c = contestRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("contest not found: " + id));
+        contestRepo.delete(c);
+        return ok("deleted", "contest", "id", id);
+    }
+
+    @DeleteMapping("/candidate/{id}")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> deleteCandidate(@PathVariable Long id) {
+        Candidate c = candidateRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("candidate not found: " + id));
+        candidateRepo.delete(c);
+        return ok("deleted", "candidate", "id", id);
+    }
+
+    @DeleteMapping("/template/{id}")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> deleteTemplate(@PathVariable Long id) {
+        BallotDesignTemplate t = templateRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("template not found: " + id));
+        templateRepo.delete(t);
+        return ok("deleted", "template", "id", id);
+    }
+
+    @DeleteMapping("/combination/{id}")
+    @Transactional
+    public ResponseEntity<Map<String,Object>> deleteCombination(@PathVariable Long id) {
+        BallotCombination bc = combRepo.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("combination not found: " + id));
+        combRepo.delete(bc);
+        return ok("deleted", "combination", "id", id);
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

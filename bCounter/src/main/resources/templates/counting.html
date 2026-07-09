@@ -10,6 +10,8 @@
       lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <meta name="_csrf"        th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Scanning — Election Counter</title>
   <link rel="stylesheet" th:href="@{/css/counter.css}"/>
@@ -107,7 +109,7 @@
   <div class="current-path" id="yamlPath" style="font-size:.8rem;color:#666;margin-top:.2rem"></div>
 
   <div style="margin-bottom:1rem;display:flex;gap:.75rem;align-items:center">
-    <button id="stopBtn" onclick="stopScan()"
+    <button id="stopBtn" data-action="stopScan"
             style="background:#b91c1c;color:#fff;border:none;padding:.4rem 1.1rem;
                    border-radius:5px;font-size:.88rem;cursor:pointer">
       &#9632; Stop Scanning
@@ -149,7 +151,7 @@
         <ul id="reviewList" style="margin:.5rem 0 0 1.25rem;padding:0;font-size:.8rem;
             font-family:monospace;color:#7f1d1d;word-break:break-all"></ul>
       </div>
-      <button onclick="clearReviewWarning()" style="
+      <button data-action="clearReviewWarning" style="
           flex-shrink:0;background:none;border:1px solid #dc2626;
           color:#991b1b;border-radius:4px;padding:.2rem .6rem;
           font-size:.8rem;cursor:pointer;white-space:nowrap">&#10005; Clear</button>
@@ -165,7 +167,7 @@
         <ul id="dupList" style="margin:.5rem 0 0 1.25rem;padding:0;font-size:.8rem;
             font-family:monospace;color:#92400e;word-break:break-all"></ul>
       </div>
-      <button onclick="clearDupWarning()" style="
+      <button data-action="clearDupWarning" style="
           flex-shrink:0;background:none;border:1px solid #f97316;
           color:#c2410c;border-radius:4px;padding:.2rem .6rem;
           font-size:.8rem;cursor:pointer;white-space:nowrap">
@@ -175,136 +177,6 @@
   </div>
 </div>
 
-<script th:inline="javascript">
-  // CSRF token for the fetch that kicks off /scan
-  const csrfHeader = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
-  const csrfToken  = /*[[${_csrf.token}]]*/ '';
-
-  // /scan is a long-running server-side loop. Navigate to it once.
-  // While it runs, this page (loaded in a separate iframe or tab) shows progress.
-  // Actually: we embed /scan in a hidden iframe so it runs in background,
-  // while this page polls /progress to show live updates.
-
-  function poll() {
-    fetch('/progress', { credentials: 'same-origin' })
-      .then(r => r.json())
-      .then(data => {
-        document.getElementById('scanned').textContent   = data.processed ?? 0;
-        document.getElementById('total').textContent     = data.total ?? '…';
-        document.getElementById('remaining').textContent =
-          data.total != null ? (data.total - data.processed) : '…';
-        const pct = data.total > 0
-          ? Math.round(100 * data.processed / data.total) : 0;
-        document.getElementById('pbar').style.width = pct + '%';
-        const path = data.current || '';
-        document.getElementById('currentPath').textContent =
-          path ? path : 'Starting…';
-        const yaml = data.yamlSource || '';
-        const yamlEl = document.getElementById('yamlPath');
-        if (yamlEl) yamlEl.textContent = yaml ? 'YAML: ' + yaml : '';
-
-        if (data.error) {
-          clearInterval(pollTimer);
-          document.getElementById('errorMsg').style.display = 'block';
-          document.getElementById('errorText').textContent = data.error;
-          return;
-        }
-        if (data.duplicates && data.duplicates.length > 0) {
-          showDuplicates(data.duplicates);
-        }
-        if (data.reviewRequired && data.reviewRequired.length > 0) {
-          showReviewRequired(data.reviewRequired);
-        }
-        if (data.stopped) {
-          onStopped();
-          return;
-        }
-        if (data.complete || data.pauseForResults) {
-          if (data.complete)
-            document.getElementById('doneMsg').style.display = 'block';
-          clearInterval(pollTimer);
-          fetch('/resume', { method: 'POST', credentials: 'same-origin',
-            headers: {'X-CSRF-TOKEN': document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''} })
-            .finally(() => { window.location.href = '/results'; });
-        }
-      })
-      .catch(() => {});
-  }
-
-  let pollTimer;
-  window.addEventListener('DOMContentLoaded', () => {
-    poll();
-    pollTimer = setInterval(poll, 1500);
-  });
-  // ── Duplicate warning ──────────────────────────────────────────────────
-  const shownDups = new Set();
-
-  function showDuplicates(paths) {
-    const warn = document.getElementById('dupWarning');
-    const list = document.getElementById('dupList');
-    let added = false;
-    paths.forEach(p => {
-      if (!shownDups.has(p)) {
-        shownDups.add(p);
-        const li = document.createElement('li');
-        li.textContent = p;
-        list.appendChild(li);
-        added = true;
-      }
-    });
-    if (added) warn.style.display = 'block';
-  }
-
-  // ── Review required warning ──────────────────────────────────────────────
-  const shownReview = new Set();
-
-  function showReviewRequired(paths) {
-    const warn = document.getElementById('reviewWarning');
-    const list = document.getElementById('reviewList');
-    let added = false;
-    paths.forEach(p => {
-      if (!shownReview.has(p)) {
-        shownReview.add(p);
-        const li = document.createElement('li');
-        li.textContent = p;
-        list.appendChild(li);
-        added = true;
-      }
-    });
-    if (added) warn.style.display = 'block';
-  }
-
-  function clearReviewWarning() {
-    document.getElementById('reviewWarning').style.display = 'none';
-    document.getElementById('reviewList').innerHTML = '';
-    shownReview.clear();
-  }
-
-  function clearDupWarning() {
-    document.getElementById('dupWarning').style.display = 'none';
-    document.getElementById('dupList').innerHTML = '';
-    shownDups.clear();
-  }
-
-  function stopScan() {
-    const btn = document.getElementById('stopBtn');
-    btn.disabled = true;
-    btn.textContent = 'Stopping…';
-    fetch('/stop', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {[csrfHeader]: csrfToken}
-    }).catch(() => {});
-  }
-
-  function onStopped() {
-    clearInterval(pollTimer);
-    document.getElementById('stopBtn').style.display = 'none';
-    document.getElementById('restartBtn').style.display = '';
-    document.getElementById('resultsBtn').style.display = '';
-    document.getElementById('viewerBtn').style.display = '';
-    document.getElementById('currentPath').textContent = 'Scanning stopped by user.';
-  }
-</script>
+<script src="/js/counting.js"></script>
 </body>
 </html>
