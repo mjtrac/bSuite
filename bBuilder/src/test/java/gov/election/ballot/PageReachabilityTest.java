@@ -31,8 +31,9 @@ class PageReachabilityTest {
 
     @Autowired MockMvc mvc;
 
-    // Default admin password set in DataInitializer — ChangeMe123!
-    private static final String ADMIN_PASSWORD = "ChangeMe123!";
+    @org.springframework.beans.factory.annotation.Value(
+        "${test.admin.password:ChangeMe123!}")
+    private String adminPassword;
 
     private static MockHttpSession adminSession;
 
@@ -42,7 +43,7 @@ class PageReachabilityTest {
         MvcResult login = mvc.perform(post("/login")
                 .with(csrf())
                 .param("username", "admin")
-                .param("password", ADMIN_PASSWORD))
+                .param("password", adminPassword))
             .andReturn();
         // Follow redirect
         String location = login.getResponse().getRedirectedUrl();

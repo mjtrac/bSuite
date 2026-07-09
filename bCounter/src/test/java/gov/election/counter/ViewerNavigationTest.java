@@ -37,7 +37,9 @@ class ViewerNavigationTest {
     @org.springframework.beans.factory.annotation.Value("${viewer.username:admin}")
     private String viewerUsername;
 
-    @org.springframework.beans.factory.annotation.Value("${viewer.password:ChangeMe123!}")
+    // test.viewer.password is set in src/test/resources/application-sqlite.properties
+    // so tests are independent of the production viewer.password
+    @org.springframework.beans.factory.annotation.Value("${test.viewer.password:ChangeMe123!}")
     private String viewerPassword;
 
     private MockHttpSession viewerSession;

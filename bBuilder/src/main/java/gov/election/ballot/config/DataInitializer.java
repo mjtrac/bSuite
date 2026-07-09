@@ -60,6 +60,16 @@ public class DataInitializer implements ApplicationRunner {
     private final PasswordEncoder               passwordEncoder;
 
     private static final String RESET_FLAG = "reset.admin.password";
+
+    /**
+     * Default password for the seeded admin account.
+     * In production: "ChangeMe123!" — user must change this immediately.
+     * In tests: overridden by test.admin.password in application-sqlite.properties
+     * so tests are independent of the production password.
+     */
+    @org.springframework.beans.factory.annotation.Value(
+        "${test.admin.password:ChangeMe123!}")
+    private String defaultAdminPassword;
     private static final String CHARS =
         "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#%&*";
 
@@ -133,7 +143,7 @@ public class DataInitializer implements ApplicationRunner {
         // ── Admin user ────────────────────────────────────────────────────
         User admin = new User();
         admin.setUsername("admin");
-        admin.setPasswordHash(passwordEncoder.encode("ChangeMe123!"));
+        admin.setPasswordHash(passwordEncoder.encode(defaultAdminPassword));
         admin.setRoles(Set.of(User.Role.ADMIN));
         admin.setEnabled(true);
         admin.setJurisdiction(county);
@@ -257,7 +267,7 @@ public class DataInitializer implements ApplicationRunner {
                Template     : Default (8.5x11, 3 columns, Oval indicators)
                Combination  : p1 + Everyone + Precinct
                Username     : admin
-               Password     : ChangeMe123!
+               Password     : (see application.properties — default: ChangeMe123!)
                
                To reset the admin password, restart with:
                -Dreset.admin.password=true
