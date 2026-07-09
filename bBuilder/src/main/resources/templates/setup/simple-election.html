@@ -95,7 +95,7 @@
         <span class="radio-title" th:text="${s.name()}"></span>
         <span class="radio-desc"
               th:text="${s.name() == 'OVAL' ?       'Fill an oval — recommended for optical scan.' :
-                         s.name() == 'CHECKBOX' ?   'Check a box.' :
+                         s.name() == 'BOX' ?   'Fill a rectangle.' :
                          s.name() == 'ARROW' ?      'Complete an arrow pointing to the candidate.' :
                          s.name() == 'NUMBER_FIELD'? 'Write a rank numeral — for ranked-choice ballots.' :
                          s.name()}">

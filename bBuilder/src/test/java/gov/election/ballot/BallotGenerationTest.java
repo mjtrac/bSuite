@@ -185,9 +185,9 @@ class BallotGenerationTest {
     }
 
     @Test
-    @DisplayName("CHECKBOX vote indicator style generates valid PDF")
+    @DisplayName("BOX vote indicator style generates valid PDF")
     void testCheckboxStyle() throws Exception {
-        template.setVoteIndicatorStyle(BallotDesignTemplate.VoteIndicatorStyle.CHECKBOX);
+        template.setVoteIndicatorStyle(BallotDesignTemplate.VoteIndicatorStyle.BOX);
         byte[] pdf = ballotService.generateBallot(combo, template, testUser, 1);
         assertThat(new String(pdf, 0, 4)).isEqualTo("%PDF");
     }

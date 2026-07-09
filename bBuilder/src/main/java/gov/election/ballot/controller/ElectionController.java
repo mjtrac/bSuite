@@ -18,10 +18,15 @@ package gov.election.ballot.controller;
 
 import gov.election.ballot.model.Election;
 import gov.election.ballot.model.Jurisdiction;
+import gov.election.ballot.repository.BallotCombinationRepository;
+import gov.election.ballot.repository.BallotDesignTemplateRepository;
+import gov.election.ballot.repository.ContestRepository;
 import gov.election.ballot.repository.ElectionRepository;
 import gov.election.ballot.repository.JurisdictionRepository;
+import gov.election.ballot.repository.PrintLogRepository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -33,16 +38,25 @@ import java.time.LocalDate;
 @PreAuthorize("hasAnyRole('ADMIN','DATA_ENTRY')")
 public class ElectionController {
 
-    private final ElectionRepository     electionRepo;
-    private final gov.election.ballot.repository.PrintLogRepository printLogRepo;
-    private final JurisdictionRepository jurisdictionRepo;
+    private final ElectionRepository            electionRepo;
+    private final JurisdictionRepository        jurisdictionRepo;
+    private final BallotCombinationRepository   combinationRepo;
+    private final ContestRepository             contestRepo;
+    private final BallotDesignTemplateRepository templateRepo;
+    private final PrintLogRepository            printLogRepo;
 
     public ElectionController(ElectionRepository electionRepo,
-                              gov.election.ballot.repository.PrintLogRepository printLogRepo,
-                              JurisdictionRepository jurisdictionRepo) {
+                              JurisdictionRepository jurisdictionRepo,
+                              BallotCombinationRepository combinationRepo,
+                              ContestRepository contestRepo,
+                              BallotDesignTemplateRepository templateRepo,
+                              PrintLogRepository printLogRepo) {
         this.electionRepo     = electionRepo;
-        this.printLogRepo     = printLogRepo;
         this.jurisdictionRepo = jurisdictionRepo;
+        this.combinationRepo  = combinationRepo;
+        this.contestRepo      = contestRepo;
+        this.templateRepo     = templateRepo;
+        this.printLogRepo     = printLogRepo;
     }
 
     @GetMapping
@@ -123,19 +137,41 @@ public class ElectionController {
         return "redirect:/data/elections";
     }
 
+    /**
+     * Delete an election and all dependent data.
+     * SQLite does not enforce foreign keys by default, so we must
+     * explicitly delete dependents in order:
+     *   1. PrintLogs (reference combinations)
+     *   2. BallotCombinations (reference election)
+     *   3. Contests (reference election)
+     *   4. BallotDesignTemplates (reference election)
+     *   5. Election itself
+     */
     @PostMapping("/{id}/delete")
+    @Transactional
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         Election e = electionRepo.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Election not found: " + id));
         try {
-            // Delete orphaned print logs first (SQLite won't enforce FK constraints)
+            // 1. Print logs (depend on combinations)
             printLogRepo.deleteByElection(e);
+
+            // 2. Ballot combinations
+            combinationRepo.deleteAll(combinationRepo.findByElectionId(id));
+
+            // 3. Contests
+            contestRepo.deleteAll(contestRepo.findByElectionId(id));
+
+            // 4. Design templates
+            templateRepo.deleteAll(templateRepo.findByElectionId(id));
+
+            // 5. Election itself
             electionRepo.delete(e);
-            ra.addFlashAttribute("success", "Deleted election \"" + e.getName() + "\".");
+
+            ra.addFlashAttribute("success", "Deleted election \"" + e.getName() + "\" and all associated data.");
         } catch (Exception ex) {
             ra.addFlashAttribute("error",
-                "Cannot delete \"" + e.getName() + "\": it still has contests, ballot " +
-                "combinations, or print records linked to it. Remove those first.");
+                "Could not delete \"" + e.getName() + "\": " + ex.getMessage());
         }
         return "redirect:/data/elections";
     }

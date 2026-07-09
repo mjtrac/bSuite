@@ -53,7 +53,7 @@
         <span class="radio-title" th:text="${s.name()}"></span>
         <span class="radio-desc"
               th:text="${s.name() == 'OVAL' ?       'Fill an oval — strongly recommended for optical scan.' :
-                         s.name() == 'CHECKBOX' ?   'Fill a rectangle.' :
+                         s.name() == 'BOX' ?   'Fill a rectangle.' :
                          s.name() == 'ARROW' ?      'Complete an arrow pointing to the candidate.' :
                          s.name() == 'NUMBER_FIELD'? 'Write a rank numeral — for ranked-choice ballots.' :
                          s.name() == 'CONNECT_DOTS'? 'Connect the dots — draw a line between two pointed markers.' :
@@ -374,13 +374,13 @@
       </summary>
       <div style="font-size:.8rem;margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.5rem">
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('default')">Default (headline + instructions)</button>
+          data-snippet="default">Default (headline + instructions)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('twocol')">Two columns (image + text)</button>
+          data-snippet="twocol">Two columns (image + text)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('minimal')">Minimal (election name only)</button>
+          data-snippet="minimal">Minimal (election name only)</button>
         <button type="button" style="font-size:.75rem;padding:.2rem .5rem"
-          onclick="insertHeaderSnippet('table')">Table layout</button>
+          data-snippet="table">Table layout</button>
       </div>
     </details>
 

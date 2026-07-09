@@ -1388,7 +1388,7 @@ public class BallotGenerationService {
         String party     = combo.getParty() != null ? combo.getParty().getName() : "Nonpartisan";
         String indName   = switch (tmpl.getVoteIndicatorStyle()) {
             case OVAL         -> "oval";
-            case CHECKBOX     -> "box";
+            case BOX     -> "box";
             case ARROW        -> "arrow";
             case NUMBER_FIELD -> "number box";
             case CONNECT_DOTS -> "connection line";
@@ -1578,7 +1578,7 @@ public class BallotGenerationService {
         boolean dash = (tmpl == null) || tmpl.isIndicatorDashed();
 
         switch (style) {
-            case OVAL, CHECKBOX -> {
+            case OVAL, BOX -> {
                 canvas.saveState();
                 canvas.setStrokeColor(new com.itextpdf.kernel.colors.DeviceGray(INDICATOR_GRAY));
                 canvas.setLineWidth(lineW);
@@ -1679,7 +1679,7 @@ public class BallotGenerationService {
     private float indicatorWidth(BallotDesignTemplate.VoteIndicatorStyle style,
                                   Contest contest) {
         return switch (style) {
-            case OVAL, CHECKBOX   -> OVAL_WIDTH;
+            case OVAL, BOX   -> OVAL_WIDTH;
             case ARROW            -> ARROW_WIDTH;
             case CONNECT_DOTS     -> CONNECT_DOTS_WIDTH;
             case NUMBER_FIELD     -> rankedChoiceIndicatorWidth(contest);

@@ -9,6 +9,7 @@ import gov.election.viewer.service.BallotViewService.BallotView;
 import gov.election.viewer.service.BallotViewService.IndicatorBox;
 import gov.election.viewer.service.ViewerFilterSession;
 import gov.election.viewer.service.ViewerFilterSession.FilterType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,28 +19,15 @@ import jakarta.servlet.http.HttpSession;
 import java.nio.file.*;
 import java.util.*;
 
-/**
- * Serves the ballot viewer UI.
- *
- * GET  /viewer          → image list / search form
- * POST /viewer/filter   → apply a glob or SQL filter; stores result in session
- * POST /viewer/clear-filter → clear active filter from session
- * GET  /viewer/view?id= → view ballot image with overlays
- * GET  /viewer/image?id=→ serve raw image bytes
- * GET  /viewer/boxes?id=→ JSON: list of IndicatorBox for JS overlay
- *
- * FILTER PERSISTENCE:
- *   When a filter is applied, the resulting ordered ID list is stored in the
- *   HTTP session under SESSION_FILTER_KEY.  The view endpoint reads prev/next
- *   from that session list — no requery on each navigation.  The list is
- *   replaced when a new filter is applied and removed on clear.
- */
 @Controller
 public class ViewerController {
 
     static final String SESSION_FILTER_KEY = "viewerFilter";
 
     private final BallotViewService viewService;
+
+    @Value("${reports.output.dir:${user.dir}}")
+    private String reportsOutputDir;
 
     public ViewerController(BallotViewService viewService) {
         this.viewService = viewService;
@@ -53,25 +41,65 @@ public class ViewerController {
         List<BallotImageSummary> images;
 
         if (filter.isActive()) {
-            // Show only the filtered images in the list
             images = viewService.listByIds(filter.filteredIds);
         } else {
             images = viewService.listAll();
         }
 
         model.addAttribute("images",  images);
-        model.addAttribute("count",   viewService.listAll().size());   // always total count
+        model.addAttribute("count",   viewService.listAll().size());
         addFilterModel(session, model);
         return "viewer/index";
     }
 
-    // ── Apply filter ──────────────────────────────────────────────────────────
+    // ── Results report ────────────────────────────────────────────────────────
 
     /**
-     * POST /viewer/filter
-     * Applies a glob or SQL filter, stores the result in the session,
-     * then redirects to the index so the URL stays clean.
+     * Serves results_report.html written by VoteTallyService, wrapped in the
+     * viewer header so the user can navigate back to the ballot list without
+     * needing to authenticate on port 8081.
      */
+    @GetMapping("/viewer/report")
+    @ResponseBody
+    public ResponseEntity<String> report() {
+        Path reportFile = Paths.get(reportsOutputDir, "results_report.html");
+        if (!Files.exists(reportFile)) {
+            String notFound =
+                "<!DOCTYPE html><html><head><meta charset='UTF-8'/>" +
+                "<title>Results</title></head><body style='font-family:sans-serif;padding:2rem'>" +
+                "<a href='/viewer/' style='display:inline-block;margin-bottom:1.5rem;" +
+                "padding:.4rem .9rem;background:#1a2744;color:#fff;text-decoration:none;" +
+                "border-radius:4px;font-size:.9rem'>&#9664; Ballot List</a>" +
+                "<p>No results report found. Run a scan first.</p></body></html>";
+            return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .body(notFound);
+        }
+        try {
+            String html = Files.readString(reportFile);
+            // Inject a "Back to Ballot List" bar just after <body>
+            String backBar =
+                "<div style='background:#1a2744;padding:.5rem 1rem;margin-bottom:1rem'>" +
+                "<a href='/viewer/' style='color:#fff;text-decoration:none;font-size:.9rem;" +
+                "font-family:sans-serif'>&#9664; Ballot List</a>" +
+                "<span style='color:#94a3b8;font-size:.85rem;margin-left:1rem;" +
+                "font-family:sans-serif'>bSuite Ballot Viewer</span></div>";
+            int bodyEnd = html.indexOf("<body");
+            if (bodyEnd >= 0) {
+                int insertAt = html.indexOf('>', bodyEnd) + 1;
+                html = html.substring(0, insertAt) + backBar + html.substring(insertAt);
+            }
+            return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .body(html);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body("<p>Could not read report: " + e.getMessage() + "</p>");
+        }
+    }
+
+    // ── Apply filter ──────────────────────────────────────────────────────────
+
     @PostMapping("/viewer/filter")
     public String applyFilter(
             @RequestParam(required = false) String filterType,
@@ -80,7 +108,6 @@ public class ViewerController {
             Model model) {
 
         if (filterValue == null || filterValue.isBlank()) {
-            // Treat blank submission as clear
             session.removeAttribute(SESSION_FILTER_KEY);
             return "redirect:/viewer";
         }
@@ -98,7 +125,6 @@ public class ViewerController {
                     "SQL: " + filterValue.trim(),
                     ids);
             } else {
-                // Default: glob filter
                 List<BallotImageSummary> results =
                     viewService.listByGlob(filterValue.trim());
                 List<Long> ids = results.stream()
@@ -111,7 +137,6 @@ public class ViewerController {
             }
             session.setAttribute(SESSION_FILTER_KEY, filter);
         } catch (IllegalArgumentException e) {
-            // SQL validation failure — return to index with error
             List<BallotImageSummary> images = viewService.listAll();
             model.addAttribute("images",       images);
             model.addAttribute("count",        images.size());
@@ -157,20 +182,17 @@ public class ViewerController {
         BallotView ballot = bv.get();
         model.addAttribute("ballot", ballot);
 
-        // Group boxes by contest for the sidebar legend
         Map<String, List<IndicatorBox>> byContest = new LinkedHashMap<>();
         for (IndicatorBox box : ballot.boxes)
             byContest.computeIfAbsent(box.contest, k -> new ArrayList<>()).add(box);
         model.addAttribute("byContest", byContest);
 
-        // ── Prev / next — use filtered list if active, else full list ─────────
         ViewerFilterSession filter = getFilter(session);
         List<Long> navIds;
 
         if (filter.isActive()) {
             navIds = filter.filteredIds;
         } else {
-            // No filter — use full list (IDs only, no extra queries)
             navIds = viewService.listAll().stream()
                 .map(BallotImageSummary::getId).toList();
         }

@@ -171,7 +171,7 @@ public class BallotDimensions {
         private final double  indicatorOffsetFromTopInches;
         private final double  indicatorWidthInches;
         private final double  indicatorHeightInches;
-        private final String  indicatorStyle;  // e.g. "OVAL", "CHECKBOX", "ARROW"
+        private final String  indicatorStyle;  // e.g. "OVAL", "BOX", "ARROW"
 
         public CandidatePosition(Long candidateId, String candidateName,
                                  boolean writeIn,

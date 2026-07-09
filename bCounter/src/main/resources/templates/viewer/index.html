@@ -12,7 +12,7 @@
   <h1>&#128196; Ballot Viewer</h1>
   <span class="subtitle">Election Ballot Image Review</span>
   <div class="header-user" sec:authorize="isAuthenticated()">
-    <a th:href="@{/viewer/report}" target="_blank"
+    <a th:href="@{/viewer/report}"
        style="color:white; margin-right:1rem; font-size:.9rem;">&#128202; Results</a>
     <span sec:authentication="name"></span>
     <form method="post" action="/viewer/logout" style="display:inline">

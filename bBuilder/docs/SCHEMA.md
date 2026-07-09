@@ -227,7 +227,7 @@ Physical layout parameters for printed ballots. One per election, required befor
 | id | BIGINT PK | Auto-generated |
 | election_id | BIGINT FK elections | One-to-one |
 | paper_size | VARCHAR | LETTER_8_5x11, LEGAL_8_5x14, HALF_LETTER_8_5x5_5, HALF_LEGAL_8_5x7, A4, A3, A5 |
-| vote_indicator_style | VARCHAR | OVAL (recommended for scanning), CHECKBOX. ARROW and NUMBER_FIELD are reserved for future use and not available in the UI. |
+| vote_indicator_style | VARCHAR | OVAL (recommended for scanning), BOX. ARROW and NUMBER_FIELD are reserved for future use and not available in the UI. |
 | columns | INT | Contest columns per page |
 | margin_top_pt | FLOAT | Top margin in PDF points (72 pt = 1 inch) |
 | margin_bottom_pt | FLOAT | |

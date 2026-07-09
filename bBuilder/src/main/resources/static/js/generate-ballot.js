@@ -1,3 +1,28 @@
+
+function loadTemplatesForCombination(combinationId) {
+  var tmplSel = document.getElementById('templateId');
+  if (!tmplSel || !combinationId) return;
+  fetch('/print/templates-for-combination?combinationId=' + combinationId,
+        { credentials: 'include' })
+    .then(r => r.json())
+    .then(templates => {
+      tmplSel.innerHTML = '';
+      if (!templates.length) {
+        tmplSel.innerHTML = '<option value="">— no templates found —</option>';
+        return;
+      }
+      templates.forEach(t => {
+        var opt = document.createElement('option');
+        opt.value = t.id;
+        opt.textContent = t.label;
+        tmplSel.appendChild(opt);
+      });
+    })
+    .catch(() => {
+      tmplSel.innerHTML = '<option value="">— could not load templates —</option>';
+    });
+}
+
 // Track the last successfully generated combination ID
 var lastGeneratedComboId = null;
 
@@ -91,8 +116,10 @@ function generateBallot() {
   btn.disabled    = true;
   btn.textContent = 'Generating\u2026';
 
-  var langSel  = document.getElementById('langSelect');
-  var langCode = langSel ? langSel.value : 'en';
+  var langSel    = document.getElementById('langSelect');
+  var langCode   = langSel ? langSel.value : 'en';
+  var tmplSel    = document.getElementById('templateId');
+  var templateId = tmplSel ? tmplSel.value : '';
 
   var enablePrinter = document.getElementById('enablePrinter');
   var printerSel    = document.getElementById('printerSelect');
@@ -103,6 +130,7 @@ function generateBallot() {
   formData.append('combinationId', combinationId);
   formData.append('copies', copies);
   formData.append('lang', langCode);
+  if (templateId) formData.append('templateId', templateId);
   formData.append('_csrf', csrf);
   if (printerName) formData.append('printerName', printerName);
 
@@ -152,6 +180,13 @@ function generateBallot() {
 document.addEventListener('DOMContentLoaded', function () {
   var btn = document.getElementById('generateBtn');
   if (btn) btn.addEventListener('click', generateBallot);
+  var combSel = document.getElementById('combinationId');
+  if (combSel) {
+    combSel.addEventListener('change', function() {
+      loadTemplatesForCombination(this.value);
+    });
+    if (combSel.value) loadTemplatesForCombination(combSel.value);
+  }
 
   var enablePrinter = document.getElementById('enablePrinter');
   if (enablePrinter) {

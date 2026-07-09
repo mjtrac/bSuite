@@ -12,7 +12,8 @@
   <title>Results Report — Election Counter</title>
   <link rel="stylesheet" th:href="@{/css/counter.css}"/>
 </head>
-<body th:style="${appBgColor != null && !appBgColor.isEmpty()} ? 'background-color:' + ${appBgColor} : ''">
+<body style="background:#fff;color:#222">
+<!-- Switch to white background: body th:style="${appBgColor != null && !appBgColor.isEmpty()} ? 'background-color:' + ${appBgColor} : ''"> -->
 
 <header class="app-header">
   <div class="tally-mark" aria-hidden="true">
@@ -22,8 +23,7 @@
   <h1>Election Counter — Results</h1>
 </header>
 
-<div class="app-body">
-
+<div class="app-body" style="background:#fff;color:#222">
   <!-- Sidebar -->
   <aside class="sidebar">
     <h3>Summary</h3>
