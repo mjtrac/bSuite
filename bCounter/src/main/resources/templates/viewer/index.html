@@ -118,7 +118,7 @@
         <div style="display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap">
           <textarea name="filterValue" id="sqlInput" rows="2"
                     th:text="${filterType == 'sql' ? filterValue : ''}"
-                    placeholder="e.g.  cr.contest_title = 'Mayor'  or  vo.vote_status = 'VOTED' AND cr.contest_title = 'City Council'"
+                    placeholder="e.g.  c.contest_title = 'Mayor'  or  vo.vote_status = 'VOTED' AND c.contest_title = 'City Council'"
                     style="flex:1;min-width:300px;padding:.4rem .6rem;
                            background:#0f172a;border:1px solid #334155;
                            border-radius:4px;color:#e2e8f0;font-size:.82rem;
@@ -137,18 +137,18 @@
         </summary>
         <div style="font-size:.72rem;color:#64748b;font-family:monospace;
                     margin-top:.35rem;line-height:1.8">
-          <strong style="color:#94a3b8">Ballot:</strong>
+          <strong style="color:#94a3b8">ballot_image (bi):</strong>
           bi.image_name &nbsp; bi.image_path &nbsp; bi.page_number &nbsp;
-          bi.corners_found &nbsp; bi.was_rotated<br/>
-          <strong style="color:#94a3b8">Barcode:</strong>
+          bi.was_rotated &nbsp; bi.scribble_flagged<br/>
+          <strong style="color:#94a3b8">barcode (b):</strong>
           b.raw_data &nbsp; b.region_id &nbsp; b.party_id &nbsp;
-          b.election_id &nbsp; b.jurisdiction_id<br/>
-          <strong style="color:#94a3b8">Contest:</strong>
-          cr.contest_title &nbsp; cr.contest_type &nbsp; cr.max_votes<br/>
-          <strong style="color:#94a3b8">Candidate:</strong>
-          cdr.candidate_name<br/>
-          <strong style="color:#94a3b8">Vote:</strong>
-          vo.vote_status &nbsp; vo.dark_pct
+          b.election_id &nbsp; b.ballot_type_id<br/>
+          <strong style="color:#94a3b8">contest (c):</strong>
+          c.contest_title &nbsp; c.contest_type &nbsp; c.max_votes<br/>
+          <strong style="color:#94a3b8">candidate (cdr):</strong>
+          cdr.candidate_name &nbsp; cdr.write_in<br/>
+          <strong style="color:#94a3b8">vote_opportunity (vo):</strong>
+          vo.vote_status &nbsp; vo.dark_pct &nbsp; vo.dark_pixels
         </div>
       </details>
     </div>

@@ -237,11 +237,11 @@ public class BallotViewService {
     @Transactional(readOnly = true)
     public List<BallotImageSummary> listBySql(String whereClause) {
         // The WHERE clause references these aliases:
-        //   bi  = ballot_image
-        //   b   = barcode
-        //   cr  = contest_record
-        //   cdr = candidate_record
-        //   vo  = vote_opportunity
+        //   bi  = ballot_image  (id, image_name, image_path, page_number, was_rotated, barcode_id)
+        //   b   = barcode       (id, raw_data, region_id, election_id, party_id, ballot_type_id)
+        //   vo  = vote_opportunity (vote_status, dark_pct, ballot_image_id, contest_id, candidate_id_fk)
+        //   c   = contest       (id, contest_title, contest_type, max_votes)
+        //   cdr = candidate     (id, candidate_name, write_in, contest_id)
         // We validate the clause (no DML) then run it via a native query.
         String upper = whereClause.trim().toUpperCase();
         for (String kw : new String[]{"INSERT","UPDATE","DELETE","DROP","ALTER","CREATE","TRUNCATE"}) {
@@ -250,10 +250,10 @@ public class BallotViewService {
         }
         String sql =
             "SELECT DISTINCT bi.id FROM ballot_image bi " +
-            "LEFT JOIN barcode b          ON b.ballot_image_id = bi.id " +
+            "LEFT JOIN barcode b         ON b.id = bi.barcode_id " +
             "LEFT JOIN vote_opportunity vo ON vo.ballot_image_id = bi.id " +
-            "LEFT JOIN contest_record cr   ON cr.id = vo.contest_record_id " +
-            "LEFT JOIN candidate_record cdr ON cdr.id = vo.candidate_record_id " +
+            "LEFT JOIN contest c          ON c.id = vo.contest_id " +
+            "LEFT JOIN candidate cdr      ON cdr.id = vo.candidate_id_fk " +
             "WHERE " + whereClause +
             " ORDER BY bi.id";
         try {
