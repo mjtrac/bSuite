@@ -187,13 +187,13 @@ public class CountController {
         }
 
         httpSession.setAttribute(SESSION_KEY, session);
-        // Go to /scan which starts the background thread then redirects to /scanning
+        // Go to /scan which starts the background thread then redirects to /counting
         return "redirect:/scan";
     }
 
     // ── Scanning progress page (shown while /scan loop runs) ─────────────────
 
-    @GetMapping("/scanning")
+    @GetMapping("/counting")
     public String scanningPage(HttpSession httpSession, Model model) {
         ScanSession session = getSession(httpSession);
         if (session == null || !session.isStarted()) return "redirect:/";

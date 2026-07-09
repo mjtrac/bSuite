@@ -55,7 +55,7 @@ class BCounterClient:
 
     def _csrf(self):
         # Fetch token from authenticated pages first, fall back to /login
-        for path in ["/", "/scanning", "/login"]:
+        for path in ["/", "/counting", "/login"]:
             try:
                 r = self.session.get(f"{self.host}{path}",
                                      allow_redirects=True)
@@ -119,8 +119,8 @@ class BCounterClient:
             r2 = self.session.get(f"{self.host}{location}" if location.startswith("/")
                                   else location, allow_redirects=True)
 
-            if "/scanning" in r2.url or "/scanning" in location:
-                print("  ✓ Scan started — redirected to scanning page")
+            if "/counting" in r2.url or "/counting" in location:
+                print("  ✓ Scan started — redirected to counting page")
                 return r2
 
             # Redirected back to index or error page — extract error
@@ -129,7 +129,7 @@ class BCounterClient:
                 raise RuntimeError(f"/start failed: {error}")
             else:
                 raise RuntimeError(
-                    f"/start redirected to {r2.url} (not /scanning) — "
+                    f"/start redirected to {r2.url} (not /counting) — "
                     f"check folders exist and YAML files are present.\n"
                     f"Page snippet: {r2.text[:400]!r}"
                 )
