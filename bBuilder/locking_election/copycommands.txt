@@ -1,0 +1,25 @@
+MODEL=~/bSuite/bBuilder/src/main/java/gov/election/ballot/model
+REPO=~/bSuite/bBuilder/src/main/java/gov/election/ballot/repository
+SVC=~/bSuite/bBuilder/src/main/java/gov/election/ballot/service
+CTL=~/bSuite/bBuilder/src/main/java/gov/election/ballot/controller
+CFG=~/bSuite/bBuilder/src/main/java/gov/election/ballot/config
+RES=~/bSuite/bBuilder/src/main/resources/templates
+
+# New Java files
+cp ~/Downloads/SystemLock.java          $MODEL/SystemLock.java
+cp ~/Downloads/AuditLog.java            $MODEL/AuditLog.java
+cp ~/Downloads/SystemLockRepository.java $REPO/SystemLockRepository.java
+cp ~/Downloads/AuditLogRepository.java  $REPO/AuditLogRepository.java
+cp ~/Downloads/LockService.java         $SVC/LockService.java
+cp ~/Downloads/LockController.java      $CTL/LockController.java
+cp ~/Downloads/LockInterceptor.java     $CFG/LockInterceptor.java
+cp ~/Downloads/WebMvcConfig.java        $CFG/WebMvcConfig.java
+cp ~/Downloads/GlobalModelAdvice.java   $CTL/GlobalModelAdvice.java
+
+# Modified Java
+cp ~/Downloads/AdminController.java     $CTL/AdminController.java
+
+# Templates
+cp ~/Downloads/layout.html              $RES/layout.html
+cp ~/Downloads/dashboard.html           $RES/dashboard.html
+cp ~/Downloads/admin_dashboard.html     $RES/admin/dashboard.html
