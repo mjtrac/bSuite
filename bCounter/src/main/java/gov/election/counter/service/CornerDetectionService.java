@@ -561,6 +561,21 @@ public class CornerDetectionService implements BallotCornerDetectorService {
                 tlCx, tlCy, trCx, trCy);
         }
 
+        // If predicted TL/TR centre is off-image (can happen at low DPI with large
+        // perspective distortion), fall back to raw YAML hint with full tolerance
+        if (tlCx < 0 || tlCx >= w || tlCy < 0 || tlCy >= h) {
+            tlCx = (int)(hints[0][0] * dpi);
+            tlCy = (int)(hints[0][1] * dpi);
+            smallTolPx = tolPx;
+            log.debug("TL predicted off-image, falling back to YAML hint ({},{})", tlCx, tlCy);
+        }
+        if (trCx < 0 || trCx >= w || trCy < 0 || trCy >= h) {
+            trCx = (int)(hints[1][0] * dpi);
+            trCy = (int)(hints[1][1] * dpi);
+            smallTolPx = tolPx;
+            log.debug("TR predicted off-image, falling back to YAML hint ({},{})", trCx, trCy);
+        }
+
         double[] tl = findPeakBlob(dark, w, h,
             Math.max(0, tlCx - smallTolPx), Math.min(w, tlCx + smallTolPx),
             Math.max(0, tlCy - smallTolPx), Math.min(h, tlCy + smallTolPx),
@@ -621,6 +636,18 @@ public class CornerDetectionService implements BallotCornerDetectorService {
             if (marks[3] == null && marks[0] != null && marks[1] != null && marks[2] != null)
                 marks[3] = new Point2D(marks[0].x() + marks[2].x() - marks[1].x(),
                                        marks[0].y() + marks[2].y() - marks[1].y());
+        }
+
+        // Validate any inferred marks are within image bounds
+        if (hits < 4) {
+            for (int i = 0; i < 4; i++) {
+                if (marks[i] != null && (marks[i].x() < -w * 0.1 || marks[i].x() > w * 1.1
+                        || marks[i].y() < -h * 0.1 || marks[i].y() > h * 1.1)) {
+                    log.error("Parallelogram-inferred mark[{}] at ({},{}) is off-image ({}x{}) -- detection unreliable",
+                        i, (int)marks[i].x(), (int)marks[i].y(), w, h);
+                    return null;
+                }
+            }
         }
 
         // Step 6: convert to bbox corners and sanity-check
@@ -692,7 +719,9 @@ public class CornerDetectionService implements BallotCornerDetectorService {
                 bestRunLen = runLen; bestRunL = runL;
                 bestRunR = Math.min(rightBound, w - 1);
             }
-            if (bestRunLen >= MIN_BORDER_RUN_PX) {
+            // Scale minimum run by DPI so it represents the same physical length
+            int minRunPx = Math.max(50, MIN_BORDER_RUN_PX * dpi / 300);
+            if (bestRunLen >= minRunPx) {
                 int seedX = (bestRunL + bestRunR) / 2;
                 log.debug(
                     "Border line seed found: y={} seedX={} runLen={} (band±{}px)",

@@ -84,9 +84,9 @@ def rotate_and_translate(img: np.ndarray, degrees: float,
     return translate_image(img2, dx_in, dy_in, dpi)
 
 def skew_image(img: np.ndarray, shear_x: float = 0.0,
-               shear_y: float = 0.0) -> np.ndarray:
+               shear_y: float = 0.0, dpi: int = 300) -> np.ndarray:
     """Apply an affine shear. shear_x/shear_y are small fractions (e.g. 0.05)."""
-    pad = 80
+    pad = int(80 * dpi / 300)  # ~0.27" at any DPI
     padded, _ = pad_image(img, pad)
     h, w = padded.shape[:2]
     M = np.float32([[1, shear_x, 0], [shear_y, 1, 0]])
@@ -94,12 +94,15 @@ def skew_image(img: np.ndarray, shear_x: float = 0.0,
     new_h = int(h + abs(shear_y) * w)
     return cv2.warpAffine(padded, M, (new_w, new_h), borderValue=(255, 255, 255))
 
-def perspective_warp(img: np.ndarray, strength: float = 0.015) -> np.ndarray:
+def perspective_warp(img: np.ndarray, strength: float = 0.015,
+                     dpi: int = 300) -> np.ndarray:
     """
     Mild perspective warp simulating a document not lying perfectly flat.
     strength: fraction of image dimension to warp corners by.
+    pad is scaled by DPI so the physical padding is constant regardless
+    of image resolution.
     """
-    pad = 80
+    pad = int(80 * dpi / 300)  # ~0.27" at any DPI
     padded, _ = pad_image(img, pad)
     h, w = padded.shape[:2]
     dx = int(w * strength)
@@ -132,7 +135,7 @@ def get_distortions(dpi: int) -> dict:
         "rot_ccw1_trans": lambda img: rotate_and_translate(img,-1.0,  0, -QUARTER_INCH, dpi),
         "skew_right":     lambda img: skew_image(img, shear_x= 0.015),
         "skew_left":      lambda img: skew_image(img, shear_x=-0.015),
-        "perspective":    lambda img: perspective_warp(img, strength=0.012),
+        "perspective":    lambda img: perspective_warp(img, strength=0.012, dpi=dpi),
         "upside_down":    lambda img: upside_down(img),
     }
 
@@ -213,7 +216,11 @@ def main():
                 out_path = dest_dir / out_name
 
                 distorted = dist_fn(cv_img)
-                cv2.imwrite(str(out_path), distorted)
+                # Save with DPI metadata so bCounter's heuristic is not needed
+                from PIL import Image as PilImage
+                rgb = cv2.cvtColor(distorted, cv2.COLOR_BGR2RGB)
+                pil_img = PilImage.fromarray(rgb)
+                pil_img.save(str(out_path), dpi=(args.dpi, args.dpi))
 
                 # Ground truth for this distorted copy
                 if gt_entry:

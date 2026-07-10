@@ -27,6 +27,8 @@ def parse_args():
                         "from election_data.json)")
     p.add_argument("--election-data", default="election_data.json")
     p.add_argument("--threshold",     default="128")
+    p.add_argument("--dpi",           type=int, default=300,
+                   help="Image resolution in DPI (default 300)")
     return p.parse_args()
 
 class BCounterClient:
@@ -84,7 +86,7 @@ class BCounterClient:
             return m2.group(0).strip()
         return ""
 
-    def start(self, image_folder: str, yaml_folder: str, threshold: str):
+    def start(self, image_folder: str, yaml_folder: str, threshold: str, dpi: int = 300):
         # Verify session is still authenticated; re-login if needed
         probe = self.session.get(f"{self.host}/", allow_redirects=True)
         if "/login" in probe.url:
@@ -101,7 +103,7 @@ class BCounterClient:
             "reportFolder": yaml_folder,
             "threshold":    str(int(float(threshold))),
             "darkPct":      "7.0",  # coverage threshold: >7% of indicator box must be dark
-            "dpi":          "300",
+            "dpi":          str(dpi),
         }
         print(f"  Sending POST /start")
         print(f"    imageFolder:  {image_folder}")
@@ -251,7 +253,7 @@ def main():
     # Start scanning
     print("\n── Starting scan ─────────────────────────────────────────────")
     try:
-        client.start(images_abs, yaml_abs, args.threshold)
+        client.start(images_abs, yaml_abs, args.threshold, args.dpi)
     except RuntimeError as e:
         print(f"\n  ✗ FAILED TO START: {e}")
         sys.exit(1)

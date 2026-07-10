@@ -374,6 +374,13 @@ public class CountController {
                         log.warn("CME scanning " + imagePath.getFileName()
                             + " — queuing for re-scan after main pass", cme);
                         scanRetryList.add(new Object[]{imagePath, idx});
+                        // Add placeholder to completedQueue so the writer count
+                        // advances — without this the writer spins forever.
+                        ScanResult placeholder = new ScanResult();
+                        placeholder.imagePath    = imagePath.toString();
+                        placeholder.imageName    = imagePath.getFileName().toString();
+                        placeholder.errorMessage = "CME_RETRY";
+                        completedQueue.add(new Object[]{imagePath, placeholder, idx});
                     } catch (Exception e) {
                         String msg = e.getMessage() != null ? e.getMessage()
                                    : e.getClass().getSimpleName();
@@ -420,35 +427,38 @@ public class CountController {
                         };
                     }
                     if (result.errorMessage != null) {
-                        session.reviewRequired.add(imagePath.toAbsolutePath().toString()
-                            + " — " + result.errorMessage);
-                        log.warn("Flagged for review: " + imageName
-                            + " — " + result.errorMessage);
-                        // Rename to .review so multi-pass walk won't requeue it.
-                        // Race-condition failures are handled by retryList before
-                        // this point and never reach here with an errorMessage.
-                        try {
-                            java.nio.file.Path reviewPath = imagePath.resolveSibling(
-                                imagePath.getFileName().toString() + ".review");
-                            java.nio.file.Files.move(imagePath, reviewPath,
-                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            log.info("Renamed to .review: {}", imagePath.getFileName());
-                        } catch (Exception renameEx) {
-                            log.warn("Could not rename to .review: {}", renameEx.getMessage());
-                        }
-                        if (maxReviewBeforeStop > 0
-                                && session.reviewRequired.size() >= maxReviewBeforeStop) {
-                            log.error("Stopping scan: "
-                                + session.reviewRequired.size()
-                                + " ballots flagged for review (limit="
-                                + maxReviewBeforeStop + "). Check YAML and image quality.");
-                            session.scanError = "Scan halted: "
-                                + session.reviewRequired.size()
-                                + " ballots required manual review (limit "
-                                + maxReviewBeforeStop
-                                + "). Fix the issue and rescan uncounted images.";
-                            session.stopRequested = true;
-                        }
+                        if ("CME_RETRY".equals(result.errorMessage)) {
+                            // Placeholder for CME — actual retry handled separately
+                            log.debug("Writer: skipping CME placeholder for {}", imageName);
+                        } else {
+                            session.reviewRequired.add(imagePath.toAbsolutePath().toString()
+                                + " — " + result.errorMessage);
+                            log.warn("Flagged for review: " + imageName
+                                + " — " + result.errorMessage);
+                            // Rename to .review so multi-pass walk won't requeue it.
+                            try {
+                                java.nio.file.Path reviewPath = imagePath.resolveSibling(
+                                    imagePath.getFileName().toString() + ".review");
+                                java.nio.file.Files.move(imagePath, reviewPath,
+                                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                log.info("Renamed to .review: {}", imagePath.getFileName());
+                            } catch (Exception renameEx) {
+                                log.warn("Could not rename to .review: {}", renameEx.getMessage());
+                            }
+                            if (maxReviewBeforeStop > 0
+                                    && session.reviewRequired.size() >= maxReviewBeforeStop) {
+                                log.error("Stopping scan: "
+                                    + session.reviewRequired.size()
+                                    + " ballots flagged for review (limit="
+                                    + maxReviewBeforeStop + "). Check YAML and image quality.");
+                                session.scanError = "Scan halted: "
+                                    + session.reviewRequired.size()
+                                    + " ballots required manual review (limit "
+                                    + maxReviewBeforeStop
+                                    + "). Fix the issue and rescan uncounted images.";
+                                session.stopRequested = true;
+                            }
+                        }  // end else (not CME_RETRY)
                     } else {
                         var pStatus = voteRecord.persist(result, imagePath, session.threshold,
                             corners, result.contentAreaWidth, result.contentAreaHeight,

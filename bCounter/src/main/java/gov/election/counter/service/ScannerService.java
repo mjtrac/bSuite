@@ -305,13 +305,8 @@ public class ScannerService {
         }
 
         // ── Adjusted YAML (debug mode) ──────────────────────────────────────
-        // Only write adjusted YAMLs when explicitly enabled — writing one file
-        // per image from parallel worker threads causes filesystem lock contention
-        // that can hang a worker indefinitely on the last image of a pass.
-        if (session.debugCoordinates) {
-            coordinateDebug.writeAdjustedYaml(imagePath, session.yamlReportPath,
-                layout, corners, session);
-        }
+        coordinateDebug.writeAdjustedYaml(imagePath, session.yamlReportPath,
+            layout, corners, session);
 
         // ── H⁻¹ for debug service (not used for sampling coordinates) ───────
         double[] Hinv = null;
@@ -474,6 +469,20 @@ public class ScannerService {
         double snapped = snapToStandardDpi(heuristicDpi);
         log.debug("[{}] DPI from heuristic: {} → snapped to {} (image width={}, assumed={} in)",
         imagePath.getFileName(), heuristicDpi, snapped, image.getWidth(), assumedWidth);
+
+        // If the heuristic result differs significantly from the session DPI
+        // (which is set explicitly by the user via --dpi), prefer session.dpi.
+        // This handles distorted images whose padding makes them wider/taller
+        // than the nominal ballot size, causing the heuristic to compute a
+        // wrong DPI (e.g. 173 instead of 150 for a padded skewed image).
+        if (session.dpi > 0) {
+            double ratio = Math.abs(snapped - session.dpi) / (double) session.dpi;
+            if (ratio > 0.15) {
+                log.debug("[{}] Heuristic DPI {} differs from session.dpi {} by {:.0f}% — using session.dpi",
+                    imagePath.getFileName(), snapped, session.dpi, ratio * 100);
+                snapped = session.dpi;
+            }
+        }
 
         return new Object[]{image, snapped};
     }

@@ -7,7 +7,7 @@
 #   - Python 3.9+ with requirements installed
 #
 # Usage:
-#   ./run_all.sh [--seed N] [--copies N] [--builder http://...] [--counter http://...] [--builder-dir /path]
+#   ./run_all.sh [--seed N] [--copies N] [--dpi 300] [--builder http://...] [--counter http://...] [--builder-dir /path]
 #   ./run_all.sh --use-existing --ballot-pdf /path/ballot.pdf --ballot-yaml /path/ballot.yaml
 #                [--quick] [--copies N] [--counter http://...]
 #   ./run_all.sh --connect-dots  # use CONNECT_DOTS indicator style instead of OVAL
@@ -15,7 +15,7 @@
 # Output:
 #   election_data.json       — IDs of created entities + generated file paths
 #   marked_ballots/          — PNGs with voter marks, ground_truth.json
-#   images/                  — Distorted copies in folder tree, ground_truth_all.json
+#   {dpi}_images/            — Distorted copies (e.g. 150_images/ or images/ for 300dpi)
 #   verify_report.json       — Diff of DB results vs ground truth
 #   ~/bSuite_data/reports/   — bCounter results report
 #   ~/bSuite_data/writeins/  — Write-in image crops
@@ -24,6 +24,8 @@ set -euo pipefail
 
 SEED=42
 COPIES=1
+SCAN_DPI=300
+IMAGES_DIR="images"   # overridden below if DPI != 300
 QUICK=0
 BUILDER_HOST="http://localhost:8080"
 COUNTER_HOST="http://localhost:8081"
@@ -38,6 +40,7 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --seed)         SEED="$2";               shift 2 ;;
     --copies)       COPIES="$2";             shift 2 ;;
+    --dpi)          SCAN_DPI="$2";           shift 2 ;;
     --builder)      BUILDER_HOST="$2";       shift 2 ;;
     --counter)      COUNTER_HOST="$2";       shift 2 ;;
     --builder-dir)  BUILDER_EXPORT_DIR="$2"; shift 2 ;;
@@ -175,6 +178,11 @@ echo "Step 0 — Checking dependencies"
 "$PYTHON3" check_setup.py
 echo ""
 
+# Set image directory name based on DPI
+if [ "$SCAN_DPI" != "300" ]; then
+  IMAGES_DIR="${SCAN_DPI}_images"
+fi
+
 # ── Step 1: Wait for bBuilder ────────────────────────────────────────────────
 echo "Step 1 — Waiting for bBuilder to be ready"
 for i in $(seq 1 60); do
@@ -225,30 +233,33 @@ if [[ "$USE_EXISTING" == "1" ]]; then
     --auto-scenario \
     --out-dir marked_ballots \
     --seed "$SEED" \
+    --dpi "$SCAN_DPI" \
     $MARK_EXTRA
 else
   "$PYTHON3" mark_ballots.py \
     --election-data election_data.json \
     --out-dir marked_ballots \
     --seed "$SEED" \
+    --dpi "$SCAN_DPI" \
     $MARK_EXTRA
 fi
 echo ""
 
 # ── Step 4: Apply distortions ─────────────────────────────────────────────────
 echo "Step 4 — Applying geometric distortions"
-rm -rf images
+rm -rf "$IMAGES_DIR"
 "$PYTHON3" distort_ballots.py \
   --in-dir  marked_ballots \
-  --out-dir images \
+  --out-dir "$IMAGES_DIR" \
   --copies  "$COPIES" \
+  --dpi     "$SCAN_DPI" \
   --gt-in   marked_ballots/ground_truth.json \
-  --gt-out  images/ground_truth_all.json \
+  --gt-out  "$IMAGES_DIR/ground_truth_all.json" \
   $DISTORT_EXTRA
 echo ""
 
 # Count images
-TOTAL=$(find images -name "*.png" | wc -l | tr -d ' ')
+TOTAL=$(find "$IMAGES_DIR" -name "*.png" | wc -l | tr -d ' ')
 echo "  Total images in tree: $TOTAL"
 echo ""
 
@@ -298,8 +309,9 @@ else
 fi
 
 "$PYTHON3" run_counter.py \
+  --dpi "$SCAN_DPI" \
   --host          "$COUNTER_HOST" \
-  --images        "$(pwd)/images" \
+  --images        "$(pwd)/$IMAGES_DIR" \
   --yaml-dir      "$YAML_DIR" \
   --election-data election_data.json
 echo ""
@@ -318,7 +330,7 @@ fi
 
 "$PYTHON3" verify_results.py \
   --db  "$DB_PATH" \
-  --gt  images/ground_truth_all.json \
+  --gt  "$IMAGES_DIR/ground_truth_all.json" \
   --out verify_report.json
 
 echo ""
