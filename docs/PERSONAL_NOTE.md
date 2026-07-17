@@ -5,7 +5,7 @@ Yes, I'm aware there are other open source ballot counting systems.
 This was my chance to see what current-as-I-write AI systems could
 do for me.  The coding is all from Anthropic's Claude, Sonnet 4.6,
 meaning the level of effort on my part was not huge.  All told, it's
-ten days (update: two months and a bit of Claude 5.0) 
+ten days (update: one month and a bit of Claude 5.0) 
 since I decided to try doing this, and much of my time was
 spent feeding error messages back into Claude when changes caused
 minor problems (variables moved out of scope, etc...).  I added 
@@ -27,6 +27,7 @@ through a multi-precinct, multi-party, multi-language election.
 If you stumble upon it and find it of use, please let others know.
 
 If you'd like to add the ability to mimic and/or count ballots
-from the main vendors, please do.
+from the main vendors, please do.  You might benefit from the python
+scripts in misc.
 
-Mitch T.  6/24/2026
+Mitch T.  6/24/2026 and 7/17/2026
