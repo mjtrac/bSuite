@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.counter.fx.ResultsViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Results" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <HBox spacing="24">
+                <VBox>
+                    <Label text="Ballots Counted" style="-fx-font-size:11px;-fx-text-fill:#666;"/>
+                    <Label fx:id="totalBallotsLabel" style="-fx-font-size:20px;-fx-font-weight:bold;"/>
+                </VBox>
+                <VBox>
+                    <Label text="Votes Cast" style="-fx-font-size:11px;-fx-text-fill:#666;"/>
+                    <Label fx:id="totalVotesLabel" style="-fx-font-size:20px;-fx-font-weight:bold;"/>
+                </VBox>
+                <VBox>
+                    <Label text="Overvoted" style="-fx-font-size:11px;-fx-text-fill:#666;"/>
+                    <Label fx:id="overvotedLabel" style="-fx-font-size:20px;-fx-font-weight:bold;"/>
+                </VBox>
+                <VBox>
+                    <Label text="Scribbled" style="-fx-font-size:11px;-fx-text-fill:#666;"/>
+                    <Label fx:id="scribbledLabel" style="-fx-font-size:20px;-fx-font-weight:bold;"/>
+                </VBox>
+            </HBox>
+            <Button text="Refresh" onAction="#handleRefresh"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label text="Votes by Contest" styleClass="title-label"/>
+            <TableView fx:id="votesTable" prefHeight="360"/>
+        </VBox>
+    </VBox>
+</ScrollPane>

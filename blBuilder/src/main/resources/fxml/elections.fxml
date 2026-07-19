@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.ElectionViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Elections" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="electionTable" prefHeight="220"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Election" styleClass="title-label"/>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="nameField" promptText="e.g. Sample General Election"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Jurisdiction" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="jurisdictionCombo" prefWidth="200"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <VBox spacing="4">
+                    <Label text="Election Date" style="-fx-font-size:12px;"/>
+                    <DatePicker fx:id="electionDatePicker"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Election Type" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="electionTypeCombo" prefWidth="150"/>
+                </VBox>
+                <VBox spacing="4" alignment="BOTTOM_LEFT">
+                    <CheckBox fx:id="uniformBallotCheck" text="Uniform ballot (same ballot for everyone)"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

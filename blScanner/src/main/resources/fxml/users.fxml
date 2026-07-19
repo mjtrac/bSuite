@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.scanner.fx.UsersViewController"
+            stylesheets="@../css/scanner.css">
+    <top>
+        <HBox alignment="CENTER_LEFT" styleClass="nav-bar" spacing="16">
+            <Label fx:id="navTitleLabel" styleClass="nav-title" HBox.hgrow="ALWAYS" text="bScanner"/>
+            <Hyperlink text="Scan" styleClass="nav-link" onAction="#handleOpenMain"/>
+            <Hyperlink text="Configuration" styleClass="nav-link" onAction="#handleOpenConfig"/>
+            <Hyperlink text="Sign out" styleClass="nav-link" onAction="#handleSignOut"/>
+        </HBox>
+    </top>
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox spacing="16">
+                <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+                <VBox spacing="10" styleClass="card">
+                    <Label text="Users" styleClass="title-label"/>
+                    <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+                    <TableView fx:id="usersTable" prefHeight="260"/>
+                </VBox>
+
+                <VBox spacing="10" styleClass="card">
+                    <Label text="Add User" styleClass="title-label"/>
+                    <HBox spacing="10" alignment="BOTTOM_LEFT">
+                        <VBox spacing="4">
+                            <Label text="Username" style="-fx-font-size: 12px;"/>
+                            <TextField fx:id="newUsernameField"/>
+                        </VBox>
+                        <VBox spacing="4">
+                            <Label text="Password" style="-fx-font-size: 12px;"/>
+                            <PasswordField fx:id="newPasswordField"/>
+                        </VBox>
+                        <VBox spacing="4">
+                            <Label text="Role" style="-fx-font-size: 12px;"/>
+                            <ComboBox fx:id="newRoleCombo"/>
+                        </VBox>
+                        <Button text="Add User" styleClass="primary-button" onAction="#handleAddUser"/>
+                    </HBox>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>

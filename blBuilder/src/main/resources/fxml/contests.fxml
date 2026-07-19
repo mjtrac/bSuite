@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.ContestViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Contests" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="contestTable" prefHeight="200"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Contest" styleClass="title-label"/>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Title" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="titleField" promptText="e.g. Mayor, or U.S. Representative, District 2"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Election" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="electionCombo" prefWidth="200"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <VBox spacing="4">
+                    <Label text="Voting Method" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="votingMethodCombo" prefWidth="160"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Max Choices" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="maxChoicesSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Display Order" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="displayOrderSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+            </HBox>
+            <VBox spacing="4">
+                <Label text="Instructions" style="-fx-font-size:12px;"/>
+                <TextField fx:id="instructionsField" promptText="e.g. Vote for one"/>
+            </VBox>
+            <HBox spacing="10">
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+
+            <VBox fx:id="regionsBox" spacing="6">
+                <Label text="Assigned Regions" style="-fx-font-weight:bold;-fx-font-size:12px;"/>
+                <Label text="Contests propagate automatically to every SinglePrecinct member of any assigned PrecinctGroup."
+                       style="-fx-font-size:11px;-fx-text-fill:#666;" wrapText="true"/>
+                <ListView fx:id="regionsListView" prefHeight="130"/>
+                <Button text="Save Regions" onAction="#handleSaveRegions"/>
+            </VBox>
+        </VBox>
+
+        <VBox fx:id="candidatesBox" spacing="10" styleClass="card">
+            <Label fx:id="candidatesTitleLabel" text="Candidates" styleClass="title-label"/>
+            <TableView fx:id="candidateTable" prefHeight="200"/>
+
+            <Label fx:id="candidateFormTitleLabel" text="Add Candidate" style="-fx-font-weight:bold;"/>
+            <HBox spacing="10" alignment="BOTTOM_LEFT">
+                <VBox spacing="4">
+                    <Label text="Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="candidateNameField" promptText="e.g. Alice, or YES / NO"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Party Affiliation" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="candidatePartyField"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Display Order" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="candidateOrderSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <CheckBox fx:id="candidateWriteInCheck" text="Write-in"/>
+                <Button text="Save Candidate" styleClass="primary-button" onAction="#handleSaveCandidate"/>
+                <Button text="New Candidate" onAction="#handleNewCandidate"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

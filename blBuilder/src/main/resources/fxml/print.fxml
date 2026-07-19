@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.PrintViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Print Ballots" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+
+            <VBox spacing="4">
+                <Label text="Ballot Combination" style="-fx-font-size:12px;"/>
+                <ComboBox fx:id="combinationCombo" maxWidth="Infinity"/>
+            </VBox>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Template" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="templateCombo" maxWidth="Infinity"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Language" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="languageCombo" prefWidth="140"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Copies" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="copiesSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+            </HBox>
+            <Button text="Generate PDF" styleClass="primary-button" onAction="#handleGenerate"/>
+        </VBox>
+    </VBox>
+</ScrollPane>

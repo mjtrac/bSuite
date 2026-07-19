@@ -1,0 +1,4 @@
+scanner.db
+scanner.db-shm
+scanner.db-wal
+bScanner.log

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.mjtrac.counter.fx.AccountViewController"
+      spacing="10" styleClass="card" maxWidth="420">
+    <Label text="Change Password" styleClass="title-label"/>
+    <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+    <VBox spacing="4">
+        <Label text="Current Password" style="-fx-font-size:12px;"/>
+        <PasswordField fx:id="currentPasswordField"/>
+    </VBox>
+    <VBox spacing="4">
+        <Label text="New Password (min 8 chars)" style="-fx-font-size:12px;"/>
+        <PasswordField fx:id="newPasswordField"/>
+    </VBox>
+    <VBox spacing="4">
+        <Label text="Confirm New Password" style="-fx-font-size:12px;"/>
+        <PasswordField fx:id="confirmPasswordField"/>
+    </VBox>
+    <Button fx:id="changePasswordButton" text="Change Password" styleClass="primary-button" onAction="#handleChangePassword"/>
+</VBox>

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.scanner.fx.ConfigViewController"
+            stylesheets="@../css/scanner.css">
+    <top>
+        <HBox alignment="CENTER_LEFT" styleClass="nav-bar" spacing="16">
+            <Label fx:id="navTitleLabel" styleClass="nav-title" HBox.hgrow="ALWAYS" text="bScanner"/>
+            <Hyperlink text="Scan" styleClass="nav-link" onAction="#handleOpenMain"/>
+            <Hyperlink text="Users" styleClass="nav-link" onAction="#handleOpenUsers"/>
+            <Hyperlink text="Sign out" styleClass="nav-link" onAction="#handleSignOut"/>
+        </HBox>
+    </top>
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox spacing="16">
+                <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+                <VBox spacing="10" styleClass="card">
+                    <Label text="Scanner Configuration" styleClass="title-label"/>
+                    <Label fx:id="messageLabel" styleClass="msg-ok" wrapText="true"
+                           visible="false" managed="false"/>
+
+                    <Label text="Scanner Backend" style="-fx-font-weight: bold;"/>
+                    <ComboBox fx:id="backendCombo" maxWidth="Infinity"/>
+                    <Label text="naps2 (macOS/Windows) | scanimage (Linux/SANE) | command (custom)"
+                           styleClass="config-summary-label"/>
+
+                    <Label text="NAPS2 Profile Name (recommended)" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="naps2ProfileField" promptText="e.g. Ballot Scanner"/>
+                    <Label styleClass="config-summary-label" wrapText="true"
+                           text="Name of a profile saved in the NAPS2 GUI. Leave blank to use device name instead."/>
+
+                    <Label text="NAPS2 Device Name (alternative to profile)" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="naps2DeviceField" promptText="e.g. escl:http://192.168.1.10"/>
+                    <Label styleClass="config-summary-label" wrapText="true"
+                           text="Run NAPS2 with --listdevices to find your device name. Only used if Profile is blank."/>
+
+                    <Label text="NAPS2 Executable Path" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="naps2PathField"/>
+
+                    <Label text="scanimage Path" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="scanimagePathField"/>
+
+                    <Label text="Custom Command" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="customCommandField" promptText="e.g. myscan --output {output}_%04d.png"/>
+                    <Label styleClass="config-summary-label" text="Use {output} as placeholder for the output path prefix."/>
+
+                    <Label text="Output Folder" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="outputDirField"/>
+                    <Label styleClass="config-summary-label" wrapText="true"
+                           text="Scanned images are written here. Should match bCounter's image watch folder."/>
+
+                    <HBox spacing="16">
+                        <VBox spacing="4" HBox.hgrow="ALWAYS">
+                            <Label text="Source" style="-fx-font-weight: bold;"/>
+                            <ComboBox fx:id="sourceCombo" maxWidth="Infinity"/>
+                        </VBox>
+                        <VBox spacing="4">
+                            <Label text="DPI" style="-fx-font-weight: bold;"/>
+                            <Spinner fx:id="dpiSpinner" editable="true" prefWidth="120"/>
+                        </VBox>
+                    </HBox>
+                    <Label styleClass="config-summary-label" wrapText="true"
+                           text="For NAPS2, select 'duplex' as source to scan both sides automatically. The Duplex checkbox below is used for scanimage/custom backends only."/>
+                    <CheckBox fx:id="duplexCheck" text="Duplex flag (scanimage / custom backends only)"/>
+
+                    <Label text="Filename Prefix" style="-fx-font-weight: bold;"/>
+                    <TextField fx:id="filenamePrefixField"/>
+                    <Label styleClass="config-summary-label"
+                           text="A timestamp is appended automatically: prefixYYYYMMDD_HHmmss_0001.png"/>
+
+                    <Button text="Save Configuration" styleClass="primary-button" onAction="#handleSave"/>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>

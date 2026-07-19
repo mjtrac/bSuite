@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.PartyViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Parties" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="partyTable" prefHeight="260"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Party" styleClass="title-label"/>
+            <HBox spacing="10" alignment="BOTTOM_LEFT">
+                <VBox spacing="4">
+                    <Label text="Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="nameField" promptText="e.g. Democratic"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Abbreviation" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="abbreviationField" promptText="e.g. DEM"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Jurisdiction" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="jurisdictionCombo" prefWidth="200"/>
+                </VBox>
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

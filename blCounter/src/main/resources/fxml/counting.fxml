@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.counter.fx.CountingViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox fx:id="configBox" spacing="10" styleClass="card">
+            <Label text="New Count" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Image Folder" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="imageFolderField"/>
+                </VBox>
+                <VBox spacing="4" alignment="BOTTOM_LEFT">
+                    <Button text="Browse…" onAction="#browseImageFolder"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Report Folder (YAML/XML layout)" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="reportFolderField"/>
+                </VBox>
+                <VBox spacing="4" alignment="BOTTOM_LEFT">
+                    <Button text="Browse…" onAction="#browseReportFolder"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <VBox spacing="4">
+                    <Label text="Threshold" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="thresholdSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Dark %" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="darkPctSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="DPI" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="dpiSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Paper Width (in)" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="paperWidthSpinner" editable="true" prefWidth="100"/>
+                </VBox>
+            </HBox>
+            <CheckBox fx:id="debugCoordinatesCheck" text="Debug coordinates"/>
+            <Button text="Start Count" styleClass="primary-button" onAction="#handleStart"/>
+        </VBox>
+
+        <VBox fx:id="statusBoxCard" spacing="12" styleClass="card" visible="false" managed="false">
+            <Label text="Progress" styleClass="title-label"/>
+            <Label fx:id="statusBox" styleClass="status-box, status-idle" text="Idle" maxWidth="Infinity" alignment="CENTER"/>
+            <Label fx:id="currentImageLabel" style="-fx-font-size:11px;-fx-text-fill:#777;"/>
+            <Label fx:id="countsLabel"/>
+            <HBox spacing="10">
+                <Button fx:id="stopButton" text="Stop" styleClass="stop-button" onAction="#handleStop"/>
+                <Button fx:id="finishButton" text="Finish &amp; Save Results" onAction="#handleFinish" disable="true"/>
+                <Button fx:id="viewReportButton" text="View Report" onAction="#handleViewReport" disable="true"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

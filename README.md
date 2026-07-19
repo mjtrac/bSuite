@@ -17,6 +17,15 @@ pbss is an open-source suite for anyone in or out of government to design, print
 | **bViewer** | 8082 | Review scanned ballot images with vote-indicator overlays (runs inside bCounter) |
 | **bScanner** | 8083 | Drive a physical document scanner to produce ballot images |
 
+Each of bBuilder, bCounter, and bScanner also has a native desktop
+counterpart — **blBuilder**, **blCounter**, **blScanner** — built with
+JavaFX instead of a browser UI. These can be built and packaged as
+standalone, double-clickable desktop programs (a `.app` on macOS, an
+installer/app-image on Linux or Windows) that bundle their own Java
+runtime, so end users don't need Java, Maven, or a browser installed at
+all. See [Native Desktop Versions](#native-desktop-versions-blbuilder-blcounter-blscanner)
+below for how to build and package them.
+
 ---
 
 ## Download & Run (No Development Tools Required)
@@ -179,6 +188,9 @@ pbss/
   bCounter/           Ballot scanning + vote counting         (port 8081)
                       └── bViewer embedded                    (port 8082)
   bScanner/           Physical scanner driver                 (port 8083)
+  blBuilder/          Native desktop version of bBuilder (JavaFX)
+  blCounter/          Native desktop version of bCounter (JavaFX)
+  blScanner/          Native desktop version of bScanner (JavaFX)
   test-harness/       Python automation scripts
   docs/               Documentation (SCHEMA.md, RACE_CONDITION.md)
 ```
@@ -510,6 +522,79 @@ git tag -a v1.0.0 -m "pbss v1.0.0"
 git push origin v1.0.0
 # Releases → Draft a new release → attach JARs and pbss_app.zip
 ```
+
+---
+
+## Native Desktop Versions (blBuilder, blCounter, blScanner)
+
+`blBuilder/`, `blCounter/`, and `blScanner/` are JavaFX desktop rewrites of
+`bBuilder/`, `bCounter/`, and `bScanner/` — same data model, same
+`~/pbss_data/` directories and database files (fully interchangeable with
+the web versions, including mid-election), but a native desktop UI instead
+of a browser. Spring Boot runs headless (`WebApplicationType.NONE`) purely
+for dependency injection, JPA, and password hashing; JavaFX drives the UI
+directly. The one exception is blCounter's Ballot Viewer screen, which
+embeds the original web Viewer (unmodified) in a JavaFX `WebView` against a
+small embedded server bound to `127.0.0.1` only — see
+[`blCounter/README.md`](blCounter/README.md) for that screen's known
+rendering limitation.
+
+The original `bBuilder`/`bCounter`/`bScanner` directories are unaffected by
+any of this — both versions can be built and run side by side.
+
+### Run from source (development)
+
+```bash
+cd blBuilder   # or blCounter, blScanner
+./mvnw javafx:run
+```
+
+### Build a standalone desktop program
+
+This bundles a private Java runtime with the app, so the result runs on a
+machine with no Java installed at all. Two steps: `jlink` builds a minimal
+Java runtime containing only the modules the app needs, then `jpackage`
+bundles that runtime with the app into a native package.
+
+```bash
+cd blCounter   # or blBuilder, blScanner
+./mvnw clean package -DskipTests
+cp target/<app>-<version>.jar target/lib/
+
+jlink \
+  --module-path "$JAVA_HOME/jmods" \
+  --add-modules java.base,java.desktop,java.sql,java.net.http,java.naming,java.security.jgss,jdk.crypto.ec,java.logging,java.management,jdk.unsupported,java.instrument,java.scripting \
+  --output target/app-jre \
+  --strip-debug --no-header-files --no-man-pages --compress=2
+
+jpackage \
+  --input target/lib \
+  --name blCounter \
+  --main-jar <app>-<version>.jar \
+  --main-class <fully.qualified.Launcher> \
+  --runtime-image target/app-jre \
+  --type app-image \
+  --app-version 1.0.0 \
+  --dest target/dist
+```
+
+`--type app-image` produces the platform's native equivalent of a
+standalone program on whichever OS `jpackage` is run on — it does not
+cross-compile, so building a Windows package requires running this on
+Windows, a Linux package on Linux, and so on:
+
+| Platform | `--type app-image` result | Installer alternative |
+|---|---|---|
+| macOS | `<Name>.app` bundle | `--type dmg` / `pkg` |
+| Linux | a folder with a launcher binary + bundled runtime | `--type deb` / `rpm` |
+| Windows | a folder with a `.exe` launcher + bundled runtime | `--type exe` / `msi` |
+
+Each app's `pom.xml` already disables `spring-boot-maven-plugin`'s
+repackage step and uses `maven-dependency-plugin` to flatten dependencies
+into `target/lib/` — `jpackage`'s `app-image` mode needs a plain classpath,
+not Spring Boot's nested fat-jar layout. Pass `--version` to any built app
+(e.g. `blCounter.app/Contents/MacOS/blCounter --version` on macOS) to print
+its version without launching the UI.
 
 ---
 

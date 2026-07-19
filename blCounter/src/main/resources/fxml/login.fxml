@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.counter.fx.LoginViewController"
+            stylesheets="@../css/counter.css">
+    <center>
+        <VBox alignment="CENTER" spacing="16" styleClass="card" maxWidth="340">
+            <padding><Insets top="28" right="36" bottom="28" left="36"/></padding>
+            <Label fx:id="titleLabel" styleClass="title-label" text="pbss Ballot Counter" wrapText="true"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <VBox spacing="4">
+                <Label text="Username"/>
+                <TextField fx:id="usernameField"/>
+            </VBox>
+            <VBox spacing="4">
+                <Label text="Password"/>
+                <PasswordField fx:id="passwordField" onAction="#handleSignIn"/>
+            </VBox>
+            <Button text="Sign In" styleClass="primary-button" maxWidth="Infinity"
+                    defaultButton="true" onAction="#handleSignIn"/>
+        </VBox>
+    </center>
+</BorderPane>

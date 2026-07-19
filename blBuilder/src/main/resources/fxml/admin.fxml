@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.AdminViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Users" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="userTable" prefHeight="220"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label text="Add User" styleClass="title-label"/>
+            <HBox spacing="10">
+                <VBox spacing="4">
+                    <Label text="Username" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="usernameField"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Password (min 12 chars)" style="-fx-font-size:12px;"/>
+                    <PasswordField fx:id="passwordField"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Jurisdiction" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="jurisdictionCombo" prefWidth="180"/>
+                </VBox>
+            </HBox>
+            <VBox spacing="4">
+                <Label text="Roles" style="-fx-font-size:12px;"/>
+                <HBox spacing="12">
+                    <CheckBox fx:id="adminRoleCheck" text="ADMIN"/>
+                    <CheckBox fx:id="dataEntryRoleCheck" text="DATA_ENTRY"/>
+                    <CheckBox fx:id="printerRoleCheck" text="PRINTER"/>
+                </HBox>
+            </VBox>
+            <Button text="Create User" styleClass="primary-button" onAction="#handleCreateUser"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label text="Print Audit Log" styleClass="title-label"/>
+            <TableView fx:id="printLogTable" prefHeight="220"/>
+        </VBox>
+    </VBox>
+</ScrollPane>

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.BallotDesignTemplateViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Ballot Templates" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="templateTable" prefHeight="200"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Ballot Template" styleClass="title-label"/>
+
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Election" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="electionCombo" maxWidth="Infinity"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Paper Size" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="paperSizeCombo" prefWidth="170"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <VBox spacing="4">
+                    <Label text="Columns" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="columnsSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Vote Indicator Style" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="indicatorStyleCombo" prefWidth="160"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Barcode Height (pt)" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="barcodeHeightSpinner" editable="true" prefWidth="100"/>
+                </VBox>
+            </HBox>
+
+            <TitledPane text="Example snippets — click to insert" expanded="false">
+                <HBox spacing="8">
+                    <Button text="Default (headline + instructions)" onAction="#insertDefaultSnippet"/>
+                    <Button text="Two columns (image + text)" onAction="#insertTwoColSnippet"/>
+                    <Button text="Minimal (election name only)" onAction="#insertMinimalSnippet"/>
+                    <Button text="Table layout" onAction="#insertTableSnippet"/>
+                </HBox>
+            </TitledPane>
+
+            <VBox spacing="4">
+                <Label text="Header HTML" style="-fx-font-weight:bold;-fx-font-size:12px;"/>
+                <Label text="Edit by hand — tokens like {electionName}, {jurisdictionName}, {indicatorName} are substituted at print time. Leave blank to use the default header."
+                       style="-fx-font-size:11px;-fx-text-fill:#666;" wrapText="true"/>
+                <TextArea fx:id="headerHtmlArea" prefRowCount="10"
+                          style="-fx-font-family:monospace;-fx-font-size:11px;"/>
+            </VBox>
+
+            <HBox spacing="10">
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

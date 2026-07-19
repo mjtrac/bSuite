@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.JurisdictionViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Jurisdictions" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="jurisdictionTable" prefHeight="220"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Jurisdiction" styleClass="title-label"/>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="nameField" promptText="e.g. Sample County"/>
+                </VBox>
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Contact Email" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="contactEmailField"/>
+                </VBox>
+            </HBox>
+            <VBox spacing="4">
+                <Label text="Address" style="-fx-font-size:12px;"/>
+                <TextField fx:id="addressField"/>
+            </VBox>
+            <VBox spacing="4">
+                <Label text="General Voting Instructions" style="-fx-font-size:12px;"/>
+                <TextArea fx:id="instructionsArea" prefRowCount="3" wrapText="true"/>
+            </VBox>
+            <HBox spacing="10">
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

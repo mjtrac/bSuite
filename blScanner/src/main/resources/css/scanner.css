@@ -1,0 +1,97 @@
+/* Ported from the bScanner web templates' inline <style> blocks. */
+
+.root {
+    -fx-font-family: "Helvetica Neue", "Segoe UI", sans-serif;
+    -fx-background-color: #f4f4f4;
+}
+
+.nav-bar {
+    -fx-background-color: #1a1a2e;
+    -fx-padding: 12 20;
+}
+
+.nav-title {
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+    -fx-font-size: 14px;
+}
+
+.nav-link {
+    -fx-text-fill: #aad4f5;
+    -fx-cursor: hand;
+    -fx-underline: false;
+}
+.nav-link:hover {
+    -fx-text-fill: white;
+}
+
+.card {
+    -fx-background-color: white;
+    -fx-background-radius: 8;
+    -fx-padding: 24;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 6, 0, 0, 2);
+}
+
+.title-label {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a1a2e;
+}
+
+.primary-button {
+    -fx-background-color: #1a1a2e;
+    -fx-text-fill: white;
+    -fx-padding: 8 20;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.primary-button:disabled {
+    -fx-background-color: #888888;
+}
+
+.stop-button {
+    -fx-background-color: #dc3545;
+    -fx-text-fill: white;
+    -fx-padding: 8 20;
+    -fx-background-radius: 4;
+    -fx-cursor: hand;
+}
+.stop-button:disabled {
+    -fx-background-color: #888888;
+}
+
+.msg-error {
+    -fx-background-color: #ffe0e0;
+    -fx-text-fill: #cc0000;
+    -fx-padding: 8;
+    -fx-background-radius: 4;
+}
+
+.msg-ok {
+    -fx-background-color: #e0ffe0;
+    -fx-text-fill: #006600;
+    -fx-padding: 8;
+    -fx-background-radius: 4;
+}
+
+.status-box {
+    -fx-padding: 16;
+    -fx-background-radius: 6;
+    -fx-alignment: center;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+}
+.status-idle    { -fx-background-color: #e8e8e8; -fx-text-fill: #555555; }
+.status-running { -fx-background-color: #fff3cd; -fx-text-fill: #856404; }
+.status-done    { -fx-background-color: #d4edda; -fx-text-fill: #155724; }
+.status-errored { -fx-background-color: #f8d7da; -fx-text-fill: #721c24; }
+
+.last-file-label {
+    -fx-font-size: 11px;
+    -fx-text-fill: #777777;
+}
+
+.config-summary-label {
+    -fx-font-size: 12px;
+    -fx-text-fill: #555555;
+}

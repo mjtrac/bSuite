@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.BallotTypeViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Ballot Types" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="ballotTypeTable" prefHeight="220"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Ballot Type" styleClass="title-label"/>
+            <HBox spacing="10" alignment="BOTTOM_LEFT">
+                <VBox spacing="4">
+                    <Label text="Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="nameField" promptText="e.g. Precinct, Mail-In, Absentee"/>
+                </VBox>
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Description" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="descriptionField"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Jurisdiction" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="jurisdictionCombo" prefWidth="200"/>
+                </VBox>
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

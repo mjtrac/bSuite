@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.scanner.fx.LoginViewController"
+            stylesheets="@../css/scanner.css">
+    <center>
+        <VBox alignment="CENTER" spacing="16" styleClass="card" maxWidth="320">
+            <padding><Insets top="24" right="32" bottom="24" left="32"/></padding>
+            <Label fx:id="titleLabel" styleClass="title-label" text="bScanner"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <VBox spacing="4">
+                <Label text="Username"/>
+                <TextField fx:id="usernameField"/>
+            </VBox>
+            <VBox spacing="4">
+                <Label text="Password"/>
+                <PasswordField fx:id="passwordField" onAction="#handleSignIn"/>
+            </VBox>
+            <Button text="Sign in" styleClass="primary-button" maxWidth="Infinity"
+                    defaultButton="true" onAction="#handleSignIn"/>
+        </VBox>
+    </center>
+</BorderPane>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.DashboardController"
+            fitToWidth="true">
+    <VBox spacing="18">
+        <Label fx:id="welcomeLabel" styleClass="title-label" text="Welcome"/>
+
+        <VBox fx:id="adminSection" spacing="8">
+            <Label text="Administration" style="-fx-font-weight:bold;"/>
+            <FlowPane hgap="12" vgap="12">
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showJurisdictions">
+                    <Label text="Jurisdictions" styleClass="nav-card-title"/>
+                    <Label text="Manage top-level jurisdictions." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showAdmin">
+                    <Label text="Users &amp; Audit Log" styleClass="nav-card-title"/>
+                    <Label text="Manage user accounts and view the ballot print history." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+            </FlowPane>
+        </VBox>
+
+        <VBox fx:id="setupSection" spacing="8">
+            <Label text="Election Setup" style="-fx-font-weight:bold;"/>
+            <FlowPane hgap="12" vgap="12">
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showElections">
+                    <Label text="1. Elections" styleClass="nav-card-title"/>
+                    <Label text="Create an election and set its type and date." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showRegions">
+                    <Label text="2. Regions" styleClass="nav-card-title"/>
+                    <Label text="Create precincts and precinct groups." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showParties">
+                    <Label text="3. Parties" styleClass="nav-card-title"/>
+                    <Label text="Pre-seeded with &quot;Everyone&quot;. Add party-specific entries for primaries." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showBallotTypes">
+                    <Label text="4. Ballot Types" styleClass="nav-card-title"/>
+                    <Label text="Precinct, Mail-In, Absentee, Provisional, etc." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showContests">
+                    <Label text="5. Contests" styleClass="nav-card-title"/>
+                    <Label text="Add contests and candidates, assign to regions." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showLanguages">
+                    <Label text="Languages" styleClass="nav-card-title"/>
+                    <Label text="Manage ballot translation languages." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showBallotTemplates">
+                    <Label text="Ballot Templates" styleClass="nav-card-title"/>
+                    <Label text="Design paper size, columns, header, and indicators." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showBallotCombinations">
+                    <Label text="Ballot Combinations" styleClass="nav-card-title"/>
+                    <Label text="Link region + party + ballot type + election to a template." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+            </FlowPane>
+        </VBox>
+
+        <VBox fx:id="printSection" spacing="8">
+            <Label text="Print" style="-fx-font-weight:bold;"/>
+            <FlowPane hgap="12" vgap="12">
+                <VBox styleClass="nav-card" prefWidth="220" onMouseClicked="#showPrint">
+                    <Label text="Print Ballots" styleClass="nav-card-title"/>
+                    <Label text="Generate and print ballot PDFs for a combination." styleClass="nav-card-desc" wrapText="true"/>
+                </VBox>
+            </FlowPane>
+        </VBox>
+    </VBox>
+</ScrollPane>

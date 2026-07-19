@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.ShellController"
+            stylesheets="@../css/bbuilder.css">
+    <left>
+        <ScrollPane fitToWidth="true" styleClass="sidebar" hbarPolicy="NEVER">
+            <VBox styleClass="sidebar" spacing="2">
+                <Label fx:id="titleLabel" styleClass="sidebar-title" text="pbss Ballot Builder" wrapText="true"/>
+                <Button text="Dashboard" styleClass="sidebar-link" onAction="#showDashboard"/>
+
+                <VBox fx:id="adminSection" spacing="2">
+                    <Label text="ADMINISTRATION" styleClass="sidebar-section-label"/>
+                    <Button text="Jurisdictions" styleClass="sidebar-link" onAction="#showJurisdictions"/>
+                    <Button text="Users &amp; Audit Log" styleClass="sidebar-link" onAction="#showAdmin"/>
+                </VBox>
+
+                <VBox fx:id="dataEntrySection" spacing="2">
+                    <Label text="ELECTION SETUP" styleClass="sidebar-section-label"/>
+                    <Button text="1. Elections" styleClass="sidebar-link" onAction="#showElections"/>
+                    <Button text="2. Regions" styleClass="sidebar-link" onAction="#showRegions"/>
+                    <Button text="3. Parties" styleClass="sidebar-link" onAction="#showParties"/>
+                    <Button text="4. Ballot Types" styleClass="sidebar-link" onAction="#showBallotTypes"/>
+                    <Button text="5. Contests" styleClass="sidebar-link" onAction="#showContests"/>
+                    <Button text="Languages" styleClass="sidebar-link" onAction="#showLanguages"/>
+                    <Button text="Ballot Templates" styleClass="sidebar-link" onAction="#showBallotTemplates"/>
+                    <Button text="Ballot Combinations" styleClass="sidebar-link" onAction="#showBallotCombinations"/>
+                </VBox>
+
+                <VBox fx:id="printSection" spacing="2">
+                    <Label text="PRINT" styleClass="sidebar-section-label"/>
+                    <Button text="Print Ballots" styleClass="sidebar-link" onAction="#showPrint"/>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </left>
+    <top>
+        <HBox alignment="CENTER_LEFT" styleClass="top-bar" spacing="16">
+            <Label fx:id="breadcrumbLabel" styleClass="title-label" text="Dashboard" HBox.hgrow="ALWAYS"/>
+            <Label fx:id="signedInAsLabel" style="-fx-font-size:12px;-fx-text-fill:#555;"/>
+            <Button text="Sign out" onAction="#handleSignOut"/>
+        </HBox>
+    </top>
+    <center>
+        <StackPane fx:id="contentArea">
+            <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+        </StackPane>
+    </center>
+</BorderPane>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.counter.fx.DashboardController"
+            fitToWidth="true">
+    <VBox spacing="18">
+        <Label fx:id="welcomeLabel" styleClass="title-label" text="Welcome"/>
+        <Label fx:id="resultsInfoLabel" wrapText="true" visible="false" managed="false"/>
+        <FlowPane hgap="12" vgap="12">
+            <VBox fx:id="countCard" styleClass="card" prefWidth="220" onMouseClicked="#showDashboard">
+                <Label text="New Count" styleClass="title-label" style="-fx-font-size:14px;"/>
+                <Label text="Scan a folder of ballot images against a report." wrapText="true"/>
+            </VBox>
+            <VBox fx:id="viewerCard" styleClass="card" prefWidth="220" onMouseClicked="#showViewer">
+                <Label text="Ballot Viewer" styleClass="title-label" style="-fx-font-size:14px;"/>
+                <Label text="Inspect individual scanned ballots and their markings." wrapText="true"/>
+            </VBox>
+        </FlowPane>
+    </VBox>
+</ScrollPane>

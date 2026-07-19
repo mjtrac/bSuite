@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.LanguageViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Languages" styleClass="title-label"/>
+            <Label text="Contest and candidate text can be translated into any language registered here."
+                   style="-fx-font-size:11.5px;-fx-text-fill:#666;" wrapText="true"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="languageTable" prefHeight="220"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label text="Add Language" styleClass="title-label"/>
+            <HBox spacing="10" alignment="BOTTOM_LEFT">
+                <VBox spacing="4">
+                    <Label text="Language Code" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="codeField" promptText="e.g. es"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Language Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="nameField" promptText="e.g. Spanish"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Display Order" style="-fx-font-size:12px;"/>
+                    <Spinner fx:id="displayOrderSpinner" editable="true" prefWidth="90"/>
+                </VBox>
+                <Button text="Add" styleClass="primary-button" onAction="#handleAdd"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

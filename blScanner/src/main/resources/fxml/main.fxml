@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.scanner.fx.ScanViewController"
+            stylesheets="@../css/scanner.css">
+    <top>
+        <HBox alignment="CENTER_LEFT" styleClass="nav-bar" spacing="16">
+            <Label fx:id="navTitleLabel" styleClass="nav-title" HBox.hgrow="ALWAYS" text="bScanner"/>
+            <HBox fx:id="adminLinksBox" spacing="16">
+                <Hyperlink text="Configuration" styleClass="nav-link" onAction="#handleOpenConfig"/>
+                <Hyperlink text="Users" styleClass="nav-link" onAction="#handleOpenUsers"/>
+            </HBox>
+            <Hyperlink text="Sign out" styleClass="nav-link" onAction="#handleSignOut"/>
+        </HBox>
+    </top>
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox spacing="16">
+                <padding><Insets top="20" right="20" bottom="20" left="20"/></padding>
+
+                <VBox spacing="12" styleClass="card">
+                    <Label text="Scan Ballots" styleClass="title-label"/>
+                    <Label fx:id="statusBox" styleClass="status-box, status-idle"
+                           text="Ready to scan" maxWidth="Infinity" alignment="CENTER"/>
+                    <Label fx:id="countLabel" text="Images scanned: 0" maxWidth="Infinity"
+                           style="-fx-alignment: center; -fx-font-size: 13px;"/>
+                    <Label fx:id="lastFileLabel" styleClass="last-file-label" maxWidth="Infinity"
+                           style="-fx-alignment: center;"/>
+
+                    <VBox spacing="4">
+                        <Label text="Batch Comment (optional — cleared after each scan)"
+                               style="-fx-font-weight: bold; -fx-font-size: 12px;"/>
+                        <TextArea fx:id="commentArea" wrapText="true" prefRowCount="2"
+                                  promptText="e.g. Precinct 4 morning batch, box 3 of 5"/>
+                    </VBox>
+
+                    <HBox spacing="10" alignment="CENTER">
+                        <Button fx:id="startButton" text="Start Scan" styleClass="primary-button"
+                                onAction="#handleStart"/>
+                        <Button fx:id="stopButton" text="Stop" styleClass="stop-button"
+                                onAction="#handleStop" disable="true"/>
+                    </HBox>
+                </VBox>
+
+                <VBox spacing="6" styleClass="card">
+                    <Label text="Current Configuration" styleClass="title-label"/>
+                    <Label fx:id="configSummaryLabel" styleClass="config-summary-label" wrapText="true"/>
+                    <Hyperlink fx:id="editConfigLink" text="Edit configuration →" styleClass="nav-link"
+                               onAction="#handleOpenConfig"/>
+                </VBox>
+            </VBox>
+        </ScrollPane>
+    </center>
+</BorderPane>

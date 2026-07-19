@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.RegionViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Regions" styleClass="title-label"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="regionTable" prefHeight="240"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Region" styleClass="title-label"/>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Name" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="nameField" promptText="e.g. p1, or Sample Water District"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Jurisdiction" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="jurisdictionCombo" prefWidth="180"/>
+                </VBox>
+                <VBox spacing="4">
+                    <Label text="Type" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="regionTypeCombo" prefWidth="150"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10" fx:id="groupTypeRow">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Group Type (PrecinctGroup only)" style="-fx-font-size:12px;"/>
+                    <TextField fx:id="groupTypeField" promptText="e.g. CITY, WATER_DISTRICT, WARD"/>
+                </VBox>
+            </HBox>
+            <VBox spacing="4">
+                <Label text="Description" style="-fx-font-size:12px;"/>
+                <TextField fx:id="descriptionField"/>
+            </VBox>
+            <HBox spacing="10">
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+
+            <VBox fx:id="membersBox" spacing="6">
+                <Label text="Member SinglePrecincts (PrecinctGroup only)" style="-fx-font-weight:bold;-fx-font-size:12px;"/>
+                <ListView fx:id="membersListView" prefHeight="140"/>
+                <Button text="Save Members" onAction="#handleSaveMembers"/>
+            </VBox>
+        </VBox>
+    </VBox>
+</ScrollPane>

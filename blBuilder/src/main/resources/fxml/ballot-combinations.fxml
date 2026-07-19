@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<ScrollPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.mjtrac.ballot.fx.BallotCombinationViewController"
+            fitToWidth="true">
+    <VBox spacing="16">
+        <VBox spacing="10" styleClass="card">
+            <Label text="Ballot Combinations" styleClass="title-label"/>
+            <Label text="Defines exactly what a specific voter receives: Election + SinglePrecinct + Party + Ballot Type."
+                   style="-fx-font-size:11.5px;-fx-text-fill:#666;" wrapText="true"/>
+            <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <TableView fx:id="combinationTable" prefHeight="240"/>
+        </VBox>
+
+        <VBox spacing="10" styleClass="card">
+            <Label fx:id="formTitleLabel" text="New Ballot Combination" styleClass="title-label"/>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Election" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="electionCombo" maxWidth="Infinity"/>
+                </VBox>
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="SinglePrecinct" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="regionCombo" maxWidth="Infinity"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Party" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="partyCombo" maxWidth="Infinity"/>
+                </VBox>
+                <VBox spacing="4" HBox.hgrow="ALWAYS">
+                    <Label text="Ballot Type" style="-fx-font-size:12px;"/>
+                    <ComboBox fx:id="ballotTypeCombo" maxWidth="Infinity"/>
+                </VBox>
+            </HBox>
+            <HBox spacing="10">
+                <Button text="Save" styleClass="primary-button" onAction="#handleSave"/>
+                <Button text="New" onAction="#handleNew"/>
+            </HBox>
+        </VBox>
+    </VBox>
+</ScrollPane>
