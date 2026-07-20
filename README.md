@@ -44,6 +44,10 @@ below) — fully interchangeable, including switching apps mid-election.
 None of the four opens a network port; they talk to their local SQLite
 database and the local filesystem directly.
 
+See **[docs/DESKTOP_USER_GUIDE.md](docs/DESKTOP_USER_GUIDE.md)** for a
+screenshot walkthrough of all four, in the order an election actually uses
+them: design the ballot, scan it, count it, review it.
+
 ### Building the recommended apps
 
 `package_all_desktop.sh`, at the repo root, jlinks + jpackages every
