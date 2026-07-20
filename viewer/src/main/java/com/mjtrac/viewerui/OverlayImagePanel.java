@@ -37,6 +37,7 @@ class OverlayImagePanel extends JPanel {
     private Long hoverId = null;
 
     private Consumer<IndicatorBox> onHover = b -> {};
+    private Consumer<IndicatorBox> onActivate = b -> {};
 
     OverlayImagePanel() {
         setBackground(Color.DARK_GRAY);
@@ -46,6 +47,7 @@ class OverlayImagePanel extends JPanel {
                 activeId = (b != null && b.id == (activeId == null ? -1 : activeId)) ? null
                          : (b != null ? b.id : null);
                 repaint();
+                onActivate.accept(activeId == null ? null : b);
             }
         };
         addMouseListener(mouse);
@@ -64,6 +66,28 @@ class OverlayImagePanel extends JPanel {
 
     void setOnHover(Consumer<IndicatorBox> onHover) {
         this.onHover = onHover;
+    }
+
+    /** Fired when the active (clicked) box changes — including to null when deactivated. */
+    void setOnActivate(Consumer<IndicatorBox> onActivate) {
+        this.onActivate = onActivate;
+    }
+
+    /**
+     * Activates a box from outside (e.g. selecting a candidate in
+     * {@link ContestCandidateWindow}) without re-firing onActivate — only a
+     * real click on the image itself should notify listeners, so the two
+     * windows don't ping-pong an activation back and forth.
+     */
+    void setActiveBoxId(Long id) {
+        this.activeId = id;
+        repaint();
+        if (id != null) scrollActiveIntoView();
+    }
+
+    private void scrollActiveIntoView() {
+        boxes.stream().filter(b -> b.id == activeId).findFirst()
+            .ifPresent(box -> scrollRectToVisible(scaledRect(box).getBounds()));
     }
 
     void load(BallotView view, BufferedImage img) {

@@ -150,6 +150,19 @@ exists and what the standalone viewer deliberately leaves out (SQL
 filtering, RCV/scribble reports, auto-advance review mode) compared to
 blCounter's fuller-featured version.
 
+**View → Contests & Candidates** (or Ctrl+L / Cmd+L) opens a second
+window listing every contest on the ballot currently on screen — click a
+contest to expand it into its candidates, each with a color swatch
+matching its status (green voted, amber overvoted, blue unmarked). It's
+the Swing equivalent of bCounter's embedded web Viewer's sidebar, as a
+separate toggleable window rather than a fixed panel, so it doesn't
+compete with the image for space. Clicking a candidate here highlights
+its box on the ballot image, and clicking a box on the image highlights
+the matching candidate here — same bidirectional highlighting the web
+version does.
+
+![viewer contests and candidates window](screenshots/viewer_03_contests.png)
+
 ## Other versions
 
 `bBuilder`/`bCounter`/`bScanner` (web) and `blBuilder`/`blCounter`/`blScanner`

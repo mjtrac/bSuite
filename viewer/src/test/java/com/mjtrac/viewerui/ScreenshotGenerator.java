@@ -20,6 +20,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
@@ -89,10 +90,24 @@ public class ScreenshotGenerator {
 
             shoot(viewPanel, "viewer_2_view.png");
 
+            ContestCandidateWindow contestWindow = ctx.getBean(ContestCandidateWindow.class);
+            contestWindow.setSize(400, 620);
+            contestWindow.addNotify();
+            JTree tree = (JTree) getField(contestWindow, "tree");
+            for (int row = 0; row < tree.getRowCount(); row++) tree.expandRow(row);
+            contestWindow.validate();
+            shoot((JComponent) contestWindow.getContentPane(), "viewer_3_contests.png");
+
             System.out.println("Done: " + OUT_DIR);
         } finally {
             System.exit(0);
         }
+    }
+
+    static Object getField(Object target, String name) throws Exception {
+        Field f = target.getClass().getDeclaredField(name);
+        f.setAccessible(true);
+        return f.get(target);
     }
 
     static void shoot(JComponent panel, String filename) throws Exception {

@@ -21,6 +21,7 @@ import java.util.List;
 class BallotViewPanel extends JPanel {
 
     private final BallotViewService viewService;
+    private final ContestCandidateWindow contestCandidateWindow;
     private final OverlayImagePanel canvas = new OverlayImagePanel();
     private final JScrollPane scroll = new JScrollPane(canvas);
 
@@ -41,9 +42,10 @@ class BallotViewPanel extends JPanel {
     private int index = -1;
     private Runnable onBack = () -> {};
 
-    BallotViewPanel(BallotViewService viewService) {
+    BallotViewPanel(BallotViewService viewService, ContestCandidateWindow contestCandidateWindow) {
         super(new BorderLayout());
         this.viewService = viewService;
+        this.contestCandidateWindow = contestCandidateWindow;
 
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         top.add(backBtn);
@@ -91,6 +93,8 @@ class BallotViewPanel extends JPanel {
         showBoxesBox.addActionListener(e -> canvas.setShowBoxes(showBoxesBox.isSelected()));
         showNamesBox.addActionListener(e -> canvas.setShowNames(showNamesBox.isSelected()));
         canvas.setOnHover(this::showHoverInfo);
+        canvas.setOnActivate(contestCandidateWindow::selectBox);
+        contestCandidateWindow.setOnCandidateSelected(box -> canvas.setActiveBoxId(box.id));
     }
 
     void setOnBack(Runnable onBack) { this.onBack = onBack; }
@@ -122,6 +126,7 @@ class BallotViewPanel extends JPanel {
         }
         BallotView view = opt.get();
         titleLabel.setText(view.imageName);
+        contestCandidateWindow.update(view.boxes);
 
         try {
             BufferedImage img = ImageIO.read(new File(view.resolvedPath));

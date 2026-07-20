@@ -1,8 +1,8 @@
 {
   ".claude/settings.json": {
-    "mtime": 1784396662.4313965,
-    "ast_hash": "58e4c18ba1605738dcc5ad5d07efb53b",
-    "semantic_hash": "58e4c18ba1605738dcc5ad5d07efb53b"
+    "mtime": 1784525380.0235813,
+    "ast_hash": "35dfdb2bf40c2e6c6e0394c2dfbdf92b",
+    "semantic_hash": ""
   },
   "bBuilder/launch.sh": {
     "mtime": 1784396662.4345047,
@@ -100,8 +100,8 @@
     "semantic_hash": "3bba759b28c7925b387ee64541b35156"
   },
   "bCounter/pom.xml": {
-    "mtime": 1784396662.4579241,
-    "ast_hash": "7eba8a7d9ca4dca17414867547c75dfe",
+    "mtime": 1784505100.014108,
+    "ast_hash": "c2cc88ccb2a2929176a1af6f983e0007",
     "semantic_hash": ""
   },
   "bCounter/src/main/resources/static/js/counter-index.js": {
@@ -115,9 +115,9 @@
     "semantic_hash": "03effaff2d93b220667c39a6e311c677"
   },
   "bCounter/src/main/resources/static/js/results.js": {
-    "mtime": 1784396662.467948,
-    "ast_hash": "ec4898a1cadcc0e406782bc6f49ca588",
-    "semantic_hash": "ec4898a1cadcc0e406782bc6f49ca588"
+    "mtime": 1784502929.421625,
+    "ast_hash": "27e1a1033f772fd2ca09dbb981306dd7",
+    "semantic_hash": ""
   },
   "bCounter/src/main/resources/static/js/viewer-index.js": {
     "mtime": 1784396662.4681501,
@@ -135,8 +135,8 @@
     "semantic_hash": "3bba759b28c7925b387ee64541b35156"
   },
   "bScanner/pom.xml": {
-    "mtime": 1784397442.216922,
-    "ast_hash": "d94f01a164dca54e2332a0212cd5d30b",
+    "mtime": 1784505100.0177135,
+    "ast_hash": "8b4821fd911eaf836cc05d7c63116eba",
     "semantic_hash": ""
   },
   "pbss.app/Contents/MacOS/pbss": {
@@ -245,8 +245,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1784396662.4333732,
-    "ast_hash": "f159a1fd4f077f7001e5ed61697143a9",
+    "mtime": 1784507320.6011353,
+    "ast_hash": "7450504c86fcfd90179b528e91049acb",
     "semantic_hash": ""
   },
   "bBuilder/README.md": {
@@ -445,8 +445,8 @@
     "semantic_hash": "05feb681f96a883d49a2d76b016a75f2"
   },
   "bCounter/src/main/resources/templates/results.html": {
-    "mtime": 1784396662.4696977,
-    "ast_hash": "43bbf905d0e43d209b09700b289b4ee9",
+    "mtime": 1784502910.3355646,
+    "ast_hash": "ec580e673af1d700e3f58dd0179bb847",
     "semantic_hash": ""
   },
   "bCounter/src/main/resources/templates/scan-result.html": {
@@ -485,9 +485,9 @@
     "semantic_hash": "0d3e5b172ef7aa21c813ff9063cda365"
   },
   "bScanner/src/main/resources/templates/index.html": {
-    "mtime": 1784397442.2209892,
-    "ast_hash": "e7775cc9c3ff990dc0658aee08b51da7",
-    "semantic_hash": "e7775cc9c3ff990dc0658aee08b51da7"
+    "mtime": 1784502472.0697308,
+    "ast_hash": "1edbd21e45f2c714a974c9e2fcaa6a76",
+    "semantic_hash": ""
   },
   "bScanner/src/main/resources/templates/login.html": {
     "mtime": 1784397442.2210972,
@@ -685,8 +685,8 @@
     "semantic_hash": "5c59d9c8b6a1c38afacf845c1d264ed3"
   },
   "test-harness/README.md": {
-    "mtime": 1784396662.5228362,
-    "ast_hash": "1936d2db1cadc04ab9d1b335c3d5ae2d",
+    "mtime": 1784488601.8936763,
+    "ast_hash": "90659303776a7f510dcfffb5bf47dda2",
     "semantic_hash": ""
   },
   "test-harness/indicator_style.yaml": {
@@ -869,11 +869,6 @@
     "ast_hash": "e97f35607d91482d32fe80969f900456",
     "semantic_hash": ""
   },
-  "bBuilder/src/main/java/com/mjtrac/ballot/config/DatabaseConfig.java": {
-    "mtime": 1784396662.4357893,
-    "ast_hash": "75c455518bb29c7b85e5d9c152d43a1d",
-    "semantic_hash": ""
-  },
   "bBuilder/src/main/java/com/mjtrac/ballot/config/GlobalModelAdvice.java": {
     "mtime": 1784396662.4358716,
     "ast_hash": "f21ebb69e7592def9f15254eeef74709",
@@ -974,204 +969,9 @@
     "ast_hash": "7a55ddf30201f9c6739b1071d66cf70b",
     "semantic_hash": ""
   },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/BallotCombination.java": {
-    "mtime": 1784396662.438919,
-    "ast_hash": "0314aeb6615d2d6599bf93f15ff40776",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/BallotDesignTemplate.java": {
-    "mtime": 1784396662.4390233,
-    "ast_hash": "964fd6243f85f0bdc6d73e69601180e8",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/BallotLanguage.java": {
-    "mtime": 1784396662.4391387,
-    "ast_hash": "62e696ae7cf471a77937374b624eb05a",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/BallotType.java": {
-    "mtime": 1784396662.4392338,
-    "ast_hash": "242f7c1eb6f8dcf27177080219888ca4",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/Candidate.java": {
-    "mtime": 1784396662.4394422,
-    "ast_hash": "f75cf0d17851f005ffc63e5755ec8610",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/CandidateTranslation.java": {
-    "mtime": 1784396662.4395428,
-    "ast_hash": "6affdf1bc59506b0d7988551f23328bb",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/Contest.java": {
-    "mtime": 1784396662.4396842,
-    "ast_hash": "290e60ddd6203b214ebe19773131044e",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/ContestTranslation.java": {
-    "mtime": 1784396662.439765,
-    "ast_hash": "68cdf4d8b562617d93443ff216d3fb76",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/Election.java": {
-    "mtime": 1784396662.4398692,
-    "ast_hash": "3e56aef727c418c2b3bac2aca0b3d0bc",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/Jurisdiction.java": {
-    "mtime": 1784396662.439958,
-    "ast_hash": "ee9560bcf39b5af76608a29f2c5c629f",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/Party.java": {
-    "mtime": 1784396662.440046,
-    "ast_hash": "1762403960890248b13a412b9086b806",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/PrintLog.java": {
-    "mtime": 1784396662.4401586,
-    "ast_hash": "16aae168481698db82e5973a06ef817e",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/Region.java": {
-    "mtime": 1784396662.4403565,
-    "ast_hash": "96c027395afc48bb485d59c869df135c",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/model/User.java": {
-    "mtime": 1784396662.4404373,
-    "ast_hash": "22644e552c952433d75446393e765ae5",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/BallotCombinationRepository.java": {
-    "mtime": 1784396662.4405756,
-    "ast_hash": "70d26a944c447091658b5e0a15eb7afe",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/BallotDesignTemplateRepository.java": {
-    "mtime": 1784396662.440668,
-    "ast_hash": "442bc39554e0bd55b80567b67f7c4cf9",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/BallotLanguageRepository.java": {
-    "mtime": 1784396662.4407718,
-    "ast_hash": "aa46564bae692b6bc3ea0fa3ff0f93d8",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/BallotTypeRepository.java": {
-    "mtime": 1784396662.4408753,
-    "ast_hash": "fc8f55f15404f6500b48e23f59415fd6",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/CandidateRepository.java": {
-    "mtime": 1784396662.4409566,
-    "ast_hash": "33a57c79cbbddd0ecdc3d465011d6a90",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/CandidateTranslationRepository.java": {
-    "mtime": 1784396662.4410388,
-    "ast_hash": "f2deb4e2351e88bf83c5e2870c334a19",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/ContestRepository.java": {
-    "mtime": 1784396662.4411159,
-    "ast_hash": "0973e6945d54856578e9d2444c9dbb47",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/ContestTranslationRepository.java": {
-    "mtime": 1784396662.441201,
-    "ast_hash": "936318f32807c332fb3fde321b19d951",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/ElectionRepository.java": {
-    "mtime": 1784396662.4412887,
-    "ast_hash": "7f740dc79b48e763994996d9cef74538",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/JurisdictionRepository.java": {
-    "mtime": 1784396662.4415593,
-    "ast_hash": "17bc3f69704aaa4ff9df61a86bd4cf1e",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/PartyRepository.java": {
-    "mtime": 1784396662.4416492,
-    "ast_hash": "19b9b4606285b0c603f14190ddff2e25",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/PrintLogRepository.java": {
-    "mtime": 1784396662.4417412,
-    "ast_hash": "4becf5ccffea74990c9ce64431742fe4",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/RegionRepository.java": {
-    "mtime": 1784396662.4418397,
-    "ast_hash": "0e626766ed26eb50539f80537b765dcf",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/repository/UserRepository.java": {
-    "mtime": 1784396662.4419298,
-    "ast_hash": "bc0686e544abb42de600da7d37aa85d8",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/ArrowIndicatorDrawer.java": {
-    "mtime": 1784396662.4420815,
-    "ast_hash": "b4466e3057fd464e1f57b1ed855b5d35",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/BallotGenerationService.java": {
-    "mtime": 1784396662.4422894,
-    "ast_hash": "944166d1576e47681e9b985835e99467",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/BallotLayoutService.java": {
-    "mtime": 1784396662.4424212,
-    "ast_hash": "2f8ef5c2116f71e450dc378ad5fac51d",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/BallotTranslationService.java": {
-    "mtime": 1784396662.4426427,
-    "ast_hash": "74599bffce7c238deb7e9f5e2c62cf39",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/BarcodeService.java": {
-    "mtime": 1784396662.442835,
-    "ast_hash": "556c195ad056f8a0b3115679a831ade3",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/ContestAssignmentService.java": {
-    "mtime": 1784396662.443049,
-    "ast_hash": "0c7b4417e0434b904d59a8ba0397abea",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/ExportService.java": {
-    "mtime": 1784396662.4432793,
-    "ast_hash": "c4dd4559011ef4b0a3193cfb0e099603",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/PrintLogService.java": {
-    "mtime": 1784396662.4433744,
-    "ast_hash": "c069748805bb7469c6be5c82b4e54712",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/service/PrinterService.java": {
-    "mtime": 1784396662.4435313,
-    "ast_hash": "34fd3dadab4c562be1b10495838d1610",
-    "semantic_hash": ""
-  },
   "bBuilder/src/main/java/com/mjtrac/ballot/service/UserService.java": {
     "mtime": 1784396662.4437447,
     "ast_hash": "7e6621258efcd3e12f9dc21e097ab993",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/util/BallotDimensions.java": {
-    "mtime": 1784396662.44392,
-    "ast_hash": "afca3bf8ebc5eaaf637cd4ad993e1ee7",
-    "semantic_hash": ""
-  },
-  "bBuilder/src/main/java/com/mjtrac/ballot/util/MeasurementUtil.java": {
-    "mtime": 1784396662.4439983,
-    "ast_hash": "12feff02fb2731f0534f469d8a7689d7",
     "semantic_hash": ""
   },
   "bBuilder/src/test/java/com/mjtrac/ballot/BallotDesignTemplateTest.java": {
@@ -1244,11 +1044,6 @@
     "ast_hash": "119215e6355300e0d34d6ead3c13a658",
     "semantic_hash": ""
   },
-  "bCounter/src/main/java/com/mjtrac/counter/config/PasswordEncoderConfig.java": {
-    "mtime": 1784396662.4587934,
-    "ast_hash": "a44f518617f7061fe9142b66d3228bde",
-    "semantic_hash": ""
-  },
   "bCounter/src/main/java/com/mjtrac/counter/controller/AccountController.java": {
     "mtime": 1784396662.4589295,
     "ast_hash": "37d93e82e6eb8002b684fc8c0503ba0f",
@@ -1274,169 +1069,9 @@
     "ast_hash": "b1a1d28c7df028ef0c4886d45c831c8f",
     "semantic_hash": ""
   },
-  "bCounter/src/main/java/com/mjtrac/counter/entity/BallotImage.java": {
-    "mtime": 1784396662.4612553,
-    "ast_hash": "ea251fe2ac9411a7850e6883c509487d",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/entity/BarcodeRecord.java": {
-    "mtime": 1784396662.461357,
-    "ast_hash": "51467f619f56e2ce6c12bd02f9869bea",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/entity/CandidateRecord.java": {
-    "mtime": 1784396662.4614673,
-    "ast_hash": "95cf72875814e924d0b5edf4e64a6f06",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/entity/ContestRecord.java": {
-    "mtime": 1784396662.4615583,
-    "ast_hash": "06eb0a8fbfb4e98a6fe134618d67bddc",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/entity/CounterUser.java": {
-    "mtime": 1784396662.4616497,
-    "ast_hash": "a57cf6450d9948ea78221dff4a3e05cd",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/entity/VoteOpportunity.java": {
-    "mtime": 1784396662.4618554,
-    "ast_hash": "c05be36001daa1c443c5d336cc04c858",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/model/BboxReport.java": {
-    "mtime": 1784396662.4620428,
-    "ast_hash": "3ff5defc61f04a82108a0d99c7a622a6",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/model/ScanSession.java": {
-    "mtime": 1784396662.4622543,
-    "ast_hash": "00d212c6813f41930cad6aca78da371c",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/repository/BallotImageRepository.java": {
-    "mtime": 1784396662.462389,
-    "ast_hash": "9b4d95a31ca5f073d97bfa0752e73697",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/repository/BarcodeRecordRepository.java": {
-    "mtime": 1784396662.4624698,
-    "ast_hash": "ba2e28d74d7a9775f28f745439a36390",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/repository/CandidateRecordRepository.java": {
-    "mtime": 1784396662.4625406,
-    "ast_hash": "b3aba2081d4bb86a601674d51bae8980",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/repository/ContestRecordRepository.java": {
-    "mtime": 1784396662.462611,
-    "ast_hash": "e65c961d0dade6446616f2ed611b23a3",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/repository/CounterUserRepository.java": {
-    "mtime": 1784396662.462686,
-    "ast_hash": "4123af129c98a340908ea8f6a052ac2d",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/repository/VoteOpportunityRepository.java": {
-    "mtime": 1784396662.4627593,
-    "ast_hash": "7216f97ac92a524e12dd0cc04e142b34",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/ArloExportService.java": {
-    "mtime": 1784396662.4629498,
-    "ast_hash": "6110f26d29e2473886f8de7f48f51167",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/ArrowIndicatorAnalyzer.java": {
-    "mtime": 1784396662.4630446,
-    "ast_hash": "1acc0addbc4b5c3623592c4b1081cbca",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/AuditLogService.java": {
-    "mtime": 1784396662.463136,
-    "ast_hash": "94182b98aea2d2db9cf6116efbe98150",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/BallotCornerDetectorService.java": {
-    "mtime": 1784396662.4633443,
-    "ast_hash": "632afc03a0a4b20a1f7522dc18f4d4ad",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/BallotIdentifierService.java": {
-    "mtime": 1784396662.463546,
-    "ast_hash": "9c053748b0884ead0d8b872cb895d4b1",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/BarcodeReaderService.java": {
-    "mtime": 1784396662.4636889,
-    "ast_hash": "a40e0f428f5e5d925b1c2d1bd0f47b2f",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/BboxReportLoader.java": {
-    "mtime": 1784396662.4637914,
-    "ast_hash": "1367fb222a13de078ec060283a7e6d4d",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/CoordinateDebugService.java": {
-    "mtime": 1784396662.463936,
-    "ast_hash": "7d5dc1e3186d2f4e5037cbdd03193701",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/CornerDetectionService.java": {
-    "mtime": 1784396662.4641018,
-    "ast_hash": "c45508a4fc0c8684f4500a80b8a26c88",
-    "semantic_hash": ""
-  },
   "bCounter/src/main/java/com/mjtrac/counter/service/CounterUserService.java": {
     "mtime": 1784396662.4644384,
     "ast_hash": "cc9e09ec462e74ae75ffce04f8a8245f",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/HomographyService.java": {
-    "mtime": 1784396662.464592,
-    "ast_hash": "2d2a12c70cb45659bf13a9d8217e81dd",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/MarkerAnalysisService.java": {
-    "mtime": 1784396662.4647288,
-    "ast_hash": "493189a82775a55be44db02ad1a1643c",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/Point2D.java": {
-    "mtime": 1784396662.4648283,
-    "ast_hash": "cd34dab1527b47c02d3cb612f8be36c4",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/RcvTabulationService.java": {
-    "mtime": 1784396662.464953,
-    "ast_hash": "3d38922cc3652c896c337fb0a44da92b",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/ResultsQueryService.java": {
-    "mtime": 1784396662.4651146,
-    "ast_hash": "53a4f80877ca2d90a59e08c143f16a35",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/ScannerService.java": {
-    "mtime": 1784396662.4652305,
-    "ast_hash": "3b8e91eb6df1651820dc27e037efad16",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/ScribbleDetectionService.java": {
-    "mtime": 1784396662.4653542,
-    "ast_hash": "2dddf81ff378774409276f73899974cc",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/VoteRecordService.java": {
-    "mtime": 1784396662.465483,
-    "ast_hash": "c94f556e9fe2105150cc3118bfece246",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/counter/service/VoteTallyService.java": {
-    "mtime": 1784396662.4656727,
-    "ast_hash": "60fdd584a93aa411288481708121ac79",
     "semantic_hash": ""
   },
   "bCounter/src/main/java/com/mjtrac/viewer/config/ViewerSecurityConfig.java": {
@@ -1462,11 +1097,6 @@
   "bCounter/src/main/java/com/mjtrac/viewer/controller/ViewerLoginController.java": {
     "mtime": 1784396662.4663992,
     "ast_hash": "6ab4b5e8eedfd1cd826952379a0edb45",
-    "semantic_hash": ""
-  },
-  "bCounter/src/main/java/com/mjtrac/viewer/service/BallotViewService.java": {
-    "mtime": 1784396662.4665844,
-    "ast_hash": "522a9ed35ba76fc26f881f7c48eb5acc",
     "semantic_hash": ""
   },
   "bCounter/src/main/java/com/mjtrac/viewer/service/ViewerFilterSession.java": {
@@ -1509,14 +1139,9 @@
     "ast_hash": "820adf7b9513f0c09e0d52cb208d1c88",
     "semantic_hash": ""
   },
-  "bScanner/src/main/java/com/mjtrac/scanner/config/ScannerConfig.java": {
-    "mtime": 1784397442.2180512,
-    "ast_hash": "14cb8ef9639289356bba6e8aabe8ce33",
-    "semantic_hash": ""
-  },
   "bScanner/src/main/java/com/mjtrac/scanner/config/SecurityConfig.java": {
-    "mtime": 1784397442.2181737,
-    "ast_hash": "21cd4414e77880160954a960502252d9",
+    "mtime": 1784502495.09039,
+    "ast_hash": "53b77a569285de1f5ece779fd5afa7f7",
     "semantic_hash": ""
   },
   "bScanner/src/main/java/com/mjtrac/scanner/controller/ConfigController.java": {
@@ -1525,8 +1150,8 @@
     "semantic_hash": ""
   },
   "bScanner/src/main/java/com/mjtrac/scanner/controller/MainController.java": {
-    "mtime": 1784397442.218556,
-    "ast_hash": "930689e0b4fcd84f34cf450acf0cfd15",
+    "mtime": 1784502482.739758,
+    "ast_hash": "df651e06f94ff0787650cf0c8e7ad698",
     "semantic_hash": ""
   },
   "bScanner/src/main/java/com/mjtrac/scanner/controller/UsersController.java": {
@@ -1534,29 +1159,9 @@
     "ast_hash": "89e50f134346983860ba90f2ff7abd9a",
     "semantic_hash": ""
   },
-  "bScanner/src/main/java/com/mjtrac/scanner/entity/ScannerUser.java": {
-    "mtime": 1784397442.2190163,
-    "ast_hash": "52532eee462a4f324588ffab635edeb9",
-    "semantic_hash": ""
-  },
-  "bScanner/src/main/java/com/mjtrac/scanner/model/ScanSession.java": {
-    "mtime": 1784397442.219177,
-    "ast_hash": "91ea7dc5ff61bfd839cd3790b53766d6",
-    "semantic_hash": ""
-  },
-  "bScanner/src/main/java/com/mjtrac/scanner/repository/ScannerUserRepository.java": {
-    "mtime": 1784397442.2194107,
-    "ast_hash": "0e08e89749a7497a037f2c7ed96185cc",
-    "semantic_hash": ""
-  },
   "bScanner/src/main/java/com/mjtrac/scanner/service/DataInitializer.java": {
     "mtime": 1784397442.2195761,
     "ast_hash": "9d3745433ddc046581c5b3a45e013842",
-    "semantic_hash": ""
-  },
-  "bScanner/src/main/java/com/mjtrac/scanner/service/ScanService.java": {
-    "mtime": 1784397442.2197757,
-    "ast_hash": "0cdc2b0625800040b09df4238d9dcb21",
     "semantic_hash": ""
   },
   "bScanner/src/main/java/com/mjtrac/scanner/service/ScannerUserDetailsService.java": {
@@ -1590,8 +1195,8 @@
     "semantic_hash": ""
   },
   "blBuilder/pom.xml": {
-    "mtime": 1784398888.989153,
-    "ast_hash": "8179a09da9b72176018143761a42183b",
+    "mtime": 1784505100.0213995,
+    "ast_hash": "b1794e23fc16ccc09fed04487f3f5ac2",
     "semantic_hash": ""
   },
   "blBuilder/src/main/java/com/mjtrac/ballot/BBuilderFxApplication.java": {
@@ -1602,11 +1207,6 @@
   "blBuilder/src/main/java/com/mjtrac/ballot/config/DataInitializer.java": {
     "mtime": 1784396662.0,
     "ast_hash": "e97f35607d91482d32fe80969f900456",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/config/DatabaseConfig.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "75c455518bb29c7b85e5d9c152d43a1d",
     "semantic_hash": ""
   },
   "blBuilder/src/main/java/com/mjtrac/ballot/fx/AdminViewController.java": {
@@ -1660,8 +1260,8 @@
     "semantic_hash": ""
   },
   "blBuilder/src/main/java/com/mjtrac/ballot/fx/Launcher.java": {
-    "mtime": 1784398493.016244,
-    "ast_hash": "1a6a3bf6c6a5fa7c7cf6f79f1f5a0ff4",
+    "mtime": 1784404581.4444177,
+    "ast_hash": "7dc14f9eceeea289b8b7e0178628dc58",
     "semantic_hash": ""
   },
   "blBuilder/src/main/java/com/mjtrac/ballot/fx/LoginViewController.java": {
@@ -1694,204 +1294,9 @@
     "ast_hash": "928d80e90268c2a18edca0169000b4d6",
     "semantic_hash": ""
   },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/BallotCombination.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "0314aeb6615d2d6599bf93f15ff40776",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/BallotDesignTemplate.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "964fd6243f85f0bdc6d73e69601180e8",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/BallotLanguage.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "62e696ae7cf471a77937374b624eb05a",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/BallotType.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "242f7c1eb6f8dcf27177080219888ca4",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/Candidate.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "f75cf0d17851f005ffc63e5755ec8610",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/CandidateTranslation.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "6affdf1bc59506b0d7988551f23328bb",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/Contest.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "290e60ddd6203b214ebe19773131044e",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/ContestTranslation.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "68cdf4d8b562617d93443ff216d3fb76",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/Election.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "3e56aef727c418c2b3bac2aca0b3d0bc",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/Jurisdiction.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "ee9560bcf39b5af76608a29f2c5c629f",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/Party.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "1762403960890248b13a412b9086b806",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/PrintLog.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "16aae168481698db82e5973a06ef817e",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/Region.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "96c027395afc48bb485d59c869df135c",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/model/User.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "22644e552c952433d75446393e765ae5",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/BallotCombinationRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "70d26a944c447091658b5e0a15eb7afe",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/BallotDesignTemplateRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "442bc39554e0bd55b80567b67f7c4cf9",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/BallotLanguageRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "aa46564bae692b6bc3ea0fa3ff0f93d8",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/BallotTypeRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "fc8f55f15404f6500b48e23f59415fd6",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/CandidateRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "33a57c79cbbddd0ecdc3d465011d6a90",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/CandidateTranslationRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "f2deb4e2351e88bf83c5e2870c334a19",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/ContestRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "0973e6945d54856578e9d2444c9dbb47",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/ContestTranslationRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "936318f32807c332fb3fde321b19d951",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/ElectionRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "7f740dc79b48e763994996d9cef74538",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/JurisdictionRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "17bc3f69704aaa4ff9df61a86bd4cf1e",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/PartyRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "19b9b4606285b0c603f14190ddff2e25",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/PrintLogRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "4becf5ccffea74990c9ce64431742fe4",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/RegionRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "0e626766ed26eb50539f80537b765dcf",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/repository/UserRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "bc0686e544abb42de600da7d37aa85d8",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/ArrowIndicatorDrawer.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "b4466e3057fd464e1f57b1ed855b5d35",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/BallotGenerationService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "944166d1576e47681e9b985835e99467",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/BallotLayoutService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "2f8ef5c2116f71e450dc378ad5fac51d",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/BallotTranslationService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "74599bffce7c238deb7e9f5e2c62cf39",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/BarcodeService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "556c195ad056f8a0b3115679a831ade3",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/ContestAssignmentService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "0c7b4417e0434b904d59a8ba0397abea",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/ExportService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "c4dd4559011ef4b0a3193cfb0e099603",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/PrintLogService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "c069748805bb7469c6be5c82b4e54712",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/service/PrinterService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "34fd3dadab4c562be1b10495838d1610",
-    "semantic_hash": ""
-  },
   "blBuilder/src/main/java/com/mjtrac/ballot/service/UserService.java": {
     "mtime": 1784398367.7760057,
     "ast_hash": "93f4970358282b56f8a76d83a410c1b3",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/util/BallotDimensions.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "afca3bf8ebc5eaaf637cd4ad993e1ee7",
-    "semantic_hash": ""
-  },
-  "blBuilder/src/main/java/com/mjtrac/ballot/util/MeasurementUtil.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "12feff02fb2731f0534f469d8a7689d7",
     "semantic_hash": ""
   },
   "blBuilder/src/test/java/com/mjtrac/ballot/BallotDesignTemplateTest.java": {
@@ -1970,18 +1375,8 @@
     "semantic_hash": ""
   },
   "blScanner/pom.xml": {
-    "mtime": 1784396707.6261506,
-    "ast_hash": "90ed844d7c5a7bd5dcd7a3accff48223",
-    "semantic_hash": ""
-  },
-  "blScanner/src/main/java/com/mjtrac/scanner/config/ScannerConfig.java": {
-    "mtime": 1784396662.486317,
-    "ast_hash": "14cb8ef9639289356bba6e8aabe8ce33",
-    "semantic_hash": ""
-  },
-  "blScanner/src/main/java/com/mjtrac/scanner/entity/ScannerUser.java": {
-    "mtime": 1784396662.4868152,
-    "ast_hash": "52532eee462a4f324588ffab635edeb9",
+    "mtime": 1784505100.0288813,
+    "ast_hash": "1ce20385239527f73a746d4cc814277d",
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/AuthContext.java": {
@@ -1990,18 +1385,18 @@
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/ConfigViewController.java": {
-    "mtime": 1784397030.8104422,
-    "ast_hash": "a0146adeeff1197587f17fc095e4a487",
+    "mtime": 1784500672.1562738,
+    "ast_hash": "528c17da99345f1142ab14c68adfad3b",
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/Launcher.java": {
-    "mtime": 1784396799.2692478,
-    "ast_hash": "a0bc0cfe88ae2f689f13ef2701fa1e14",
+    "mtime": 1784404398.2269692,
+    "ast_hash": "e8b949f493c5112d678e7473cbcda66e",
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/LoginViewController.java": {
-    "mtime": 1784396861.2266815,
-    "ast_hash": "580f944e6254974fc7ce8480cb01ca42",
+    "mtime": 1784500731.9381082,
+    "ast_hash": "eca6f3c52bc60095c7c44f72d7492aef",
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/Navigator.java": {
@@ -2010,8 +1405,8 @@
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/ScanViewController.java": {
-    "mtime": 1784396919.1835148,
-    "ast_hash": "781bb0971dd36501ffca8ebd7697f6ff",
+    "mtime": 1784502557.6809318,
+    "ast_hash": "af1fa707d5429af0fd307dcaec3a9bdb",
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/ScannerFxApplication.java": {
@@ -2020,28 +1415,13 @@
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/fx/UsersViewController.java": {
-    "mtime": 1784397037.0382328,
-    "ast_hash": "10c21988d18af821d37d5cdc148d5e6a",
-    "semantic_hash": ""
-  },
-  "blScanner/src/main/java/com/mjtrac/scanner/model/ScanSession.java": {
-    "mtime": 1784396662.4869368,
-    "ast_hash": "91ea7dc5ff61bfd839cd3790b53766d6",
-    "semantic_hash": ""
-  },
-  "blScanner/src/main/java/com/mjtrac/scanner/repository/ScannerUserRepository.java": {
-    "mtime": 1784396662.487057,
-    "ast_hash": "0e08e89749a7497a037f2c7ed96185cc",
+    "mtime": 1784500701.157415,
+    "ast_hash": "9202f3af65407e71efd5acebe6e68e74",
     "semantic_hash": ""
   },
   "blScanner/src/main/java/com/mjtrac/scanner/service/DataInitializer.java": {
     "mtime": 1784396662.4871712,
     "ast_hash": "9d3745433ddc046581c5b3a45e013842",
-    "semantic_hash": ""
-  },
-  "blScanner/src/main/java/com/mjtrac/scanner/service/ScanService.java": {
-    "mtime": 1784396662.487309,
-    "ast_hash": "0cdc2b0625800040b09df4238d9dcb21",
     "semantic_hash": ""
   },
   "blBuilder/README.md": {
@@ -2080,8 +1460,8 @@
     "semantic_hash": ""
   },
   "blCounter/pom.xml": {
-    "mtime": 1784402507.1441526,
-    "ast_hash": "3d707f4323487f02e351cd818c7e8707",
+    "mtime": 1784505100.02515,
+    "ast_hash": "a6653893080191042c8d62eb43aae44e",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/CounterFxApplication.java": {
@@ -2092,41 +1472,6 @@
   "blCounter/src/main/java/com/mjtrac/counter/config/CounterDataInitializer.java": {
     "mtime": 1784396662.0,
     "ast_hash": "87cd80bdcaf6f4f6e52cd80a8ebd061f",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/config/PasswordEncoderConfig.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "a44f518617f7061fe9142b66d3228bde",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/entity/BallotImage.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "ea251fe2ac9411a7850e6883c509487d",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/entity/BarcodeRecord.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "51467f619f56e2ce6c12bd02f9869bea",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/entity/CandidateRecord.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "95cf72875814e924d0b5edf4e64a6f06",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/entity/ContestRecord.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "06eb0a8fbfb4e98a6fe134618d67bddc",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/entity/CounterUser.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "a57cf6450d9948ea78221dff4a3e05cd",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/entity/VoteOpportunity.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "c05be36001daa1c443c5d336cc04c858",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/AccountViewController.java": {
@@ -2150,18 +1495,18 @@
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/DashboardController.java": {
-    "mtime": 1784403085.3873801,
-    "ast_hash": "9567322d7f7310111505a6ee9f290e60",
+    "mtime": 1784414155.4548073,
+    "ast_hash": "b023ab2e9acffce3b85733ddbaad571c",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/Launcher.java": {
-    "mtime": 1784402757.6792707,
-    "ast_hash": "14dd9ea20f1d3d5778ebec2d9b911615",
+    "mtime": 1784404613.9660287,
+    "ast_hash": "c5bc7fdd6e7aeac006e95589598c95f0",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/LoginViewController.java": {
-    "mtime": 1784403042.285482,
-    "ast_hash": "1f4e353b675c654be20353d6a6289fad",
+    "mtime": 1784500388.5078714,
+    "ast_hash": "5355b4e058c4e4955bef4325cf28ea20",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/Navigator.java": {
@@ -2170,18 +1515,18 @@
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/ResultsViewController.java": {
-    "mtime": 1784403473.5036,
-    "ast_hash": "97d8a13701e5b58a7a28021fd86db6f6",
+    "mtime": 1784502681.7947388,
+    "ast_hash": "f9a47f058215ed281da5f7c5e963e08c",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/ShellController.java": {
-    "mtime": 1784402797.544669,
-    "ast_hash": "bf03fca31767a40a7b0d956fdeaec994",
+    "mtime": 1784500425.7686868,
+    "ast_hash": "b83f6088c972b34b917c2d3f78b37e5d",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/ViewerScreenController.java": {
-    "mtime": 1784403743.907033,
-    "ast_hash": "50ead25f159454c01e9ddceea2e58452",
+    "mtime": 1784419246.8189836,
+    "ast_hash": "54d3c5dc1b328b625c360ddab41c6bdb",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/counter/fx/ViewerServerInfo.java": {
@@ -2189,144 +1534,9 @@
     "ast_hash": "a115bd91122fc02cc96254da85eeae28",
     "semantic_hash": ""
   },
-  "blCounter/src/main/java/com/mjtrac/counter/model/BboxReport.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "3ff5defc61f04a82108a0d99c7a622a6",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/model/ScanSession.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "00d212c6813f41930cad6aca78da371c",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/repository/BallotImageRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "9b4d95a31ca5f073d97bfa0752e73697",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/repository/BarcodeRecordRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "ba2e28d74d7a9775f28f745439a36390",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/repository/CandidateRecordRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "b3aba2081d4bb86a601674d51bae8980",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/repository/ContestRecordRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "e65c961d0dade6446616f2ed611b23a3",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/repository/CounterUserRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "4123af129c98a340908ea8f6a052ac2d",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/repository/VoteOpportunityRepository.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "7216f97ac92a524e12dd0cc04e142b34",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/ArloExportService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "6110f26d29e2473886f8de7f48f51167",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/ArrowIndicatorAnalyzer.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "1acc0addbc4b5c3623592c4b1081cbca",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/AuditLogService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "94182b98aea2d2db9cf6116efbe98150",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/BallotCornerDetectorService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "632afc03a0a4b20a1f7522dc18f4d4ad",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/BallotIdentifierService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "9c053748b0884ead0d8b872cb895d4b1",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/BarcodeReaderService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "a40e0f428f5e5d925b1c2d1bd0f47b2f",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/BboxReportLoader.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "1367fb222a13de078ec060283a7e6d4d",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/CoordinateDebugService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "7d5dc1e3186d2f4e5037cbdd03193701",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/CornerDetectionService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "c45508a4fc0c8684f4500a80b8a26c88",
-    "semantic_hash": ""
-  },
   "blCounter/src/main/java/com/mjtrac/counter/service/CounterUserService.java": {
     "mtime": 1784402590.4822288,
     "ast_hash": "36e5da2e34d037f6e7d468a7a2b90cc5",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/CountingService.java": {
-    "mtime": 1784403217.4685047,
-    "ast_hash": "26917b4ad38c3c3ae52b08aa4e39089c",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/HomographyService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "2d2a12c70cb45659bf13a9d8217e81dd",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/MarkerAnalysisService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "493189a82775a55be44db02ad1a1643c",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/Point2D.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "cd34dab1527b47c02d3cb612f8be36c4",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/RcvTabulationService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "3d38922cc3652c896c337fb0a44da92b",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/ResultsQueryService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "53a4f80877ca2d90a59e08c143f16a35",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/ScannerService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "3b8e91eb6df1651820dc27e037efad16",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/ScribbleDetectionService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "2dddf81ff378774409276f73899974cc",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/VoteRecordService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "c94f556e9fe2105150cc3118bfece246",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/counter/service/VoteTallyService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "60fdd584a93aa411288481708121ac79",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/viewer/config/ViewerSecurityConfig.java": {
@@ -2335,13 +1545,8 @@
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/viewer/controller/ViewerController.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "45cdb221eb1bfd6db8efc0e2e7acc37e",
-    "semantic_hash": ""
-  },
-  "blCounter/src/main/java/com/mjtrac/viewer/service/BallotViewService.java": {
-    "mtime": 1784396662.0,
-    "ast_hash": "522a9ed35ba76fc26f881f7c48eb5acc",
+    "mtime": 1784418958.7075675,
+    "ast_hash": "c4d916d2f3829004b60b1de26f71bb23",
     "semantic_hash": ""
   },
   "blCounter/src/main/java/com/mjtrac/viewer/service/ViewerFilterSession.java": {
@@ -2370,8 +1575,8 @@
     "semantic_hash": ""
   },
   "blCounter/src/test/java/com/mjtrac/counter/fx/CountingScreenTest.java": {
-    "mtime": 1784403347.740774,
-    "ast_hash": "8ef0ed033234d2efb5de770cd799f364",
+    "mtime": 1784486958.153755,
+    "ast_hash": "f3947f71d71805d89f0f1d3f817c07f9",
     "semantic_hash": ""
   },
   "blCounter/src/test/java/com/mjtrac/counter/fx/LoginScreenTest.java": {
@@ -2434,11 +1639,6 @@
     "ast_hash": "39a84afc312051ae3a67fababf5a572b",
     "semantic_hash": ""
   },
-  "blCounter/src/main/viewer-view.html": {
-    "mtime": 1784396662.0,
-    "ast_hash": "6b06dd666d13a3938c808bf7f6339df6",
-    "semantic_hash": ""
-  },
   "blCounter/src/test/resources/test-images/ballot_clean-1.png": {
     "mtime": 1784396662.0,
     "ast_hash": "408e4b00d933212c5b575145f3c055c3",
@@ -2462,6 +1662,841 @@
   "blCounter/src/test/resources/test-images/ballot_upside_down-1.png": {
     "mtime": 1784396662.0,
     "ast_hash": "2bfc9d121d70b323a51119b893b7a51f",
+    "semantic_hash": ""
+  },
+  "blCounter/src/test/java/com/mjtrac/counter/fx/CountingPipelineGuiTest.java": {
+    "mtime": 1784491178.5322964,
+    "ast_hash": "3c415ce96d9e6239e100a0e10d8217c0",
+    "semantic_hash": ""
+  },
+  "blScanner/src/main/java/com/mjtrac/scanner/fx/BatchSheetPrinter.java": {
+    "mtime": 1784502573.3563318,
+    "ast_hash": "75094ac102615633affbcb65aac829b0",
+    "semantic_hash": ""
+  },
+  "builder-core/pom.xml": {
+    "mtime": 1784505100.0327642,
+    "ast_hash": "e57518c30c76d8186a87fc442dbfad47",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/config/DatabaseConfig.java": {
+    "mtime": 1784484580.4694223,
+    "ast_hash": "75c455518bb29c7b85e5d9c152d43a1d",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/BallotCombination.java": {
+    "mtime": 1784484580.4418178,
+    "ast_hash": "0314aeb6615d2d6599bf93f15ff40776",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/BallotDesignTemplate.java": {
+    "mtime": 1784484580.442105,
+    "ast_hash": "964fd6243f85f0bdc6d73e69601180e8",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/BallotLanguage.java": {
+    "mtime": 1784484580.442352,
+    "ast_hash": "62e696ae7cf471a77937374b624eb05a",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/BallotType.java": {
+    "mtime": 1784484580.4425805,
+    "ast_hash": "242f7c1eb6f8dcf27177080219888ca4",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/Candidate.java": {
+    "mtime": 1784484580.442922,
+    "ast_hash": "f75cf0d17851f005ffc63e5755ec8610",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/CandidateTranslation.java": {
+    "mtime": 1784484580.443174,
+    "ast_hash": "6affdf1bc59506b0d7988551f23328bb",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/Contest.java": {
+    "mtime": 1784484580.443534,
+    "ast_hash": "290e60ddd6203b214ebe19773131044e",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/ContestTranslation.java": {
+    "mtime": 1784484580.4437609,
+    "ast_hash": "68cdf4d8b562617d93443ff216d3fb76",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/Election.java": {
+    "mtime": 1784484580.4442647,
+    "ast_hash": "3e56aef727c418c2b3bac2aca0b3d0bc",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/Jurisdiction.java": {
+    "mtime": 1784484580.4445403,
+    "ast_hash": "ee9560bcf39b5af76608a29f2c5c629f",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/Party.java": {
+    "mtime": 1784484580.4449048,
+    "ast_hash": "1762403960890248b13a412b9086b806",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/PrintLog.java": {
+    "mtime": 1784484580.4451895,
+    "ast_hash": "16aae168481698db82e5973a06ef817e",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/Region.java": {
+    "mtime": 1784484580.4455955,
+    "ast_hash": "96c027395afc48bb485d59c869df135c",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/model/User.java": {
+    "mtime": 1784484580.4458358,
+    "ast_hash": "22644e552c952433d75446393e765ae5",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/BallotCombinationRepository.java": {
+    "mtime": 1784484580.454929,
+    "ast_hash": "70d26a944c447091658b5e0a15eb7afe",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/BallotDesignTemplateRepository.java": {
+    "mtime": 1784484580.4552565,
+    "ast_hash": "442bc39554e0bd55b80567b67f7c4cf9",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/BallotLanguageRepository.java": {
+    "mtime": 1784484580.4556224,
+    "ast_hash": "aa46564bae692b6bc3ea0fa3ff0f93d8",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/BallotTypeRepository.java": {
+    "mtime": 1784484580.4558866,
+    "ast_hash": "fc8f55f15404f6500b48e23f59415fd6",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/CandidateRepository.java": {
+    "mtime": 1784484580.4561386,
+    "ast_hash": "33a57c79cbbddd0ecdc3d465011d6a90",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/CandidateTranslationRepository.java": {
+    "mtime": 1784484580.4563801,
+    "ast_hash": "f2deb4e2351e88bf83c5e2870c334a19",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/ContestRepository.java": {
+    "mtime": 1784484580.456608,
+    "ast_hash": "0973e6945d54856578e9d2444c9dbb47",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/ContestTranslationRepository.java": {
+    "mtime": 1784484580.4568372,
+    "ast_hash": "936318f32807c332fb3fde321b19d951",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/ElectionRepository.java": {
+    "mtime": 1784484580.457316,
+    "ast_hash": "7f740dc79b48e763994996d9cef74538",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/JurisdictionRepository.java": {
+    "mtime": 1784484580.4575512,
+    "ast_hash": "17bc3f69704aaa4ff9df61a86bd4cf1e",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/PartyRepository.java": {
+    "mtime": 1784484580.4578412,
+    "ast_hash": "19b9b4606285b0c603f14190ddff2e25",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/PrintLogRepository.java": {
+    "mtime": 1784484580.4581516,
+    "ast_hash": "4becf5ccffea74990c9ce64431742fe4",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/RegionRepository.java": {
+    "mtime": 1784484580.458401,
+    "ast_hash": "0e626766ed26eb50539f80537b765dcf",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/repository/UserRepository.java": {
+    "mtime": 1784484580.458618,
+    "ast_hash": "bc0686e544abb42de600da7d37aa85d8",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/ArrowIndicatorDrawer.java": {
+    "mtime": 1784484580.4742775,
+    "ast_hash": "b4466e3057fd464e1f57b1ed855b5d35",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/BallotGenerationService.java": {
+    "mtime": 1784484580.478567,
+    "ast_hash": "944166d1576e47681e9b985835e99467",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/BallotLayoutService.java": {
+    "mtime": 1784484580.4829094,
+    "ast_hash": "2f8ef5c2116f71e450dc378ad5fac51d",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/BallotTranslationService.java": {
+    "mtime": 1784484580.4868736,
+    "ast_hash": "74599bffce7c238deb7e9f5e2c62cf39",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/BarcodeService.java": {
+    "mtime": 1784484580.4908376,
+    "ast_hash": "556c195ad056f8a0b3115679a831ade3",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/ContestAssignmentService.java": {
+    "mtime": 1784484580.494713,
+    "ast_hash": "0c7b4417e0434b904d59a8ba0397abea",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/ExportService.java": {
+    "mtime": 1784484580.4983325,
+    "ast_hash": "c4dd4559011ef4b0a3193cfb0e099603",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/PrintLogService.java": {
+    "mtime": 1784484580.506335,
+    "ast_hash": "c069748805bb7469c6be5c82b4e54712",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/service/PrinterService.java": {
+    "mtime": 1784484580.5020595,
+    "ast_hash": "34fd3dadab4c562be1b10495838d1610",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/util/BallotDimensions.java": {
+    "mtime": 1784484580.4647844,
+    "ast_hash": "afca3bf8ebc5eaaf637cd4ad993e1ee7",
+    "semantic_hash": ""
+  },
+  "builder-core/src/main/java/com/mjtrac/ballot/util/MeasurementUtil.java": {
+    "mtime": 1784484580.465123,
+    "ast_hash": "12feff02fb2731f0534f469d8a7689d7",
+    "semantic_hash": ""
+  },
+  "builder/mvnw": {
+    "mtime": 1784484936.7728193,
+    "ast_hash": "3bba759b28c7925b387ee64541b35156",
+    "semantic_hash": ""
+  },
+  "builder/pom.xml": {
+    "mtime": 1784505099.9917662,
+    "ast_hash": "93810101097cd349e869be899995f908",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/AdminPanel.java": {
+    "mtime": 1784485289.0823383,
+    "ast_hash": "9fed8f8c44576407e23ee76878bf1dd3",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/BallotCombinationPanel.java": {
+    "mtime": 1784485499.425672,
+    "ast_hash": "23b0507057fc771c405a76d792af36f0",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/BallotDesignTemplatePanel.java": {
+    "mtime": 1784496561.5827253,
+    "ast_hash": "de8679a6815dbb9ca8351bc349bf66c0",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/BallotLanguagePanel.java": {
+    "mtime": 1784485187.0209243,
+    "ast_hash": "7cd7396ac6d1c09be1a663929e20745f",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/BallotTypePanel.java": {
+    "mtime": 1784485167.130432,
+    "ast_hash": "1d85227dd8ff67b0fd882fbf63f278b2",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/BuilderApp.java": {
+    "mtime": 1784485360.799043,
+    "ast_hash": "2f25c0551f781a4245ae93c192966483",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/CandidateTranslationDialog.java": {
+    "mtime": 1784496751.8916824,
+    "ast_hash": "1c63578365cc51ecf88ef3e21d2771ad",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/ContestCandidatesDialog.java": {
+    "mtime": 1784496771.3643405,
+    "ast_hash": "481516f5ccf75c3e0586a4d40079f8b9",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/ContestPanel.java": {
+    "mtime": 1784496815.649564,
+    "ast_hash": "267cd1e23eb87c21e378f87ec61f0105",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/ContestRegionsDialog.java": {
+    "mtime": 1784496642.6779363,
+    "ast_hash": "e455e2f2a22ab8e69d31518829e077b0",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/ContestTranslationDialog.java": {
+    "mtime": 1784496729.5708282,
+    "ast_hash": "c02bb0cfb545f45615214af4625ad5b5",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/ElectionPanel.java": {
+    "mtime": 1784485471.8809242,
+    "ast_hash": "fe56e984bd78cab71a631273baee23ce",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/HomePanel.java": {
+    "mtime": 1784498296.995211,
+    "ast_hash": "4d66ae28c368d3bb5c324ca9db87d45b",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/JurisdictionCombo.java": {
+    "mtime": 1784485079.5725815,
+    "ast_hash": "79b63d180168b2b877f5712f24a6302d",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/JurisdictionPanel.java": {
+    "mtime": 1784485050.8333693,
+    "ast_hash": "17a108086785cad22541b66247f46511",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/Launcher.java": {
+    "mtime": 1784485113.6872478,
+    "ast_hash": "8f235956eba2b6438de9ee54265fcba8",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/MainFrame.java": {
+    "mtime": 1784498719.9949346,
+    "ast_hash": "e2bb0eec96daa0c1f32b100e8c71584d",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/PartyPanel.java": {
+    "mtime": 1784485064.9389215,
+    "ast_hash": "6f6247865948775cd11994624679d16e",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/PrintPanel.java": {
+    "mtime": 1784498683.5703592,
+    "ast_hash": "16911b940cd71b87eeb135721325deea",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/RegionPanel.java": {
+    "mtime": 1784485219.373253,
+    "ast_hash": "b3c2b06d9396271596e1295305bf441b",
+    "semantic_hash": ""
+  },
+  "builder/src/main/java/com/mjtrac/builderui/SimpleCrudPanel.java": {
+    "mtime": 1784496367.3337743,
+    "ast_hash": "6bd76787b56fa5d54cc36a9891510af2",
+    "semantic_hash": ""
+  },
+  "builder/src/test/java/com/mjtrac/builderui/BuilderEndToEndTest.java": {
+    "mtime": 1784496913.7130291,
+    "ast_hash": "5ba60bc50dbacc38c625f1a74bce587e",
+    "semantic_hash": ""
+  },
+  "builder/src/test/java/com/mjtrac/builderui/ScreenshotGenerator.java": {
+    "mtime": 1784507197.3088245,
+    "ast_hash": "d12e0e81fc538fb98257bf9190d4564b",
+    "semantic_hash": ""
+  },
+  "counter-core/pom.xml": {
+    "mtime": 1784505100.0363705,
+    "ast_hash": "25c6885c1343b892c8234947487de8fb",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/config/PasswordEncoderConfig.java": {
+    "mtime": 1784480741.9463813,
+    "ast_hash": "a44f518617f7061fe9142b66d3228bde",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/entity/BallotImage.java": {
+    "mtime": 1784480741.9251735,
+    "ast_hash": "ea251fe2ac9411a7850e6883c509487d",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/entity/BarcodeRecord.java": {
+    "mtime": 1784480741.92549,
+    "ast_hash": "51467f619f56e2ce6c12bd02f9869bea",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/entity/CandidateRecord.java": {
+    "mtime": 1784480741.9257736,
+    "ast_hash": "95cf72875814e924d0b5edf4e64a6f06",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/entity/ContestRecord.java": {
+    "mtime": 1784480741.9260304,
+    "ast_hash": "06eb0a8fbfb4e98a6fe134618d67bddc",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/entity/CounterUser.java": {
+    "mtime": 1784480741.9262698,
+    "ast_hash": "a57cf6450d9948ea78221dff4a3e05cd",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/entity/VoteOpportunity.java": {
+    "mtime": 1784480741.9266393,
+    "ast_hash": "c05be36001daa1c443c5d336cc04c858",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/model/BboxReport.java": {
+    "mtime": 1784480741.9421365,
+    "ast_hash": "3ff5defc61f04a82108a0d99c7a622a6",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/model/ScanSession.java": {
+    "mtime": 1784480741.9424746,
+    "ast_hash": "00d212c6813f41930cad6aca78da371c",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/repository/BallotImageRepository.java": {
+    "mtime": 1784480741.9355123,
+    "ast_hash": "9b4d95a31ca5f073d97bfa0752e73697",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/repository/BarcodeRecordRepository.java": {
+    "mtime": 1784480741.9357958,
+    "ast_hash": "ba2e28d74d7a9775f28f745439a36390",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/repository/CandidateRecordRepository.java": {
+    "mtime": 1784480741.9360473,
+    "ast_hash": "b3aba2081d4bb86a601674d51bae8980",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/repository/ContestRecordRepository.java": {
+    "mtime": 1784480741.9362795,
+    "ast_hash": "e65c961d0dade6446616f2ed611b23a3",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/repository/CounterUserRepository.java": {
+    "mtime": 1784480741.9365141,
+    "ast_hash": "4123af129c98a340908ea8f6a052ac2d",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/repository/VoteOpportunityRepository.java": {
+    "mtime": 1784480741.9367743,
+    "ast_hash": "7216f97ac92a524e12dd0cc04e142b34",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/ArloExportService.java": {
+    "mtime": 1784480741.958895,
+    "ast_hash": "6110f26d29e2473886f8de7f48f51167",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/ArrowIndicatorAnalyzer.java": {
+    "mtime": 1784480741.9662118,
+    "ast_hash": "1acc0addbc4b5c3623592c4b1081cbca",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/AuditLogService.java": {
+    "mtime": 1784480741.9741175,
+    "ast_hash": "94182b98aea2d2db9cf6116efbe98150",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/BallotCornerDetectorService.java": {
+    "mtime": 1784480741.9817567,
+    "ast_hash": "632afc03a0a4b20a1f7522dc18f4d4ad",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/BallotIdentifierService.java": {
+    "mtime": 1784480741.9894698,
+    "ast_hash": "9c053748b0884ead0d8b872cb895d4b1",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/BarcodeReaderService.java": {
+    "mtime": 1784480741.9963374,
+    "ast_hash": "a40e0f428f5e5d925b1c2d1bd0f47b2f",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/BboxReportLoader.java": {
+    "mtime": 1784480742.0028234,
+    "ast_hash": "1367fb222a13de078ec060283a7e6d4d",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/CoordinateDebugService.java": {
+    "mtime": 1784480742.0099356,
+    "ast_hash": "7d5dc1e3186d2f4e5037cbdd03193701",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/CornerDetectionService.java": {
+    "mtime": 1784480742.0168257,
+    "ast_hash": "c45508a4fc0c8684f4500a80b8a26c88",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/CountingService.java": {
+    "mtime": 1784480742.027661,
+    "ast_hash": "26917b4ad38c3c3ae52b08aa4e39089c",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/HomographyService.java": {
+    "mtime": 1784480742.033888,
+    "ast_hash": "2d2a12c70cb45659bf13a9d8217e81dd",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/MarkerAnalysisService.java": {
+    "mtime": 1784480742.0405312,
+    "ast_hash": "493189a82775a55be44db02ad1a1643c",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/Point2D.java": {
+    "mtime": 1784480742.047776,
+    "ast_hash": "cd34dab1527b47c02d3cb612f8be36c4",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/RcvTabulationService.java": {
+    "mtime": 1784480742.055015,
+    "ast_hash": "3d38922cc3652c896c337fb0a44da92b",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/ResultsQueryService.java": {
+    "mtime": 1784480742.0625002,
+    "ast_hash": "53a4f80877ca2d90a59e08c143f16a35",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/ScannerService.java": {
+    "mtime": 1784480742.0700245,
+    "ast_hash": "3b8e91eb6df1651820dc27e037efad16",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/ScribbleDetectionService.java": {
+    "mtime": 1784480742.0771866,
+    "ast_hash": "2dddf81ff378774409276f73899974cc",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/VoteRecordService.java": {
+    "mtime": 1784480742.0840712,
+    "ast_hash": "c94f556e9fe2105150cc3118bfece246",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/counter/service/VoteTallyService.java": {
+    "mtime": 1784480742.0909414,
+    "ast_hash": "60fdd584a93aa411288481708121ac79",
+    "semantic_hash": ""
+  },
+  "counter-core/src/main/java/com/mjtrac/viewer/service/BallotViewService.java": {
+    "mtime": 1784494015.4874694,
+    "ast_hash": "5423e24ac644e8f70c5df36468e3df10",
+    "semantic_hash": ""
+  },
+  "counter-core/src/test/java/com/mjtrac/viewer/service/BallotViewServiceResolveImagePathTest.java": {
+    "mtime": 1784504424.2692301,
+    "ast_hash": "fd062d9e647a1727d7b82e429350c71f",
+    "semantic_hash": ""
+  },
+  "counter/mvnw": {
+    "mtime": 1784479764.2562993,
+    "ast_hash": "3bba759b28c7925b387ee64541b35156",
+    "semantic_hash": ""
+  },
+  "counter/pom.xml": {
+    "mtime": 1784505099.9961655,
+    "ast_hash": "1cf1f9e35be467fd535a8a9c677bcc32",
+    "semantic_hash": ""
+  },
+  "counter/src/main/java/com/mjtrac/counterui/AuthContext.java": {
+    "mtime": 1784504197.7686212,
+    "ast_hash": "dd999784262a5e3f839a09ea5cb7faf2",
+    "semantic_hash": ""
+  },
+  "counter/src/main/java/com/mjtrac/counterui/CounterApp.java": {
+    "mtime": 1784504197.7619028,
+    "ast_hash": "2c85851943fbdc10a123e4018be6c76d",
+    "semantic_hash": ""
+  },
+  "counter/src/main/java/com/mjtrac/counterui/Launcher.java": {
+    "mtime": 1784479944.7507143,
+    "ast_hash": "cf2cc533e7e07962cf554e64d81f83b6",
+    "semantic_hash": ""
+  },
+  "counter/src/main/java/com/mjtrac/counterui/LoginDialog.java": {
+    "mtime": 1784504197.765351,
+    "ast_hash": "7b55bddf1cd3a75d6896dda2ec40c14e",
+    "semantic_hash": ""
+  },
+  "counter/src/main/java/com/mjtrac/counterui/MainFrame.java": {
+    "mtime": 1784502820.0922797,
+    "ast_hash": "1269e47dce69b7ae20e4dd3b2d12ba80",
+    "semantic_hash": ""
+  },
+  "counter/src/test/java/com/mjtrac/counter/service/CountingServiceIntegrationTest.java": {
+    "mtime": 1784523760.0636513,
+    "ast_hash": "7d5e62ed60c3ac4caccdf4a9a3a4732c",
+    "semantic_hash": ""
+  },
+  "counter/src/test/java/com/mjtrac/counterui/CountingPipelineGuiTest.java": {
+    "mtime": 1784489461.5046396,
+    "ast_hash": "912274ffb9c7c273aa9b59d6b6f42532",
+    "semantic_hash": ""
+  },
+  "counter/src/test/java/com/mjtrac/counterui/ScreenshotGenerator.java": {
+    "mtime": 1784506848.5162446,
+    "ast_hash": "3c1544ae3701db0aee465e149ad6172e",
+    "semantic_hash": ""
+  },
+  "package_all_desktop.sh": {
+    "mtime": 1784504080.3187788,
+    "ast_hash": "ba98c1ef9a46dadbb87cdbf9a47d6abc",
+    "semantic_hash": ""
+  },
+  "scanner-core/pom.xml": {
+    "mtime": 1784505100.0400338,
+    "ast_hash": "81e6f5d9f8d18ee86d0b5e840d09b6be",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/config/ScannerConfig.java": {
+    "mtime": 1784482555.4472322,
+    "ast_hash": "e76141ba7b7ef63f887befa232aea5e0",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/entity/ScannerUser.java": {
+    "mtime": 1784482512.7886727,
+    "ast_hash": "52532eee462a4f324588ffab635edeb9",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/model/ScanSession.java": {
+    "mtime": 1784482594.259688,
+    "ast_hash": "2836743df00a9248371b85dd9973c1ed",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/repository/ScannerUserRepository.java": {
+    "mtime": 1784482512.7931304,
+    "ast_hash": "0e08e89749a7497a037f2c7ed96185cc",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/service/AuditLogService.java": {
+    "mtime": 1784500494.182513,
+    "ast_hash": "da8df49e1f1d8b3109c772b18718b2ac",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/service/FlagPagePrinter.java": {
+    "mtime": 1784482573.396942,
+    "ast_hash": "3e6406b7c28b4305f4e4ddb417a7e2a8",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/main/java/com/mjtrac/scanner/service/ScanService.java": {
+    "mtime": 1784482638.6011837,
+    "ast_hash": "16ec49a25e6ca4a907416799e2e8168f",
+    "semantic_hash": ""
+  },
+  "scanner-core/src/test/java/com/mjtrac/scanner/service/ScanServiceNotesTest.java": {
+    "mtime": 1784484139.3955233,
+    "ast_hash": "39e79ba5a2a5c62c3d15bc687f7d7987",
+    "semantic_hash": ""
+  },
+  "scanner/mvnw": {
+    "mtime": 1784482888.4296012,
+    "ast_hash": "3bba759b28c7925b387ee64541b35156",
+    "semantic_hash": ""
+  },
+  "scanner/pom.xml": {
+    "mtime": 1784505100.0005565,
+    "ast_hash": "760964aa2ca59923e05ceec2140c6ed1",
+    "semantic_hash": ""
+  },
+  "scanner/src/main/java/com/mjtrac/scannerui/AuthContext.java": {
+    "mtime": 1784500845.4566824,
+    "ast_hash": "1c147c7f8dea62e48e9c157eba6864b5",
+    "semantic_hash": ""
+  },
+  "scanner/src/main/java/com/mjtrac/scannerui/BatchSheetPrinter.java": {
+    "mtime": 1784501019.9345586,
+    "ast_hash": "fdb1610c2306a505d4f88ed58a5a19ee",
+    "semantic_hash": ""
+  },
+  "scanner/src/main/java/com/mjtrac/scannerui/Launcher.java": {
+    "mtime": 1784482985.9598618,
+    "ast_hash": "ed85ece89ad44b0725d01f7d9d9cf04e",
+    "semantic_hash": ""
+  },
+  "scanner/src/main/java/com/mjtrac/scannerui/LoginDialog.java": {
+    "mtime": 1784500864.5085015,
+    "ast_hash": "b16b680b9600dbd2806c69f8cb9e10a8",
+    "semantic_hash": ""
+  },
+  "scanner/src/main/java/com/mjtrac/scannerui/MainFrame.java": {
+    "mtime": 1784501072.1532211,
+    "ast_hash": "c7a1d3885461382d632189b471902675",
+    "semantic_hash": ""
+  },
+  "scanner/src/main/java/com/mjtrac/scannerui/ScannerApp.java": {
+    "mtime": 1784500834.127219,
+    "ast_hash": "4d8352564c80d0b6cade2d688303db26",
+    "semantic_hash": ""
+  },
+  "scanner/src/test/java/com/mjtrac/scannerui/ScreenshotGenerator.java": {
+    "mtime": 1784507105.4041412,
+    "ast_hash": "14ac9a328c85929a3ad327b14de856b7",
+    "semantic_hash": ""
+  },
+  "test-harness/run_desktop_gui_pipeline.sh": {
+    "mtime": 1784488796.5999908,
+    "ast_hash": "fe61c18180150306ee013941870a9f42",
+    "semantic_hash": ""
+  },
+  "viewer/mvnw": {
+    "mtime": 1784478405.9725082,
+    "ast_hash": "3bba759b28c7925b387ee64541b35156",
+    "semantic_hash": ""
+  },
+  "viewer/pom.xml": {
+    "mtime": 1784505100.0054617,
+    "ast_hash": "48825be6c9beb06d5fa4cf54b914ebfd",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/AuthContext.java": {
+    "mtime": 1784503865.051504,
+    "ast_hash": "a90b061e588e4ad5fa4e39238b21d4ab",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/BallotListPanel.java": {
+    "mtime": 1784503865.0654876,
+    "ast_hash": "8dcf26f0dabe9edee8a332b221375dc0",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/BallotViewPanel.java": {
+    "mtime": 1784525185.9159951,
+    "ast_hash": "109bdb071db3db1dc99a16ef253509dd",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/ContestCandidateWindow.java": {
+    "mtime": 1784526217.971839,
+    "ast_hash": "998893c771fbd98b116c9a9e01b082ac",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/Homography.java": {
+    "mtime": 1784503865.069317,
+    "ast_hash": "1fb80ce5855d5e19cf17fbdd08ae09f7",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/Launcher.java": {
+    "mtime": 1784503908.0692885,
+    "ast_hash": "94e9e3cc54985fd10cfd4780c9bc2ae4",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/LoginDialog.java": {
+    "mtime": 1784503865.0549154,
+    "ast_hash": "185734e3cda1e6384a943d998f475a37",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/MainFrame.java": {
+    "mtime": 1784525324.005041,
+    "ast_hash": "d5c7a78ae6f53cb5b3f4c8e4f7236f51",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/OverlayImagePanel.java": {
+    "mtime": 1784525139.2512753,
+    "ast_hash": "afe47cb22b6e7139a2b89eab36902e07",
+    "semantic_hash": ""
+  },
+  "viewer/src/main/java/com/mjtrac/viewerui/ViewerApp.java": {
+    "mtime": 1784503865.058591,
+    "ast_hash": "f9a64f2c755df5d0faff13c972b727eb",
+    "semantic_hash": ""
+  },
+  "viewer/src/test/java/com/mjtrac/viewerui/BallotViewPanelLayoutTest.java": {
+    "mtime": 1784525467.7358115,
+    "ast_hash": "c8aba4e06aaf770e39ece7f4abfac5a6",
+    "semantic_hash": ""
+  },
+  "viewer/src/test/java/com/mjtrac/viewerui/ContestCandidateWindowTest.java": {
+    "mtime": 1784526257.5981364,
+    "ast_hash": "9db3aec0da90b74ff4b6be3c3d9d3223",
+    "semantic_hash": ""
+  },
+  "viewer/src/test/java/com/mjtrac/viewerui/HomographyTest.java": {
+    "mtime": 1784503865.0441582,
+    "ast_hash": "9fe7ba78dc5ff842d4d222727e75f661",
+    "semantic_hash": ""
+  },
+  "viewer/src/test/java/com/mjtrac/viewerui/ScreenshotGenerator.java": {
+    "mtime": 1784525741.4934874,
+    "ast_hash": "7d9f9f18194cb02a710d32e0b907e617",
+    "semantic_hash": ""
+  },
+  "blCounter/README.md": {
+    "mtime": 1784504500.781437,
+    "ast_hash": "a6e231c639f461ee703eabfb83dc8ad8",
+    "semantic_hash": ""
+  },
+  "builder-core/README.md": {
+    "mtime": 1784486051.4843493,
+    "ast_hash": "4c0f26cfce72f501f5b273617966b439",
+    "semantic_hash": ""
+  },
+  "builder/README.md": {
+    "mtime": 1784504441.0788054,
+    "ast_hash": "eccabc5c8030c63b24fe7fe1a6fc3bc7",
+    "semantic_hash": ""
+  },
+  "counter-core/README.md": {
+    "mtime": 1784504389.463365,
+    "ast_hash": "debb2fd989c53a36c166e291d11cdcf1",
+    "semantic_hash": ""
+  },
+  "counter/README.md": {
+    "mtime": 1784504566.2038968,
+    "ast_hash": "61d81fa74d7df2cda6317596a8d45ca5",
+    "semantic_hash": ""
+  },
+  "counter/src/test/resources/test-images/ballot_1_1_1_1_1_1.yaml": {
+    "mtime": 1784523497.0700924,
+    "ast_hash": "79482fc1dd830372751de4edd2581135",
+    "semantic_hash": ""
+  },
+  "docs/DESKTOP_USER_GUIDE.md": {
+    "mtime": 1784525785.1062548,
+    "ast_hash": "8dc5d68d7821643145f4d9805a638014",
+    "semantic_hash": ""
+  },
+  "docs/DOCKER.md": {
+    "mtime": 1784505116.4896426,
+    "ast_hash": "ff6165a254c3f6a5b14a1ad8e2f827a9",
+    "semantic_hash": ""
+  },
+  "scanner-core/README.md": {
+    "mtime": 1784504728.6726496,
+    "ast_hash": "7fca0cd5667a92f2a7b27ebc98b31cf3",
+    "semantic_hash": ""
+  },
+  "scanner/README.md": {
+    "mtime": 1784504705.546322,
+    "ast_hash": "7414a4c24c6d2284936c2fa5f07d7247",
+    "semantic_hash": ""
+  },
+  "test-harness/README-desktop.md": {
+    "mtime": 1784504523.2291358,
+    "ast_hash": "cb407f416918a9bba91b6920dc3149d3",
+    "semantic_hash": ""
+  },
+  "viewer/README.md": {
+    "mtime": 1784525803.224836,
+    "ast_hash": "18f774c1af403d57d6ae6dcfe79eb341",
+    "semantic_hash": ""
+  },
+  "counter/src/test/resources/test-images/ballot_1_1_1_1_1_1__messy_marks__clean__c01.png": {
+    "mtime": 1784523079.1335762,
+    "ast_hash": "44894d322f2517334463a0b409143ed1",
+    "semantic_hash": ""
+  },
+  "counter/src/test/resources/test-images/ballot_1_1_1_1_1_1__mostly_blank__clean__c01.png": {
+    "mtime": 1784523079.1378083,
+    "ast_hash": "cb18cb40ddc2fc79f934197674efed4a",
+    "semantic_hash": ""
+  },
+  "counter/src/test/resources/test-images/ballot_1_1_1_1_1_1__outside_marks__clean__c01.png": {
+    "mtime": 1784523079.1418185,
+    "ast_hash": "00c386d5f73fc7ad7d2048b1b4a7303e",
+    "semantic_hash": ""
+  },
+  "counter/src/test/resources/test-images/ballot_1_1_1_1_1_1__overvote_plurality__clean__c01.png": {
+    "mtime": 1784523079.1465025,
+    "ast_hash": "ed3ab9c6c94999612d45c96bc903150b",
     "semantic_hash": ""
   }
 }

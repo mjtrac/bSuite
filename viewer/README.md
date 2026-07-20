@@ -38,6 +38,7 @@ Viewer, by design:
 | Next/Prev navigation | ✅ | ✅ |
 | Zoom / Fit | ✅ | ✅ |
 | Hover/click box info | ✅ (status bar) | ✅ (tooltip) |
+| Contest/candidate sidebar | ✅ (separate toggleable window — View → Contests & Candidates / Ctrl+L) | ✅ (fixed sidebar) |
 | RCV tabulation report | ❌ | (separate screen) |
 | Scribble report | ❌ | (separate screen) |
 | Auto-advance review mode | ❌ | ✅ |

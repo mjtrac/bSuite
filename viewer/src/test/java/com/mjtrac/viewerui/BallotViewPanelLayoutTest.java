@@ -25,7 +25,7 @@ class BallotViewPanelLayoutTest {
 
     @Test
     void toolbarAndTitleBothGetRealScreenSpace() {
-        BallotViewPanel panel = new BallotViewPanel(null);
+        BallotViewPanel panel = new BallotViewPanel(null, new ContestCandidateWindow());
         JFrame frame = new JFrame();
         frame.setContentPane(panel);
         frame.pack();

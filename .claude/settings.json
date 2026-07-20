@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/mjtrac/pbss/.venv/bin/graphify hook-guard search"
+            "command": "/Users/mjtrac/.local/bin/graphify hook-guard search"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/mjtrac/pbss/.venv/bin/graphify hook-guard read"
+            "command": "/Users/mjtrac/.local/bin/graphify hook-guard read"
           }
         ]
       }
