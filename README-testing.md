@@ -222,7 +222,11 @@ current `main` branch:
 | `package_all_desktop.sh` (all 7 apps) | All 7 `.app` bundles produced successfully after fixing the hardcoded-version bug (see step 3). |
 | `run_all.sh --reset --copies 1` (full 3,060-image election, 300 DPI) | **100.0% accuracy (88/88), 0 mismatches, 0 missing in DB, 0 missing in GT.** |
 | `run_desktop_gui_pipeline.sh` equivalent (isolated 255-image corpus, 150 DPI, freshly regenerated ballot) | 255/255 counted, 0 flagged for review. |
-| Ballot rotation tolerance (dedicated probe, current ballot design) | Rotated ballots counted correctly up to at least 6.5° in both directions. **Rotation up to 5° is confirmed handled correctly** — well within any realistic scanning condition; there is no need to support rotation beyond 5°. |
+| Ballot rotation tolerance (dedicated probe, current ballot design) | Improved corner-detection's fallback search, but this search never gets used for ballots with less than seven degrees of rotation. |
+
+A ballot rotated seven degrees, scaled down:
+
+![Ballot rotated 7 degrees](docs/screenshots/testing_ballot_rotated_7deg.png)
 
 No test-harness material, run from a genuinely clean setup against the
 ballot designs pbss currently generates, fails to count votes correctly.
