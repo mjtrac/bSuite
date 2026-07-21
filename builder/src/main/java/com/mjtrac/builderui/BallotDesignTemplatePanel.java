@@ -37,6 +37,19 @@ import java.util.function.Function;
 @Component
 class BallotDesignTemplatePanel extends SimpleCrudPanel<BallotDesignTemplate> {
 
+    // ARROW and NUMBER_FIELD are obsolete as a *selectable template style* —
+    // NUMBER_FIELD is applied automatically per-contest for ranked-choice
+    // regardless of the template's own style (see BallotGenerationService),
+    // and ARROW has no remaining new-template use case. Both keep working
+    // for rendering and counting (BallotGenerationService, MarkerAnalysisService)
+    // and any already-saved template using one — this only hides them from
+    // the picker for new selections, mirroring bBuilder's own
+    // BallotDesignTemplateController.SUPPORTED_INDICATOR_STYLES.
+    private static final VoteIndicatorStyle[] SUPPORTED_INDICATOR_STYLES =
+        java.util.Arrays.stream(VoteIndicatorStyle.values())
+            .filter(s -> s != VoteIndicatorStyle.ARROW && s != VoteIndicatorStyle.NUMBER_FIELD)
+            .toArray(VoteIndicatorStyle[]::new);
+
     private final BallotDesignTemplateRepository repo;
     private final ElectionRepository electionRepo;
 
@@ -183,7 +196,7 @@ class BallotDesignTemplatePanel extends SimpleCrudPanel<BallotDesignTemplate> {
 
         JComboBox<PaperSize> paperCombo = new JComboBox<>(PaperSize.values());
         paperCombo.setSelectedItem(t.getPaperSize());
-        JComboBox<VoteIndicatorStyle> indicatorCombo = new JComboBox<>(VoteIndicatorStyle.values());
+        JComboBox<VoteIndicatorStyle> indicatorCombo = new JComboBox<>(SUPPORTED_INDICATOR_STYLES);
         indicatorCombo.setSelectedItem(t.getVoteIndicatorStyle());
         JComboBox<FontFamily> primaryFontCombo = new JComboBox<>(FontFamily.values());
         primaryFontCombo.setSelectedItem(t.getFontFamilyPrimary());

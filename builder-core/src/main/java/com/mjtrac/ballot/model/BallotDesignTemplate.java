@@ -182,9 +182,9 @@ public class BallotDesignTemplate {
      * When true, draw small rank-number labels (e.g. "1", "2", "3") centered
      * above each rank box on the FIRST candidate row of each ranked-choice
      * contest.  Helps voters understand the box sequence without reading
-     * the full instruction.
+     * the full instruction.  Default true.
      */
-    private boolean rcvShowRankNumbers = false;
+    private boolean rcvShowRankNumbers = true;
 
     /**
      * Font size (pt) for the rank-number labels drawn above the rank boxes.

@@ -98,10 +98,10 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
         addField(grid, row++, "Voting Method:", methodCombo);
         addField(grid, row++, "Max Choices:", maxChoicesSpinner);
         addField(grid, row++, "Max Rank Choices (0 = not ranked-choice):", maxRankSpinner);
-        addField(grid, row++, "Display Order:", displayOrderSpinner);
-        addField(grid, row++, "Instructions:", new JScrollPane(instructionsArea));
         addField(grid, row++, "Grouping Label:", groupingLabelField);
         addField(grid, row++, "Print Grouping Label:", printGroupingLabel);
+        addField(grid, row++, "Display Order:", displayOrderSpinner);
+        addField(grid, row++, "Instructions:", new JScrollPane(instructionsArea));
         addField(grid, row++, "Preamble:", new JScrollPane(preambleArea));
         addField(grid, row++, "Print Preamble:", printPreamble);
         addField(grid, row++, "Postamble:", new JScrollPane(postambleArea));
@@ -130,6 +130,17 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
         JPanel scrollerWrap = new JPanel(new BorderLayout());
         scrollerWrap.add(scroller, BorderLayout.CENTER);
 
+        // Resolved from this (persistent, standing) panel — NOT from grid,
+        // whose own window is the per-edit JDialog that SimpleCrudPanel's
+        // openForm() disposes as part of onSave.accept() below. Deriving the
+        // cascade's owner from grid *after* that dispose meant
+        // ContestCandidatesDialog/ContestRegionsDialog were being built with
+        // an already-disposed owner and silently failed to display — the
+        // real cause of "Manage Candidates doesn't lead to anything" after
+        // saving a contest. This panel itself is never disposed by that, so
+        // its window ancestor stays valid across the whole save+cascade.
+        Frame stableOwner = (Frame) SwingUtilities.getWindowAncestor(this);
+
         JComponent form = formShell(isNew ? "New Contest" : "Edit Contest", scrollerWrap,
             () -> {
                 c.setElection((Election) electionCombo.getSelectedItem());
@@ -153,11 +164,8 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
                 // Once saved, the contest definitely has an id — cascade
                 // straight into candidates, then regions, matching the
                 // explicit request ("once saved, should open new screens").
-                // grid (not `this`, the ContestPanel) is the component
-                // actually inside this dialog's window.
-                Frame owner = (Frame) SwingUtilities.getWindowAncestor(grid);
-                ContestCandidatesDialog.show(owner, c, repo, languageRepo, candidateTranslationRepo,
-                    () -> ContestRegionsDialog.show(owner, c, regionRepo, repo, () -> {}));
+                ContestCandidatesDialog.show(stableOwner, c, repo, languageRepo, candidateTranslationRepo,
+                    () -> ContestRegionsDialog.show(stableOwner, c, regionRepo, repo, () -> {}));
             },
             () -> SwingUtilities.getWindowAncestor(grid).dispose());
 

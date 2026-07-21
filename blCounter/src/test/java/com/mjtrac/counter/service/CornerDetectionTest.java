@@ -63,6 +63,25 @@ class CornerDetectionTest {
         return layouts.get(0);
     }
 
+    /**
+     * Unlike loadLayout(), never depends on ~/bBuilder_ballots -- that
+     * directory silently accumulates whatever ballot a developer last
+     * generated there, with no indication it might be stale (this exact
+     * problem cost real investigation time this session: a 3-week-old
+     * ballot design there was mistaken for current). The YAML bundled in
+     * test-images/ was captured directly from a live bBuilder run,
+     * verified current at the time (see the rotation-tolerance fixtures
+     * below), and loadForBarcode() only needs the filename prefix to
+     * match -- placing it inside test-images/ doesn't affect loadLayout()
+     * above, which looks one directory level higher for its own fallback.
+     */
+    private static PageLayout loadCurrentLayout() throws Exception {
+        Path dir = Paths.get(CornerDetectionTest.class.getResource("/test-images").toURI());
+        var layouts = new BboxReportLoader().loadForBarcode(dir, "1|1|1|1|1|1");
+        assertThat(layouts).as("No bundled current layout found for barcode 1|1|1|1|1|1").isNotEmpty();
+        return layouts.get(0);
+    }
+
     private Point2D[] detectCorners(BufferedImage image, PageLayout layout) {
         BufferedImage[] holder = { image };
         return cornerDetector.findContentBoxCorners(
@@ -248,6 +267,48 @@ class CornerDetectionTest {
         double detectedW = dist(corners[0], corners[1]);
         double detectedH = dist(corners[0], corners[3]);
         // 2° rotation allows wider tolerance due to geometric prediction error
+        assertThat(detectedW / DPI).as("Detected width in inches")
+            .isCloseTo(layout.contentAreaWidth, within(0.75));
+        assertThat(detectedH / DPI).as("Detected height in inches")
+            .isCloseTo(layout.contentAreaHeight, within(1.2));
+    }
+
+    // ── Rotation tolerance regression (2026-07-21 investigation) ────────────
+    //
+    // Confirms, permanently, what was established via ad hoc manual testing
+    // this session: rotation up to 5 degrees is correctly handled and does
+    // not need to be extended further (there is no requirement to support
+    // more than 5 degrees of rotation). Uses loadCurrentLayout(), not
+    // loadLayout(), so this doesn't depend on ~/bBuilder_ballots holding a
+    // still-current ballot design.
+    //
+    // Deliberately scoped to exactly 5 degrees, not further: a 6.5 degree
+    // fixture generated the same way (300 DPI via pdftoppm, run through this
+    // same direct findContentBoxCorners() path) failed here with "no bottom
+    // border line found" -- despite 6.5 degrees passing cleanly in earlier
+    // full-pipeline testing (mark_ballots.py + real bCounter scan, both 150
+    // and 300 DPI) this same session. That's an unresolved discrepancy
+    // between this isolated unit-test path and the full scan pipeline (or
+    // between pdftoppm's and mark_ballots.py's rasterization), not something
+    // to paper over with a wider tolerance -- and it's outside what was
+    // actually asked for, so it isn't chased down here.
+
+    @Test @Order(8)
+    @DisplayName("5° CCW rotated ballot — all corners found (primary search, no fallback needed)")
+    void testRotatedCcw5_cornersFound() throws Exception {
+        BufferedImage img    = loadTestImage("ballot_rot_ccw5-1.png");
+        PageLayout    layout = loadCurrentLayout();
+
+        Point2D[] corners = detectCorners(img, layout);
+
+        assertThat(corners).as("Corners should be found on 5° CCW rotated ballot")
+            .isNotNull();
+        for (int i = 0; i < 4; i++) {
+            assertThat(corners[i]).as("Corner[" + i + "] should not be null")
+                .isNotNull();
+        }
+        double detectedW = dist(corners[0], corners[1]);
+        double detectedH = dist(corners[0], corners[3]);
         assertThat(detectedW / DPI).as("Detected width in inches")
             .isCloseTo(layout.contentAreaWidth, within(0.75));
         assertThat(detectedH / DPI).as("Detected height in inches")

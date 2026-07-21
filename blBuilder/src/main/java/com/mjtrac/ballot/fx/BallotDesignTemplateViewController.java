@@ -35,6 +35,20 @@ import java.util.List;
 @Component
 public class BallotDesignTemplateViewController {
 
+    // ARROW and NUMBER_FIELD are obsolete as a *selectable template style* --
+    // NUMBER_FIELD is applied automatically per-contest for ranked-choice
+    // regardless of the template's own style (see BallotGenerationService),
+    // and ARROW has no remaining new-template use case. Both keep working
+    // for rendering and counting and any already-saved template using one --
+    // this only hides them from the picker, mirroring bBuilder's own
+    // BallotDesignTemplateController.SUPPORTED_INDICATOR_STYLES and builder's
+    // BallotDesignTemplatePanel.SUPPORTED_INDICATOR_STYLES.
+    private static final BallotDesignTemplate.VoteIndicatorStyle[] SUPPORTED_INDICATOR_STYLES =
+        java.util.Arrays.stream(BallotDesignTemplate.VoteIndicatorStyle.values())
+            .filter(s -> s != BallotDesignTemplate.VoteIndicatorStyle.ARROW
+                      && s != BallotDesignTemplate.VoteIndicatorStyle.NUMBER_FIELD)
+            .toArray(BallotDesignTemplate.VoteIndicatorStyle[]::new);
+
     private final BallotDesignTemplateRepository templateRepo;
     private final ElectionRepository electionRepo;
 
@@ -105,7 +119,7 @@ public class BallotDesignTemplateViewController {
         electionCombo.setItems(FXCollections.observableArrayList(electionRepo.findAll()));
 
         paperSizeCombo.setItems(FXCollections.observableArrayList(BallotDesignTemplate.PaperSize.values()));
-        indicatorStyleCombo.setItems(FXCollections.observableArrayList(BallotDesignTemplate.VoteIndicatorStyle.values()));
+        indicatorStyleCombo.setItems(FXCollections.observableArrayList(SUPPORTED_INDICATOR_STYLES));
 
         columnsSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 6, 3));
         barcodeHeightSpinner.setValueFactory(new SpinnerValueFactory.DoubleSpinnerValueFactory(0, 300, 72, 6));
