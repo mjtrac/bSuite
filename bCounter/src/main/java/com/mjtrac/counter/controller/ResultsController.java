@@ -5,7 +5,9 @@ package com.mjtrac.counter.controller;
 
 import com.mjtrac.counter.model.ScanSession;
 import com.mjtrac.counter.service.ResultsQueryService;
+import com.mjtrac.counter.service.ResultsQueryService.ContestConfig;
 import com.mjtrac.counter.service.ResultsQueryService.VoteRow;
+import com.mjtrac.counter.service.WinnerRules;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
@@ -53,8 +55,8 @@ public class ResultsController {
 
         // ── Query and group results (guard against empty/missing DB) ──────────
         try {
-            model.addAttribute("byContest",
-                groupByContest(queryService.votesByContest()));
+            Map<String, List<VoteRow>> byContest = groupByContest(queryService.votesByContest());
+            model.addAttribute("byContest", byContest);
             model.addAttribute("byPrecinct",
                 groupByContest(queryService.votesByContestAndPrecinct()));
             model.addAttribute("byParty",
@@ -62,6 +64,35 @@ public class ResultsController {
             model.addAttribute("totalVotes",     queryService.totalVotesCast());
             model.addAttribute("totalBallots",   queryService.totalBallotImages());
             model.addAttribute("overvotedCount", queryService.totalOvervoted());
+
+            // Winner determination — same WinnerRules counter-core's HTML
+            // reports use: top-N-by-count for "vote for N" contests, a
+            // strict percentToWin threshold (default 50%) for single-winner
+            // PLURALITY/MEASURE contests, not applied to RANKED_CHOICE
+            // (which has its own elimination-round winner in rcv_report.html).
+            Map<String, ContestConfig> configByTitle = queryService.contestConfigByTitle();
+            Set<String> winnerKeys = new HashSet<>();
+            List<String> nonDefaultThresholds = new ArrayList<>();
+            for (Map.Entry<String, List<VoteRow>> ce : byContest.entrySet()) {
+                String contest = ce.getKey();
+                ContestConfig cfg = configByTitle.get(contest);
+                double percentToWin = cfg != null ? cfg.percentToWin : 50.0;
+                if (percentToWin != 50.0) {
+                    nonDefaultThresholds.add(contest + " requires more than "
+                        + percentToWin + "% to win");
+                }
+                boolean fptp = cfg != null
+                    && ("PLURALITY".equals(cfg.contestType) || "MEASURE".equals(cfg.contestType));
+                if (!fptp) continue;
+                Map<String, Long> votesByCandidate = new LinkedHashMap<>();
+                for (VoteRow row : ce.getValue())
+                    votesByCandidate.merge(row.getCandidate(), row.getVoted(), Long::sum);
+                int maxVotes = cfg != null ? cfg.maxVotes : 1;
+                for (WinnerRules.Ranked rk : WinnerRules.rank(votesByCandidate, maxVotes, percentToWin))
+                    if (rk.winner()) winnerKeys.add(contest + "|" + rk.name());
+            }
+            model.addAttribute("winnerKeys", winnerKeys);
+            model.addAttribute("nonDefaultThresholds", nonDefaultThresholds);
         } catch (Exception e) {
             model.addAttribute("byContest",    new java.util.LinkedHashMap<>());
             model.addAttribute("byPrecinct",   new java.util.LinkedHashMap<>());
@@ -69,6 +100,8 @@ public class ResultsController {
             model.addAttribute("totalVotes",     0);
             model.addAttribute("totalBallots",   0);
             model.addAttribute("overvotedCount", 0);
+            model.addAttribute("winnerKeys", java.util.Set.of());
+            model.addAttribute("nonDefaultThresholds", java.util.List.of());
             model.addAttribute("dbMessage",
                 "No scan results available yet. Run a scan first.");
             model.addAttribute("reportPending", false);

@@ -4,10 +4,14 @@
 package com.mjtrac.counter.service;
 
 import com.mjtrac.counter.service.RcvTabulationService.RcvResult;
+import com.mjtrac.counter.service.RcvTabulationService.RcvRound;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 
@@ -86,5 +90,68 @@ class RcvTabulationServiceTest {
                     .isNotBlank();
             }
         }
+    }
+
+    /**
+     * Five-candidate, ten-ballot IRV scenario, calling runIrv() directly
+     * (package-private, no DB needed) rather than through the DB-driven
+     * tabulateAndWrite() entry point above.
+     *
+     * Ballots (10 total):
+     *   3x Candidate 1 first, Candidate 2 second
+     *   2x Candidate 2 first, Candidate 1 second
+     *   2x Candidate 3 first, Candidate 1 second
+     *   2x Candidate 4 first, Candidate 1 second
+     *   1x Candidate 5 first, Candidate 1 second
+     *
+     * Round 1: 3/2/2/2/1 (majority=6) — Candidate 5 alone at the minimum
+     *          (1 vote) is eliminated; its ballot's second choice (Candidate 1)
+     *          transfers.
+     * Round 2: Candidate 1=4, Candidates 2/3/4 tied at 2 each (majority=6) —
+     *          per RcvTabulationService's documented algorithm ("Eliminate
+     *          candidate(s) with fewest rank-1 votes (parallel elimination
+     *          for ties at the bottom)"), ALL THREE tied candidates are
+     *          eliminated together in this round, not just one — this
+     *          scenario was specifically chosen to exercise that bulk-tie
+     *          elimination path, not the single-lowest-candidate case
+     *          Round 1 already covers.
+     * Round 3: Only Candidate 1 remains active (all 10 ballots' final
+     *          surviving choice) — sole-candidate winner, no majority
+     *          threshold check needed.
+     */
+    @Test
+    @DisplayName("Five-candidate IRV: single elimination then bulk tie elimination, 3 rounds to a winner")
+    void testFiveCandidateBulkTieElimination() {
+        List<List<String>> ballots = new ArrayList<>();
+        for (int i = 0; i < 3; i++) ballots.add(List.of("Candidate 1", "Candidate 2"));
+        for (int i = 0; i < 2; i++) ballots.add(List.of("Candidate 2", "Candidate 1"));
+        for (int i = 0; i < 2; i++) ballots.add(List.of("Candidate 3", "Candidate 1"));
+        for (int i = 0; i < 2; i++) ballots.add(List.of("Candidate 4", "Candidate 1"));
+        ballots.add(List.of("Candidate 5", "Candidate 1"));
+
+        RcvResult result = rcvService.runIrv("Five-Candidate RCV Test", ballots);
+
+        assertThat(result.outcome).isEqualTo("winner");
+        assertThat(result.winner).isEqualTo("Candidate 1");
+        assertThat(result.totalBallots).isEqualTo(10);
+        assertThat(result.rounds).as("expected exactly 3 rounds").hasSize(3);
+
+        RcvRound r1 = result.rounds.get(0);
+        assertThat(r1.counts).containsExactlyInAnyOrderEntriesOf(java.util.Map.of(
+            "Candidate 1", 3, "Candidate 2", 2, "Candidate 3", 2,
+            "Candidate 4", 2, "Candidate 5", 1));
+        assertThat(r1.eliminated).containsExactly("Candidate 5");
+
+        RcvRound r2 = result.rounds.get(1);
+        assertThat(r2.counts).containsExactlyInAnyOrderEntriesOf(java.util.Map.of(
+            "Candidate 1", 4, "Candidate 2", 2, "Candidate 3", 2, "Candidate 4", 2));
+        assertThat(r2.eliminated)
+            .as("all three tied-at-minimum candidates eliminated together, not just one")
+            .containsExactlyInAnyOrder("Candidate 2", "Candidate 3", "Candidate 4");
+
+        RcvRound r3 = result.rounds.get(2);
+        assertThat(r3.counts).containsExactlyInAnyOrderEntriesOf(
+            java.util.Map.of("Candidate 1", 10));
+        assertThat(r3.winner).isEqualTo("Candidate 1");
     }
 }

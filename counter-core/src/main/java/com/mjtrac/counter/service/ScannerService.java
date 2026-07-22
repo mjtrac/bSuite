@@ -353,11 +353,12 @@ public class ScannerService {
                         finalHinv, finalTL,
                         patchWarp ? finalOriginal : null,
                         patchWarp ? homographyService : null);
-                    marking.contestId    = contest.id;
-                    marking.contestTitle = contest.title;
-                    marking.contestType  = contest.contestType;
-                    marking.maxVotes     = contest.maxVotes;
-                    marking.writeIn      = indicator.writeIn;
+                    marking.contestId     = contest.id;
+                    marking.contestTitle  = contest.title;
+                    marking.contestType   = contest.contestType;
+                    marking.maxVotes      = contest.maxVotes;
+                    marking.percentToWin  = contest.percentToWin;
+                    marking.writeIn       = indicator.writeIn;
                     return marking;
                 }))
             .collect(java.util.stream.Collectors.toList());
@@ -387,19 +388,21 @@ public class ScannerService {
                             finalWarpDpi, finalImageDpi,
                             session.threshold, session.darkPctMin,
                             finalHinv, finalTL);
-                        marking.contestId    = contest.id;
-                        marking.contestTitle = contest.title;
-                        marking.contestType  = contest.contestType;
-                        marking.maxVotes     = contest.maxVotes;
-                        marking.writeIn      = indicator.writeIn;
+                        marking.contestId     = contest.id;
+                        marking.contestTitle  = contest.title;
+                        marking.contestType   = contest.contestType;
+                        marking.maxVotes      = contest.maxVotes;
+                        marking.percentToWin  = contest.percentToWin;
+                        marking.writeIn       = indicator.writeIn;
                         ordered[i] = marking;
                     } catch (Exception e) {
-                        MarkingResult blank  = new MarkingResult();
-                        blank.contestId      = contest.id;
-                        blank.contestTitle   = contest.title;
-                        blank.contestType    = contest.contestType;
-                        blank.maxVotes       = contest.maxVotes;
-                        blank.writeIn        = indicator.writeIn;
+                        MarkingResult blank   = new MarkingResult();
+                        blank.contestId       = contest.id;
+                        blank.contestTitle    = contest.title;
+                        blank.contestType     = contest.contestType;
+                        blank.maxVotes        = contest.maxVotes;
+                        blank.percentToWin    = contest.percentToWin;
+                        blank.writeIn         = indicator.writeIn;
                         blank.candidateName  = indicator.candidateName;
                         blank.candidateId    = indicator.candidateId;
                         blank.marked         = false;

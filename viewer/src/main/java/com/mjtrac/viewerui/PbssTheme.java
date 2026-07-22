@@ -77,8 +77,24 @@ final class PbssTheme {
         UIManager.put("MenuBar.hoverBackground", TEAL_DARK);
         UIManager.put("MenuBar.selectionBackground", TEAL_DARK);
         UIManager.put("MenuBar.selectionForeground", Color.WHITE);
-        UIManager.put("MenuItem.selectionBackground", TEAL);
+        // Dropdown popups (Menu/MenuItem/CheckBoxMenuItem) — explicit on
+        // every state, not left to FlatLaf's defaults: an unset foreground
+        // here previously rendered as white text on a light ("beige")
+        // background, illegible. White dropdown + ink text at rest; dark
+        // teal + white text on hover, matching the menu bar's own colors.
+        UIManager.put("PopupMenu.background", Color.WHITE);
+        UIManager.put("Menu.foreground", INK);
+        UIManager.put("Menu.background", Color.WHITE);
+        UIManager.put("Menu.selectionForeground", Color.WHITE);
         UIManager.put("Menu.selectionBackground", TEAL);
+        UIManager.put("MenuItem.foreground", INK);
+        UIManager.put("MenuItem.background", Color.WHITE);
+        UIManager.put("MenuItem.selectionForeground", Color.WHITE);
+        UIManager.put("MenuItem.selectionBackground", TEAL);
+        UIManager.put("CheckBoxMenuItem.foreground", INK);
+        UIManager.put("CheckBoxMenuItem.background", Color.WHITE);
+        UIManager.put("CheckBoxMenuItem.selectionForeground", Color.WHITE);
+        UIManager.put("CheckBoxMenuItem.selectionBackground", TEAL);
         UIManager.put("ScrollBar.thumbArc", 999);
         UIManager.put("ScrollBar.width", 12);
         UIManager.put("Component.arc", 8);

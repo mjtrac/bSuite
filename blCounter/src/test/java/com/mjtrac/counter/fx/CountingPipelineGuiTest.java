@@ -6,7 +6,7 @@
  * robot clicks (not by calling CountingService directly) against a real
  * marked-and-distorted ballot corpus produced offline by
  * test-harness/mark_ballots.py + distort_ballots.py, using a real ballot PDF
- * layout already exported to ~/bBuilder_ballots.
+ * layout already exported to ~/pbss_data/bBuilder_ballots.
  *
  * Everything reads/writes under test-harness/desktop_pipeline/ or a temp
  * dir — spring.datasource.url is overridden to a dedicated SQLite file
@@ -57,7 +57,7 @@ class CountingPipelineGuiTest {
         new File("../test-harness/desktop_pipeline").getAbsoluteFile().toPath().normalize();
     private static final Path IMAGES_DIR = PIPELINE_DIR.resolve("images/marked_ballots");
     private static final Path LAYOUT_DIR =
-        Path.of(System.getProperty("user.home"), "bBuilder_ballots");
+        Path.of(System.getProperty("user.home"), "pbss_data", "bBuilder_ballots");
     private static final Path RESULTS_DIR = PIPELINE_DIR.resolve("blcounter_results");
 
     @Start

@@ -55,6 +55,11 @@
     td.num { text-align: right; font-variant-numeric: tabular-nums; }
     .contest-section { margin-bottom: 2rem; }
     .overvote { color: #b45309; font-weight: 600; }
+    tr.winner-row td { background: #eff6ff; font-weight: 700; }
+    .winner-badge { color: #1a6a6a; font-size: .85em; margin-left: .4em; }
+    .threshold-banner { background: #fef3c7; border: 1px solid #d97706;
+                    border-radius: 6px; padding: .75rem 1rem;
+                    margin-bottom: 1.5rem; color: #92400e; font-size: .9rem; }
     .dim-header { font-size: .75rem; font-weight: 600; color: #888;
                   text-transform: uppercase; letter-spacing: .05em;
                   padding: .3rem .75rem; background: #f0f0f0; }
@@ -149,6 +154,12 @@
   </div>
 
   <!-- ── TOTALS BY CONTEST ────────────────────────────────────────────────── -->
+  <div class="threshold-banner" th:if="${not #lists.isEmpty(nonDefaultThresholds)}">
+    <strong>Non-default win threshold:</strong>
+    <span th:each="msg, iter : ${nonDefaultThresholds}"
+          th:text="${msg + (iter.last ? '' : '; ')}"></span>
+  </div>
+
   <h2>Results by Contest — All Precincts</h2>
 
   <th:block th:each="entry : ${byContest}">
@@ -164,7 +175,8 @@
             </tr>
           </thead>
           <tbody>
-            <tr th:each="row : ${entry.value}">
+            <tr th:each="row : ${entry.value}"
+                th:classappend="${winnerKeys.contains(entry.key + '|' + row.candidate)} ? 'winner-row' : ''">
               <td>
                 <span th:if="${row.rankedChoice}"
                       th:text="${row.baseName}"
@@ -174,6 +186,8 @@
                       style="color:#64748b;font-size:.85em"></span>
                 <span th:unless="${row.rankedChoice}"
                       th:text="${row.candidate}">Name</span>
+                <span class="winner-badge"
+                      th:if="${winnerKeys.contains(entry.key + '|' + row.candidate)}">&#10003; WINNER</span>
               </td>
               <td class="num" th:text="${row.voted + row.overvoted}">0</td>
               <td class="num"

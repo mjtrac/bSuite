@@ -73,6 +73,7 @@ public class VoteTallyService {
         String contestTitle;
         String contestType;
         int    maxVotes;
+        double percentToWin = 50.0;
         boolean overvoted = false;
         List<String> markedCandidates = new ArrayList<>();
         String partyId  = "0";   // from barcode field 2
@@ -255,6 +256,7 @@ public class VoteTallyService {
                 icr.contestTitle = first.contestTitle;
                 icr.contestType  = first.contestType != null ? first.contestType : "PLURALITY";
                 icr.maxVotes     = first.maxVotes > 0 ? first.maxVotes : 1;
+                icr.percentToWin = first.percentToWin > 0 ? first.percentToWin : 50.0;
                 icr.partyId      = barcodeParty;
                 icr.regionId     = barcodeRegion;
 
@@ -416,9 +418,10 @@ public class VoteTallyService {
         for (ImageContestResult r : icResults) {
             meta.computeIfAbsent(r.contestId, k -> {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("title",       r.contestTitle);
-                m.put("contestType", r.contestType);
-                m.put("maxVotes",    r.maxVotes);
+                m.put("title",        r.contestTitle);
+                m.put("contestType",  r.contestType);
+                m.put("maxVotes",     r.maxVotes);
+                m.put("percentToWin", r.percentToWin);
                 return m;
             });
 
@@ -465,6 +468,7 @@ public class VoteTallyService {
                 pw.printf("  title: \"%s\"%n", esc(m.get("title").toString()));
                 pw.printf("  contestType: %s%n", m.get("contestType"));
                 pw.printf("  maxVotes: %d%n", m.get("maxVotes"));
+                pw.printf("  percentToWin: %.1f%n", m.get("percentToWin"));
                 pw.printf("  overvotedBallots: %d%n", overvoteCt.getOrDefault(cid, 0));
 
                 // Overall totals
@@ -564,16 +568,22 @@ public class VoteTallyService {
         List<ResultsQueryService.VoteRow> rows = resultsQuery.votesByContest();
         if (rows.isEmpty()) return;
 
-        // Group by contest
+        // Group by contest — marked+overvoted total, for display in the "Marked" column
         java.util.Map<String, java.util.Map<String, Long>> byContest =
+            new java.util.LinkedHashMap<>();
+        // Counted (valid) votes only — the real basis for display order and winner determination
+        java.util.Map<String, java.util.Map<String, Long>> countedByContest =
             new java.util.LinkedHashMap<>();
         for (ResultsQueryService.VoteRow r : rows) {
             byContest.computeIfAbsent(r.contest, k -> new java.util.LinkedHashMap<>())
                 .merge(r.candidate, r.voted + r.overvoted, Long::sum);
+            countedByContest.computeIfAbsent(r.contest, k -> new java.util.LinkedHashMap<>())
+                .merge(r.candidate, r.voted, Long::sum);
         }
 
-        // Re-use writeResultsReport by building synthetic ImageContestResult list
-        // Actually simpler: just overwrite the file with a DB-sourced version
+        java.util.Map<String, ResultsQueryService.ContestConfig> configByTitle =
+            resultsQuery.contestConfigByTitle();
+
         java.nio.file.Path out = java.nio.file.Paths.get(reportOutputDir, "results_report.html");
         String ts = java.time.LocalDateTime.now().format(
             java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy  h:mm a"));
@@ -593,6 +603,10 @@ public class VoteTallyService {
             pw.println("th.r{text-align:right}td{padding:.25rem .6rem;border-bottom:1px solid #ddd;font-size:10.5pt}");
             pw.println("td.r{text-align:right;font-variant-numeric:tabular-nums}");
             pw.println("tr.leader td{background:#eff6ff;font-weight:bold}");
+            pw.println(".no-winner{color:#b45309;font-size:9.5pt;margin:.3rem 0 1rem}");
+            pw.println(".threshold-banner{background:#fef3c7;border:1px solid #d97706;");
+            pw.println("       border-radius:5px;padding:.6rem 1rem;margin-bottom:1.5rem;");
+            pw.println("       color:#92400e;font-size:10pt}");
             pw.println("@media print{body{margin:1cm}}");
             pw.println("</style></head><body>");
             pw.printf("<h1>bCounter Results Report</h1>%n");
@@ -602,36 +616,56 @@ public class VoteTallyService {
                 ts, totalBallots,
                 session != null ? session.imageFolder : "");
 
+            java.util.Map<String, Double> percentToWinByContest = new java.util.LinkedHashMap<>();
+            for (String contest : byContest.keySet()) {
+                ResultsQueryService.ContestConfig cfg = configByTitle.get(contest);
+                percentToWinByContest.put(contest, cfg != null ? cfg.percentToWin : 50.0);
+            }
+            writeThresholdBanner(pw, percentToWinByContest);
+
             for (java.util.Map.Entry<String, java.util.Map<String, Long>> ce
                     : byContest.entrySet()) {
-                pw.printf("<h2>%s</h2>%n", ce.getKey()
-                    .replace("&","&amp;").replace("<","&lt;"));
+                String contest = ce.getKey();
+                ResultsQueryService.ContestConfig cfg = configByTitle.get(contest);
+                boolean fptp = cfg != null
+                    && ("PLURALITY".equals(cfg.contestType) || "MEASURE".equals(cfg.contestType));
+                int maxVotes = cfg != null ? cfg.maxVotes : 1;
+                double percentToWin = cfg != null ? cfg.percentToWin : 50.0;
+
+                java.util.Map<String, Long> counted = countedByContest
+                    .getOrDefault(contest, java.util.Map.of());
+                List<WinnerRules.Ranked> ranked = fptp
+                    ? WinnerRules.rank(counted, maxVotes, percentToWin)
+                    : counted.entrySet().stream()
+                        .sorted(java.util.Map.Entry.<String,Long>comparingByValue().reversed())
+                        .map(e -> new WinnerRules.Ranked(e.getKey(), e.getValue(), false))
+                        .toList();
+
+                pw.printf("<h2>%s</h2>%n", h(contest));
                 pw.println("<table><tr>"
                     + "<th>Candidate / Option</th>"
                     + "<th class=\"r\">Marked</th>"
                     + "<th class=\"r\">Overvoted</th>"
                     + "<th class=\"r\">Counted</th>"
                     + "</tr>");
-                // byContest maps candidate → (voted+overvoted total) for leader calc
-                long maxVotes = ce.getValue().values().stream()
-                    .max(Long::compare).orElse(0L);
-                for (java.util.Map.Entry<String, Long> cand : ce.getValue().entrySet()) {
-                    boolean leader = cand.getValue() == maxVotes && maxVotes > 0;
-                    // Look up voted and overvoted separately from rows
-                    long ov = rows.stream()
-                        .filter(r -> ce.getKey().equals(r.contest)
-                                  && cand.getKey().equals(r.candidate))
-                        .mapToLong(r -> r.overvoted).sum();
-                    long vt = cand.getValue() - ov;
-                    pw.printf("<tr%s><td>%s</td>"
+                for (WinnerRules.Ranked rk : ranked) {
+                    long marked = ce.getValue().getOrDefault(rk.name(), 0L);
+                    long ov = marked - rk.votes();
+                    pw.printf("<tr%s><td>%s%s</td>"
                         + "<td class=\"r\">%,d</td>"
                         + "<td class=\"r\">%,d</td>"
                         + "<td class=\"r\">%,d</td></tr>%n",
-                        leader ? " class=\"leader\"" : "",
-                        cand.getKey().replace("&","&amp;").replace("<","&lt;"),
-                        cand.getValue(), ov, vt);
+                        rk.winner() ? " class=\"leader\"" : "",
+                        h(rk.name()), rk.winner() ? " &#10003; WINNER" : "",
+                        marked, ov, rk.votes());
                 }
                 pw.println("</table>");
+
+                if (fptp && maxVotes <= 1 && !ranked.isEmpty()
+                        && ranked.stream().noneMatch(WinnerRules.Ranked::winner)) {
+                    pw.printf("<p class=\"no-winner\">No winner — the leading choice must exceed "
+                        + "%.1f%% of valid votes to win this contest.</p>%n", percentToWin);
+                }
             }
             pw.println("</body></html>");
         }
@@ -653,6 +687,10 @@ public class VoteTallyService {
         java.util.Map<String, Integer> overvotes = new java.util.LinkedHashMap<>();
         // Key: "contestTitle|candidateName" → overvote count for that candidate
         java.util.Map<String, Integer> overvotesByCandidate = new java.util.LinkedHashMap<>();
+        // Per-contest win-rule config, captured from the first ImageContestResult seen for it.
+        java.util.Map<String, Integer> maxVotesByContest = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Double>  percentToWinByContest = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String>  contestTypeByContest = new java.util.LinkedHashMap<>();
         int totalBallots = 0;
         java.util.Set<String> seenImages = new java.util.HashSet<>();
 
@@ -660,6 +698,9 @@ public class VoteTallyService {
             if (seenImages.add(r.imageName)) totalBallots++;
             java.util.Map<String,Integer> ct = totals.computeIfAbsent(
                 r.contestTitle, k -> new java.util.LinkedHashMap<>());
+            maxVotesByContest.putIfAbsent(r.contestTitle, r.maxVotes);
+            percentToWinByContest.putIfAbsent(r.contestTitle, r.percentToWin);
+            contestTypeByContest.putIfAbsent(r.contestTitle, r.contestType);
             if (r.overvoted) {
                 overvotes.merge(r.contestTitle, 1, Integer::sum);
                 // Also count per-candidate overvotes from session.overvoteTallies
@@ -694,9 +735,14 @@ public class VoteTallyService {
             pw.println("         padding: .3rem .6rem; font-size: 10pt; }");
             pw.println("  td   { padding: .25rem .6rem; border-bottom: 1px solid #ddd; }");
             pw.println("  tr:last-child td { border-bottom: 2px solid #1a2744; }");
+            pw.println("  tr.winner td { background: #eff6ff; font-weight: bold; }");
             pw.println("  .num { text-align: right; }");
             pw.println("  .ov  { color: #b45309; font-size: 9pt; }");
             pw.println("  .meta { color: #555; font-size: 10pt; margin-bottom: 1.5rem; }");
+            pw.println("  .no-winner { color: #b45309; font-size: 9.5pt; margin: .3rem 0 1rem; }");
+            pw.println("  .threshold-banner { background: #fef3c7; border: 1px solid #d97706;");
+            pw.println("         border-radius: 5px; padding: .6rem 1rem; margin-bottom: 1.5rem;");
+            pw.println("         color: #92400e; font-size: 10pt; }");
             pw.println("  @media print { body { margin: 1cm; } }");
             pw.println("</style></head><body>");
 
@@ -706,11 +752,32 @@ public class VoteTallyService {
                       "Image folder: %s</p>%n",
                 h(ts), totalBallots, h(currentImageFolder));
 
+            writeThresholdBanner(pw, percentToWinByContest);
+
             for (java.util.Map.Entry<String, java.util.Map<String,Integer>> ce
                     : totals.entrySet()) {
                 String contest = ce.getKey();
                 java.util.Map<String,Integer> cands = ce.getValue();
                 int ov = overvotes.getOrDefault(contest, 0);
+                String contestType = contestTypeByContest.getOrDefault(contest, "PLURALITY");
+                boolean fptp = "PLURALITY".equals(contestType) || "MEASURE".equals(contestType);
+                int maxVotes = maxVotesByContest.getOrDefault(contest, 1);
+                double percentToWin = percentToWinByContest.getOrDefault(contest, 50.0);
+
+                // Counted (valid) votes per candidate — the real basis for
+                // both display order and winner determination, not the raw
+                // "marked" total (which still includes overvoted marks).
+                java.util.Map<String, Long> countedByCandidate = new java.util.LinkedHashMap<>();
+                for (String cand : cands.keySet()) {
+                    int ovCand = overvotesByCandidate.getOrDefault(contest + "|" + cand, 0);
+                    countedByCandidate.put(cand, (long) (cands.get(cand) - ovCand));
+                }
+                List<WinnerRules.Ranked> ranked = fptp
+                    ? WinnerRules.rank(countedByCandidate, maxVotes, percentToWin)
+                    : countedByCandidate.entrySet().stream()
+                        .sorted(java.util.Map.Entry.<String,Long>comparingByValue().reversed())
+                        .map(e -> new WinnerRules.Ranked(e.getKey(), e.getValue(), false))
+                        .toList();
 
                 pw.printf("<h2>%s</h2>%n", h(contest));
                 pw.println("<table>");
@@ -721,25 +788,29 @@ public class VoteTallyService {
                     + "<th class=\"num\" style=\"text-align:right\">Counted</th>"
                     + "</tr>");
 
-                cands.entrySet().stream()
-                    .sorted(java.util.Map.Entry.<String,Integer>comparingByValue()
-                        .reversed())
-                    .forEach(e -> {
-                        int ovCand = overvotesByCandidate
-                            .getOrDefault(contest + "|" + e.getKey(), 0);
-                        int counted = e.getValue() - ovCand;
-                        pw.printf("  <tr><td>%s</td>"
-                            + "<td class=\"num\">%,d</td>"
-                            + "<td class=\"num\">%,d</td>"
-                            + "<td class=\"num\">%,d</td></tr>%n",
-                            h(e.getKey()), e.getValue(), ovCand, counted);
-                    });
+                for (WinnerRules.Ranked rk : ranked) {
+                    int ovCand = overvotesByCandidate.getOrDefault(contest + "|" + rk.name(), 0);
+                    int marked = cands.getOrDefault(rk.name(), 0);
+                    pw.printf("  <tr%s><td>%s%s</td>"
+                        + "<td class=\"num\">%,d</td>"
+                        + "<td class=\"num\">%,d</td>"
+                        + "<td class=\"num\">%,d</td></tr>%n",
+                        rk.winner() ? " class=\"winner\"" : "",
+                        h(rk.name()), rk.winner() ? " &#10003; WINNER" : "",
+                        marked, ovCand, rk.votes());
+                }
 
                 if (ov > 0) {
                     pw.printf("  <tr><td class=\"ov\">Overvoted ballots</td>" +
                               "<td class=\"num ov\">%d</td></tr>%n", ov);
                 }
                 pw.println("</table>");
+
+                if (fptp && maxVotes <= 1 && !ranked.isEmpty()
+                        && ranked.stream().noneMatch(WinnerRules.Ranked::winner)) {
+                    pw.printf("<p class=\"no-winner\">No winner — the leading choice must exceed "
+                        + "%.1f%% of valid votes to win this contest.</p>%n", percentToWin);
+                }
             }
 
             pw.println("</body></html>");
@@ -747,6 +818,18 @@ public class VoteTallyService {
         } catch (Exception ex) {
             log.warn("Could not write results_report.html: " + ex.getMessage());
         }
+    }
+
+    /** Warns at the top of the report when any contest's win threshold isn't the plain 50% majority default. */
+    private void writeThresholdBanner(PrintWriter pw, java.util.Map<String, Double> percentToWinByContest) {
+        java.util.List<java.util.Map.Entry<String, Double>> nonDefault = percentToWinByContest.entrySet()
+            .stream().filter(e -> e.getValue() != 50.0).toList();
+        if (nonDefault.isEmpty()) return;
+        pw.println("<div class=\"threshold-banner\"><strong>Non-default win threshold:</strong> ");
+        for (java.util.Map.Entry<String, Double> e : nonDefault) {
+            pw.printf("%s requires more than %.1f%% to win. ", h(e.getKey()), e.getValue());
+        }
+        pw.println("</div>");
     }
 
     // ── Scribble report ───────────────────────────────────────────────────────

@@ -47,7 +47,7 @@ class ExportServiceTest {
             new BallotDimensions.CandidatePosition(2L, "Bob",   false, 0.5, 1.8, 0.306, 0.153, "OVAL")
         );
         List<BallotDimensions.ContestPosition> contests = List.of(
-            new BallotDimensions.ContestPosition(10L, "Mayor", "PLURALITY", 1, 1,
+            new BallotDimensions.ContestPosition(10L, "Mayor", "PLURALITY", 1, 50.0, 1,
                 0.1, 0.1, 2.0, 1.5, candidates)
         );
         List<BallotDimensions.PageLayout> pages = List.of(

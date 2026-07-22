@@ -11,6 +11,8 @@
         <VBox spacing="10" styleClass="card">
             <Label text="Results" styleClass="title-label"/>
             <Label fx:id="messageLabel" wrapText="true" visible="false" managed="false"/>
+            <Label fx:id="thresholdLabel" wrapText="true" visible="false" managed="false"
+                   style="-fx-text-fill:#92400e;-fx-background-color:#fef3c7;-fx-padding:8;-fx-background-radius:4;"/>
             <HBox spacing="24">
                 <VBox>
                     <Label text="Ballots Counted" style="-fx-font-size:11px;-fx-text-fill:#666;"/>

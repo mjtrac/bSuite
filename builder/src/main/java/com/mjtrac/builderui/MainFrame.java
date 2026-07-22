@@ -59,8 +59,17 @@ public class MainFrame extends JFrame {
 
     private JMenuBar buildMenuBar() {
         JMenuBar bar = new JMenuBar();
+        // Belt-and-suspenders: UIManager's MenuBar.background/foreground keys
+        // (set in PbssTheme.install()) don't reliably repaint the bar itself
+        // under FlatLaf on macOS — observed live as white text on the plain
+        // paper background instead of the intended teal bar. Setting the
+        // colors directly on the actual components guarantees the visible
+        // result regardless of that FlatLaf/platform quirk.
+        bar.setOpaque(true);
+        bar.setBackground(PbssTheme.TEAL);
 
         JMenu home = new JMenu(HOME);
+        home.setForeground(Color.WHITE);
         home.setName("homeMenu");
         JMenuItem dashboard = new JMenuItem("Dashboard");
         dashboard.setName("dashboardMenuItem");
@@ -74,6 +83,7 @@ public class MainFrame extends JFrame {
         bar.add(home);
 
         JMenu setup = new JMenu("Setup");
+        setup.setForeground(Color.WHITE);
         setup.setName("setupMenu");
         addItem(setup, "Elections");
         addItem(setup, "Regions");
@@ -84,6 +94,7 @@ public class MainFrame extends JFrame {
         bar.add(setup);
 
         JMenu ballots = new JMenu("Ballots");
+        ballots.setForeground(Color.WHITE);
         ballots.setName("ballotsMenu");
         addItem(ballots, "Ballot Combinations");
         addItem(ballots, "Ballot Design Templates");
@@ -91,12 +102,14 @@ public class MainFrame extends JFrame {
         bar.add(ballots);
 
         JMenu admin = new JMenu("Admin");
+        admin.setForeground(Color.WHITE);
         admin.setName("adminMenu");
         addItem(admin, "Jurisdictions");
         addItem(admin, "Admin (Users)");
         bar.add(admin);
 
         JMenu view = new JMenu("View");
+        view.setForeground(Color.WHITE);
         view.setName("viewMenu");
         JCheckBoxMenuItem showIdColumn = new JCheckBoxMenuItem("Show ID Column", PbssTheme.isShowIdColumn());
         showIdColumn.setName("showIdColumnMenuItem");

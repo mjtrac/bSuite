@@ -64,6 +64,10 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
     @Override JComponent buildForm(Contest existing, Consumer<Contest> onSave) {
         Contest c = existing != null ? existing : new Contest();
         boolean isNew = existing == null;
+        // Captured before any field can change it — compared at save time so
+        // the confirmation dialog only fires on an actual change, not on
+        // every save.
+        double originalPercentToWin = c.getPercentToWin();
 
         JComboBox<Election> electionCombo = new JComboBox<>();
         electionCombo.setName("electionCombo");
@@ -74,6 +78,11 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
         JTextField titleField = new JTextField(c.getTitle(), 24);
         JComboBox<VotingMethod> methodCombo = new JComboBox<>(VotingMethod.values());
         if (c.getVotingMethod() != null) methodCombo.setSelectedItem(c.getVotingMethod());
+        // Strict threshold ("50% plus one", not "50% or more") that
+        // PLURALITY/MEASURE contests use to determine a winner in counter —
+        // 1.0-100.0 so it always represents a real, meaningful percentage.
+        JSpinner percentToWinSpinner = new JSpinner(new SpinnerNumberModel(c.getPercentToWin(), 1.0, 100.0, 1.0));
+        percentToWinSpinner.setName("percentToWinSpinner");
         JSpinner maxChoicesSpinner = new JSpinner(new SpinnerNumberModel(Math.max(c.getMaxChoices(), 1), 1, 20, 1));
         JSpinner maxRankSpinner = new JSpinner(new SpinnerNumberModel(c.getMaxRankChoices(), 0, 20, 1));
         JSpinner displayOrderSpinner = new JSpinner(new SpinnerNumberModel(c.getDisplayOrder(), 0, 999, 1));
@@ -115,6 +124,7 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
         addField(grid, row++, "Election:", electionCombo);
         addField(grid, row++, "Title:", titleField);
         addField(grid, row++, "Voting Method:", methodCombo);
+        addField(grid, row++, "Percent Required to Win:", percentToWinSpinner);
         addField(grid, row++, "Max Choices:", maxChoicesSpinner);
         addField(grid, row++, "Max Rank Choices (0 = not ranked-choice):", maxRankSpinner);
         addField(grid, row++, "Grouping Label:", groupingLabelField);
@@ -174,6 +184,19 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
 
         JComponent form = formShell(isNew ? "New Contest" : "Edit Contest", scrollerWrap,
             () -> {
+                double newPercentToWin = (Double) percentToWinSpinner.getValue();
+                if (newPercentToWin != originalPercentToWin) {
+                    int confirm = JOptionPane.showConfirmDialog(grid,
+                        String.format(
+                            "Change the win threshold for \"%s\" from %.1f%% to %.1f%%?%n"
+                            + "This changes how counter determines a winner for this contest —"
+                            + " a candidate/choice will need to exceed %.1f%% of valid votes to win.",
+                            titleField.getText(), originalPercentToWin, newPercentToWin, newPercentToWin),
+                        "Confirm Win Threshold Change",
+                        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                    if (confirm != JOptionPane.YES_OPTION) return;
+                }
+                c.setPercentToWin(newPercentToWin);
                 c.setElection((Election) electionCombo.getSelectedItem());
                 c.setTitle(titleField.getText());
                 c.setVotingMethod((VotingMethod) methodCombo.getSelectedItem());

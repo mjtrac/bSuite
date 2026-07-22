@@ -43,6 +43,29 @@ final class PbssTheme {
     static final String DEFAULT_DASHBOARD_COLORS =
         "#FDF6E3,#FBEFDD,#F8E7D6,#F3E1DC,#EEE0E8,#E4E6EE,#DCEAE6,#CFE3DC";
 
+    /**
+     * Same screen order HomePanel.STEPS assigns dashboard card colors in
+     * (7 numbered steps, then Print) — kept here so a destination screen's
+     * own title-block perforation can carry the same accent color as the
+     * dashboard card that links to it, without HomePanel and every screen
+     * independently guessing at a shared index.
+     */
+    private static final String[] DASHBOARD_SCREEN_ORDER = {
+        "Elections", "Regions", "Parties", "Ballot Types", "Contests",
+        "Ballot Design Templates", "Ballot Combinations", "Print"
+    };
+
+    /** The dashboard card color for a given screen key, or null if that screen has no dashboard card (Languages, Jurisdictions, Users, Home itself). */
+    static Color accentColorFor(String screenKey) {
+        Color[] palette = parsePalette(DEFAULT_DASHBOARD_COLORS);
+        for (int i = 0; i < DASHBOARD_SCREEN_ORDER.length; i++) {
+            if (DASHBOARD_SCREEN_ORDER[i].equals(screenKey)) {
+                return palette[i % palette.length];
+            }
+        }
+        return null;
+    }
+
     // Every SimpleCrudPanel screen's raw DB primary key column — hidden by
     // default (not meaningful to jurisdiction election staff), toggleable
     // from MainFrame's View menu. Listeners let already-built screens (all
@@ -93,8 +116,24 @@ final class PbssTheme {
         UIManager.put("MenuBar.hoverBackground", TEAL_DARK);
         UIManager.put("MenuBar.selectionBackground", TEAL_DARK);
         UIManager.put("MenuBar.selectionForeground", Color.WHITE);
-        UIManager.put("MenuItem.selectionBackground", TEAL);
+        // Dropdown popups (Menu/MenuItem/CheckBoxMenuItem) — explicit on
+        // every state, not left to FlatLaf's defaults: an unset foreground
+        // here previously rendered as white text on a light ("beige")
+        // background, illegible. White dropdown + ink text at rest; dark
+        // teal + white text on hover, matching the menu bar's own colors.
+        UIManager.put("PopupMenu.background", Color.WHITE);
+        UIManager.put("Menu.foreground", INK);
+        UIManager.put("Menu.background", Color.WHITE);
+        UIManager.put("Menu.selectionForeground", Color.WHITE);
         UIManager.put("Menu.selectionBackground", TEAL);
+        UIManager.put("MenuItem.foreground", INK);
+        UIManager.put("MenuItem.background", Color.WHITE);
+        UIManager.put("MenuItem.selectionForeground", Color.WHITE);
+        UIManager.put("MenuItem.selectionBackground", TEAL);
+        UIManager.put("CheckBoxMenuItem.foreground", INK);
+        UIManager.put("CheckBoxMenuItem.background", Color.WHITE);
+        UIManager.put("CheckBoxMenuItem.selectionForeground", Color.WHITE);
+        UIManager.put("CheckBoxMenuItem.selectionBackground", TEAL);
         UIManager.put("ScrollBar.thumbArc", 999);
         UIManager.put("ScrollBar.width", 12);
         UIManager.put("Component.arc", 8);
@@ -131,6 +170,16 @@ final class PbssTheme {
      * Print) rather than as a one-off decoration.
      */
     static JPanel titleBlock(String title) {
+        return titleBlock(title, title);
+    }
+
+    /**
+     * @param screenKey the screen name as registered in MainFrame's addScreen(...) —
+     *                   usually identical to title, but PrintPanel's title ("Generate
+     *                   Ballot PDF") differs from its screen key ("Print"), so those two
+     *                   need to be passed separately for its dashboard color to be found.
+     */
+    static JPanel titleBlock(String title, String screenKey) {
         // BorderLayout, not BoxLayout: BoxLayout implements LayoutManager2,
         // so when this block sits inside ANOTHER BoxLayout(Y_AXIS) stack
         // (as it does in scanner's/viewer's MainFrame), that outer layout
@@ -149,7 +198,7 @@ final class PbssTheme {
         label.setFont(displayFont(18f));
         label.setForeground(INK);
         block.add(label, BorderLayout.NORTH);
-        PerforationDivider divider = new PerforationDivider();
+        PerforationDivider divider = new PerforationDivider(accentColorFor(screenKey));
         JPanel dividerWrap = new JPanel(new BorderLayout());
         dividerWrap.setOpaque(false);
         dividerWrap.setBorder(BorderFactory.createEmptyBorder(6, 0, 4, 0));

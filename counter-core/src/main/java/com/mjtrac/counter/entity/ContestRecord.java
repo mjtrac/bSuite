@@ -29,6 +29,10 @@ public class ContestRecord {
     @Column(name = "max_votes")
     private int maxVotes;
 
+    /** Strict threshold (%) a candidate/choice must exceed to win — "50% plus one", not "50% or more". */
+    @Column(name = "percent_to_win", columnDefinition = "float default 50.0")
+    private double percentToWin = 50.0;
+
     // ── Getters / Setters ─────────────────────────────────────────────────────
 
     public Long   getId()           { return id; }
@@ -38,4 +42,6 @@ public class ContestRecord {
     public void   setContestType(String v)  { this.contestType = v; }
     public int    getMaxVotes()     { return maxVotes; }
     public void   setMaxVotes(int v)        { this.maxVotes = v; }
+    public double getPercentToWin() { return percentToWin; }
+    public void   setPercentToWin(double v) { this.percentToWin = v; }
 }

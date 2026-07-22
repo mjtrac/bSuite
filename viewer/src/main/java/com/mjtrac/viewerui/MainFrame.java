@@ -75,7 +75,16 @@ class MainFrame extends JFrame {
 
     private JMenuBar buildMenuBar() {
         JMenuBar bar = new JMenuBar();
+        // Belt-and-suspenders: UIManager's MenuBar.background/foreground keys
+        // (set in PbssTheme.install()) don't reliably repaint the bar itself
+        // under FlatLaf on macOS — observed live as white text on the plain
+        // paper background instead of the intended teal bar. Setting the
+        // colors directly on the actual components guarantees the visible
+        // result regardless of that FlatLaf/platform quirk.
+        bar.setOpaque(true);
+        bar.setBackground(PbssTheme.TEAL);
         JMenu file = new JMenu("File");
+        file.setForeground(Color.WHITE);
         JMenuItem dataSourceInfo = new JMenuItem("Data Source Info…");
         JMenuItem signOut = new JMenuItem("Sign Out");
         JMenuItem exit = new JMenuItem("Exit");
@@ -90,6 +99,7 @@ class MainFrame extends JFrame {
         bar.add(file);
 
         JMenu view = new JMenu("View");
+        view.setForeground(Color.WHITE);
         contestsToggle = new JCheckBoxMenuItem("Contests & Candidates");
         contestsToggle.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_L,
             Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));

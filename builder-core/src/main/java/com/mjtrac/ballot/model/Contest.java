@@ -79,6 +79,17 @@ public class Contest {
     @Enumerated(EnumType.STRING)
     private VotingMethod votingMethod = VotingMethod.PLURALITY;
 
+    /**
+     * Percentage of valid votes a candidate/choice must exceed (strictly —
+     * "50% plus one", not "50% or more") to be declared the winner. Applies
+     * to PLURALITY and MEASURE contests, where counter's default behavior
+     * (highest vote count wins) isn't always what's required — some
+     * measures (e.g. certain tax measures) need a supermajority. Defaults
+     * to 50.0, the ordinary simple-majority threshold.
+     */
+    @Column(columnDefinition = "float default 50.0")
+    private double percentToWin = 50.0;
+
     // ── Grouping label ─────────────────────────────────────────────────────
     /**
      * Optional section header printed ABOVE the contest box on the ballot,
@@ -172,6 +183,9 @@ public class Contest {
 
     public VotingMethod getVotingMethod() { return votingMethod; }
     public void setVotingMethod(VotingMethod v) { this.votingMethod = v; }
+
+    public double getPercentToWin() { return percentToWin; }
+    public void setPercentToWin(double v) { this.percentToWin = v; }
 
     public String  getGroupingLabel()       { return groupingLabel; }
     public void    setGroupingLabel(String v)      { this.groupingLabel = v; }

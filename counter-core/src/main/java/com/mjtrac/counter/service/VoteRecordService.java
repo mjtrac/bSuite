@@ -241,6 +241,7 @@ public class VoteRecordService {
                     c.setContestTitle(cTitle);
                     c.setContestType(cType);
                     c.setMaxVotes(mr.maxVotes);
+                    c.setPercentToWin(mr.percentToWin);
                     return contestRepo.save(c);
                 });
 

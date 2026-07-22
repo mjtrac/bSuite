@@ -21,7 +21,9 @@ import static org.assertj.core.api.Assertions.*;
  * are correctly located in clean, rotated, and upside-down ballot images.
  *
  * Test images are generated from the real ballot PDF and stored in
- * src/test/resources/test-images/.  The YAML is read from bBuilder_ballots/.
+ * src/test/resources/test-images/.  The layout YAML comes from
+ * ~/pbss_data/bBuilder_ballots/ if a developer has exported one there, else
+ * the bundled, verified-current copy in test-images/ itself.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -49,31 +51,44 @@ class CornerDetectionTest {
         }
     }
 
+    /**
+     * Prefers a real bBuilder export at ~/pbss_data/bBuilder_ballots (the
+     * project's established data root, not a bare home-directory folder) if
+     * a developer has put one there for manual testing; otherwise falls
+     * back to the bundled, verified-current fixture in test-images/ itself.
+     * That fallback previously pointed one directory level too high (the
+     * *parent* of test-images/, via an extra getParent() call) — since
+     * loadForBarcode() only matches "ballot_..." files directly inside the
+     * folder it's given, and the YAML actually lives in test-images/, that
+     * silently found nothing and failed every test in this class whenever
+     * ~/bBuilder_ballots didn't exist. A stale-but-present real export used
+     * to be a real risk here too (this exact problem cost real
+     * investigation time this session: a 3-week-old ballot design was
+     * mistaken for current) — hasYamlFiles() only gates presence, not
+     * freshness, so still prefer loadCurrentLayout() below when you don't
+     * specifically need to test against a real, currently-exported design.
+     */
     private static PageLayout loadLayout() throws Exception {
-        // Load from the real bBuilder output
-        String yamlDir = System.getProperty("user.home") + "/bBuilder_ballots";
-        Path dir = Paths.get(yamlDir);
-        if (!Files.exists(dir)) {
-            // Fall back to test resources
-            dir = Paths.get(CornerDetectionTest.class
-                .getResource("/test-images").toURI()).getParent();
+        Path dir = Paths.get(System.getProperty("user.home"), "pbss_data", "bBuilder_ballots");
+        if (!Files.isDirectory(dir) || !hasYamlFiles(dir)) {
+            dir = Paths.get(CornerDetectionTest.class.getResource("/test-images").toURI());
         }
         var layouts = new BboxReportLoader().loadForBarcode(dir, "1|1|1|1|1|1");
         assertThat(layouts).as("No layout found for barcode 1|1|1|1|1|1").isNotEmpty();
         return layouts.get(0);
     }
 
+    private static boolean hasYamlFiles(Path dir) throws java.io.IOException {
+        try (var stream = Files.list(dir)) {
+            return stream.anyMatch(p -> p.toString().toLowerCase().endsWith(".yaml"));
+        }
+    }
+
     /**
-     * Unlike loadLayout(), never depends on ~/bBuilder_ballots -- that
-     * directory silently accumulates whatever ballot a developer last
-     * generated there, with no indication it might be stale (this exact
-     * problem cost real investigation time this session: a 3-week-old
-     * ballot design there was mistaken for current). The YAML bundled in
-     * test-images/ was captured directly from a live bBuilder run,
-     * verified current at the time (see the rotation-tolerance fixtures
-     * below), and loadForBarcode() only needs the filename prefix to
-     * match -- placing it inside test-images/ doesn't affect loadLayout()
-     * above, which looks one directory level higher for its own fallback.
+     * Never depends on ~/pbss_data/bBuilder_ballots at all — always reads
+     * the bundled, verified-current fixture in test-images/ directly, for
+     * tests that specifically need a known-fresh design rather than
+     * whatever a developer last exported.
      */
     private static PageLayout loadCurrentLayout() throws Exception {
         Path dir = Paths.get(CornerDetectionTest.class.getResource("/test-images").toURI());

@@ -70,6 +70,8 @@ public class BboxReport {
         public String title;
         public String contestType = "PLURALITY";
         public int    maxVotes    = 1;
+        /** Strict threshold (%) a candidate/choice must exceed to win — "50% plus one", not "50% or more". */
+        public double percentToWin = 50.0;
         public int    page;
         /** Offset from the content area upper-left, in inches. */
         public double offsetLeft;
@@ -157,6 +159,8 @@ public class BboxReport {
         public String  contestTitle;
         public String  contestType = "PLURALITY";
         public int     maxVotes    = 1;
+        /** Strict threshold (%) a candidate/choice must exceed to win — "50% plus one", not "50% or more". */
+        public double  percentToWin = 50.0;
         public boolean writeIn     = false;
         public Long    candidateId;
         public String  candidateName;

@@ -126,6 +126,7 @@ public class BallotDimensions {
         private final String contestTitle;
         private final String contestType;    // PLURALITY, RANKED_CHOICE, APPROVAL, MEASURE
         private final int    maxVotes;       // max votes allowed (0 = unlimited/non-FPTP)
+        private final double percentToWin;   // strict threshold (>), e.g. 50.0 or 60.0
         private final int    pageNumber;
         private final double offsetFromLeftInches;
         private final double offsetFromTopInches;
@@ -134,7 +135,7 @@ public class BallotDimensions {
         private final List<CandidatePosition> candidates;
 
         public ContestPosition(Long contestId, String contestTitle,
-                               String contestType, int maxVotes,
+                               String contestType, int maxVotes, double percentToWin,
                                int pageNumber,
                                double offsetFromLeftInches, double offsetFromTopInches,
                                double widthInches, double heightInches,
@@ -143,6 +144,7 @@ public class BallotDimensions {
             this.contestTitle         = contestTitle;
             this.contestType          = contestType;
             this.maxVotes             = maxVotes;
+            this.percentToWin         = percentToWin;
             this.pageNumber           = pageNumber;
             this.offsetFromLeftInches = offsetFromLeftInches;
             this.offsetFromTopInches  = offsetFromTopInches;
@@ -155,6 +157,7 @@ public class BallotDimensions {
         public String getContestTitle()         { return contestTitle; }
         public String getContestType()          { return contestType; }
         public int    getMaxVotes()             { return maxVotes; }
+        public double getPercentToWin()         { return percentToWin; }
         public int    getPageNumber()           { return pageNumber; }
         public double getOffsetFromLeftInches() { return offsetFromLeftInches; }
         public double getOffsetFromTopInches()  { return offsetFromTopInches; }

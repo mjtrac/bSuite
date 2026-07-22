@@ -100,7 +100,8 @@ public class ExportService {
                 sb.append("      <contest id=\"").append(cp.getContestId())
                   .append("\" title=\"").append(escapeXml(cp.getContestTitle()))
                   .append("\" contestType=\"").append(cp.getContestType())
-                  .append("\" maxVotes=\"").append(cp.getMaxVotes()).append("\">\n");
+                  .append("\" maxVotes=\"").append(cp.getMaxVotes())
+                  .append("\" percentToWin=\"").append(cp.getPercentToWin()).append("\">\n");
 
                 sb.append("        <boundingBox>\n");
                 sb.append("          <offsetFromLeft>").append(fmt(cp.getOffsetFromLeftInches(), unit)).append("</offsetFromLeft>\n");
@@ -201,8 +202,9 @@ public class ExportService {
                 Map<String, Object> cm = new LinkedHashMap<>();
                 cm.put("id",          cp.getContestId());
                 cm.put("title",       cp.getContestTitle());
-                cm.put("contestType", cp.getContestType());
-                cm.put("maxVotes",    cp.getMaxVotes());
+                cm.put("contestType",  cp.getContestType());
+                cm.put("maxVotes",     cp.getMaxVotes());
+                cm.put("percentToWin", cp.getPercentToWin());
 
                 Map<String, Object> bbox = new LinkedHashMap<>();
                 bbox.put("offsetFromLeft", fmt(cp.getOffsetFromLeftInches(), unit));

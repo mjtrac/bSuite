@@ -1,0 +1,269 @@
+combinationId: 1
+unit: inches
+sides:
+- side_number: 1
+  ballotContentArea:
+    offsetFromLeft: '0.5694'
+    offsetFromTop: '2.2361'
+    width: '7.3611'
+    height: '8.1944'
+  cornerMarks:
+  - corner: TL
+    x: '0.6944'
+    y: '2.0903'
+  - corner: TR
+    x: '7.8681'
+    y: '2.0903'
+  - corner: BR
+    x: '7.8681'
+    y: '10.5764'
+  - corner: BL
+    x: '0.6319'
+    y: '10.5764'
+  pageMarks:
+  - corner: PTL
+    x: '0.6944'
+    y: '0.3958'
+  - corner: PTR
+    x: '7.8056'
+    y: '0.3958'
+  barcodeCentre:
+    x: '7.4444'
+    y: '1.3194'
+  contests:
+  - id: 1
+    title: Five-Candidate RCV Test
+    contestType: RANKED_CHOICE
+    maxVotes: 1
+    percentToWin: 50.0
+    boundingBox:
+      offsetFromLeft: '0.6389'
+      offsetFromTop: '2.5972'
+      width: '7.1111'
+      height: '2.1514'
+    candidates:
+    - id: 1
+      name: Candidate 1 (Rank 5)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8056'
+        offsetFromTop: '3.3041'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 1
+      name: Candidate 1 (Rank 4)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.0417'
+        offsetFromTop: '3.3041'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 1
+      name: Candidate 1 (Rank 3)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.2778'
+        offsetFromTop: '3.3041'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 1
+      name: Candidate 1 (Rank 2)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.5139'
+        offsetFromTop: '3.3041'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 1
+      name: Candidate 1 (Rank 1)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.7917'
+        offsetFromTop: '3.3041'
+        width: '0.2361'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 2
+      name: Candidate 2 (Rank 5)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8056'
+        offsetFromTop: '3.6236'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 2
+      name: Candidate 2 (Rank 4)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.0417'
+        offsetFromTop: '3.6236'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 2
+      name: Candidate 2 (Rank 3)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.2778'
+        offsetFromTop: '3.6236'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 2
+      name: Candidate 2 (Rank 2)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.5139'
+        offsetFromTop: '3.6236'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 2
+      name: Candidate 2 (Rank 1)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.7917'
+        offsetFromTop: '3.6236'
+        width: '0.2361'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 3
+      name: Candidate 3 (Rank 5)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8056'
+        offsetFromTop: '3.9430'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 3
+      name: Candidate 3 (Rank 4)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.0417'
+        offsetFromTop: '3.9430'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 3
+      name: Candidate 3 (Rank 3)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.2778'
+        offsetFromTop: '3.9430'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 3
+      name: Candidate 3 (Rank 2)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.5139'
+        offsetFromTop: '3.9430'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 3
+      name: Candidate 3 (Rank 1)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.7917'
+        offsetFromTop: '3.9430'
+        width: '0.2361'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 4
+      name: Candidate 4 (Rank 5)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8056'
+        offsetFromTop: '4.2625'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 4
+      name: Candidate 4 (Rank 4)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.0417'
+        offsetFromTop: '4.2625'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 4
+      name: Candidate 4 (Rank 3)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.2778'
+        offsetFromTop: '4.2625'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 4
+      name: Candidate 4 (Rank 2)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.5139'
+        offsetFromTop: '4.2625'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 4
+      name: Candidate 4 (Rank 1)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.7917'
+        offsetFromTop: '4.2625'
+        width: '0.2361'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 5
+      name: Candidate 5 (Rank 5)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8056'
+        offsetFromTop: '4.5819'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 5
+      name: Candidate 5 (Rank 4)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.0417'
+        offsetFromTop: '4.5819'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 5
+      name: Candidate 5 (Rank 3)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.2778'
+        offsetFromTop: '4.5819'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 5
+      name: Candidate 5 (Rank 2)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.5139'
+        offsetFromTop: '4.5819'
+        width: '0.0972'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 5
+      name: Candidate 5 (Rank 1)
+      writeIn: false
+      indicator:
+        offsetFromLeft: '1.7917'
+        offsetFromTop: '4.5819'
+        width: '0.2361'
+        height: '0.0694'
+        indicatorStyle: OVAL

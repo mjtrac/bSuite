@@ -664,7 +664,8 @@ public class BallotGenerationService {
                     ? contest.getVotingMethod().name() : "PLURALITY";
                 int maxVotes = contest.getMaxChoices();
                 BallotDimensions.ContestPosition cp = new BallotDimensions.ContestPosition(
-                    contest.getId(), contest.getRecordTitle(), cType, maxVotes, pageNum,
+                    contest.getId(), contest.getRecordTitle(), cType, maxVotes,
+                    contest.getPercentToWin(), pageNum,
                     cOffLeft, cOffTop, cW, cH, candPositions);
                 pageContests.computeIfAbsent(pageNum, k -> new ArrayList<>()).add(cp);
 

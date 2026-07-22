@@ -129,6 +129,37 @@ public class ResultsQueryService {
         return toRows4(jpql);
     }
 
+    // ── Contest win-rule config (maxVotes / percentToWin) ─────────────────────
+
+    /** Per-contest winner-determination settings, keyed by contest title. */
+    public static class ContestConfig {
+        public final int    maxVotes;
+        public final double percentToWin;
+        public final String contestType;
+        public ContestConfig(int maxVotes, double percentToWin, String contestType) {
+            this.maxVotes = maxVotes;
+            this.percentToWin = percentToWin;
+            this.contestType = contestType;
+        }
+    }
+
+    /** Used by the results report to determine winners and to flag any contest whose win threshold isn't the 50% default. */
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public Map<String, ContestConfig> contestConfigByTitle() {
+        List<Object[]> rows = em.createQuery(
+            "SELECT c.contestTitle, c.maxVotes, c.percentToWin, c.contestType FROM ContestRecord c")
+            .getResultList();
+        Map<String, ContestConfig> out = new LinkedHashMap<>();
+        for (Object[] r : rows) {
+            int maxVotes = r[1] instanceof Number n ? n.intValue() : 1;
+            double percentToWin = r[2] instanceof Number n ? n.doubleValue() : 50.0;
+            String contestType = r[3] != null ? r[3].toString() : "PLURALITY";
+            out.put(str(r[0]), new ContestConfig(maxVotes, percentToWin, contestType));
+        }
+        return out;
+    }
+
     // ── Scribble detection summary ────────────────────────────────────────────
 
     /** DTO for a single scribble-flagged ballot. */

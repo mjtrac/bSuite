@@ -257,6 +257,9 @@ public class BboxReportLoader {
                     contest.title       = ce.getAttribute("title");
                     contest.contestType = ce.hasAttribute("contestType") ? ce.getAttribute("contestType") : "PLURALITY";
                     contest.maxVotes    = ce.hasAttribute("maxVotes") ? Integer.parseInt(ce.getAttribute("maxVotes")) : 1;
+                    // Absent on ballots generated before this field existed — 50.0 (simple
+                    // majority) is the same default those contests always implicitly used.
+                    contest.percentToWin = ce.hasAttribute("percentToWin") ? Double.parseDouble(ce.getAttribute("percentToWin")) : 50.0;
                     contest.page  = page.pageNumber;
 
                     Element bb = firstChild(ce, "boundingBox");
@@ -368,6 +371,10 @@ public class BboxReportLoader {
                 contest.contestType = String.valueOf(c.getOrDefault("contestType", "PLURALITY"));
                 Object _mv = c.get("maxVotes");
                 contest.maxVotes    = _mv instanceof Number ? ((Number)_mv).intValue() : 1;
+                // Absent on ballots generated before this field existed — 50.0 (simple
+                // majority) is the same default those contests always implicitly used.
+                Object _ptw = c.get("percentToWin");
+                contest.percentToWin = _ptw instanceof Number ? ((Number)_ptw).doubleValue() : 50.0;
                 contest.page  = page.pageNumber;
 
                 Map<String, Object> bb = castMap(c.get("boundingBox"));
