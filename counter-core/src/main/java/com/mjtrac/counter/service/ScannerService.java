@@ -319,8 +319,16 @@ public class ScannerService {
         }
 
         // ── Adjusted YAML (debug mode) ──────────────────────────────────────
-        coordinateDebug.writeAdjustedYaml(imagePath, session.yamlReportPath,
-            layout, corners, session);
+        // Gated on session.debugCoordinates: CoordinateDebugService's own
+        // contract says disabling this (the default) skips it entirely with
+        // no overhead, but this call used to be unconditional — the "Debug
+        // coordinates" checkbox in bCounter/blCounter's UI had no effect,
+        // and every scan paid for a homography-inverse, a full per-indicator
+        // map build, and a synchronous disk write it never asked for.
+        if (session.debugCoordinates) {
+            coordinateDebug.writeAdjustedYaml(imagePath, session.yamlReportPath,
+                layout, corners, session);
+        }
 
         // ── H⁻¹ for debug service (not used for sampling coordinates) ───────
         double[] Hinv = null;

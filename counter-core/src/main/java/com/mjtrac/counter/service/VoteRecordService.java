@@ -59,6 +59,19 @@ public class VoteRecordService {
     private final CandidateRecordRepository candidateRepo;
     private final VoteOpportunityRepository voteRepo;
 
+    // Contests/candidates are created once (on whichever ballot first
+    // references them) and never change for the rest of the scan session —
+    // without this cache, doPersist() ran one SELECT per marking for both,
+    // so a ballot with e.g. 10 contests x 5 candidates did ~100 redundant
+    // lookups where ~15 distinct rows exist. Cleared in clearAllData() so a
+    // new election never serves a stale record pointing at a deleted row.
+    // ConcurrentHashMap: doPersist() runs concurrently across scan worker
+    // threads.
+    private final java.util.concurrent.ConcurrentHashMap<String, ContestRecord> contestCache =
+        new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, CandidateRecord> candidateCache =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
     public VoteRecordService(PlatformTransactionManager txManager,
                               HomographyService homographyService,
                               BarcodeRecordRepository barcodeRepo,
@@ -234,16 +247,17 @@ public class VoteRecordService {
             // Find or create contest record
             String cType = mr.contestType != null ? mr.contestType : "PLURALITY";
             String cTitle = mr.contestTitle != null ? mr.contestTitle : "(unknown)";
-            ContestRecord contest = contestRepo
-                .findByContestTitleAndContestType(cTitle, cType)
-                .orElseGet(() -> {
-                    ContestRecord c = new ContestRecord();
-                    c.setContestTitle(cTitle);
-                    c.setContestType(cType);
-                    c.setMaxVotes(mr.maxVotes);
-                    c.setPercentToWin(mr.percentToWin);
-                    return contestRepo.save(c);
-                });
+            ContestRecord contest = contestCache.computeIfAbsent(
+                cTitle + "\u0000" + cType,
+                k -> contestRepo.findByContestTitleAndContestType(cTitle, cType)
+                    .orElseGet(() -> {
+                        ContestRecord c = new ContestRecord();
+                        c.setContestTitle(cTitle);
+                        c.setContestType(cType);
+                        c.setMaxVotes(mr.maxVotes);
+                        c.setPercentToWin(mr.percentToWin);
+                        return contestRepo.save(c);
+                    }));
 
             // Determine status
             // Only physically marked candidates get OVERVOTED status in an overvoted
@@ -274,16 +288,17 @@ public class VoteRecordService {
             // Find or create CandidateRecord for this contest+name
             String cName = mr.candidateName != null ? mr.candidateName : "(unknown)";
             ContestRecord finalContest = contest;
-            CandidateRecord candidate = candidateRepo
-                .findByContestAndCandidateName(finalContest, cName)
-                .orElseGet(() -> {
-                    CandidateRecord c = new CandidateRecord();
-                    c.setContest(finalContest);
-                    c.setCandidateName(cName);
-                    c.setBallotCandidateId(mr.candidateId);
-                    c.setWriteIn(mr.writeIn);
-                    return candidateRepo.save(c);
-                });
+            CandidateRecord candidate = candidateCache.computeIfAbsent(
+                finalContest.getId() + " " + cName,
+                k -> candidateRepo.findByContestAndCandidateName(finalContest, cName)
+                    .orElseGet(() -> {
+                        CandidateRecord c = new CandidateRecord();
+                        c.setContest(finalContest);
+                        c.setCandidateName(cName);
+                        c.setBallotCandidateId(mr.candidateId);
+                        c.setWriteIn(mr.writeIn);
+                        return candidateRepo.save(c);
+                    }));
 
             VoteOpportunity vo = new VoteOpportunity();
             vo.setBallotImage(image);
@@ -376,6 +391,11 @@ public class VoteRecordService {
         barcodeRepo.deleteAll();
         candidateRepo.deleteAll();
         contestRepo.deleteAll();
+        // The contest/candidate records these caches hold now point at
+        // deleted rows — without this, the next scan session would reuse
+        // them and every VoteOpportunity insert would fail its FK check.
+        contestCache.clear();
+        candidateCache.clear();
         log.info("All election data cleared for new election.");
     }
 }

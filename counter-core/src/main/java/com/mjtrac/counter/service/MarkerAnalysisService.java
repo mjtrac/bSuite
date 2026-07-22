@@ -195,14 +195,19 @@ public class MarkerAnalysisService {
             return result;
         }
 
+        // Bulk-read the region in one call instead of per-pixel getRGB(x,y) —
+        // BufferedImage's single-pixel accessor pays per-call ColorModel/
+        // Raster dispatch overhead that the bulk overload amortizes across
+        // the whole region, returned in the same row-major (y then x) order
+        // this loop already iterates in.
+        int rw = x1 - x0, rh = y1 - y0;
+        int[] regionPixels = warped.getRGB(x0, y0, rw, rh, null, 0, rw);
         long darkCount = 0, totalCount = 0, intensitySum = 0;
-        for (int y = y0; y < y1; y++) {
-            for (int x = x0; x < x1; x++) {
-                int lum = luminance(warped.getRGB(x, y));
-                intensitySum += lum;
-                totalCount++;
-                if (lum < threshold) darkCount++;
-            }
+        for (int argb : regionPixels) {
+            int lum = luminance(argb);
+            intensitySum += lum;
+            totalCount++;
+            if (lum < threshold) darkCount++;
         }
 
         result.darkPixels    = (int) darkCount;
@@ -222,14 +227,14 @@ public class MarkerAnalysisService {
             int tx0 = x0 + 1, ty0 = y0 + 1;
             int tx1 = x1 - 1, ty1 = y1 - 1;
             if (tx0 < tx1 && ty0 < ty1) {
+                int trw = tx1 - tx0, trh = ty1 - ty0;
+                int[] trimmedPixels = warped.getRGB(tx0, ty0, trw, trh, null, 0, trw);
                 long tDark = 0, tTotal = 0, tIntensity = 0;
-                for (int y = ty0; y < ty1; y++) {
-                    for (int x = tx0; x < tx1; x++) {
-                        int lum = luminance(warped.getRGB(x, y));
-                        tIntensity += lum;
-                        tTotal++;
-                        if (lum < threshold) tDark++;
-                    }
+                for (int argb : trimmedPixels) {
+                    int lum = luminance(argb);
+                    tIntensity += lum;
+                    tTotal++;
+                    if (lum < threshold) tDark++;
                 }
                 if (tTotal > 0) {
                     double trimmedPct = 100.0 * tDark / tTotal;
