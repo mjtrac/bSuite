@@ -1,0 +1,91 @@
+combinationId: 1
+unit: inches
+sides:
+- side_number: 1
+  ballotContentArea:
+    offsetFromLeft: '0.5694'
+    offsetFromTop: '2.2361'
+    width: '7.3611'
+    height: '8.1944'
+  cornerMarks:
+  - corner: TL
+    x: '0.6944'
+    y: '2.0903'
+  - corner: TR
+    x: '7.8681'
+    y: '2.0903'
+  - corner: BR
+    x: '7.8681'
+    y: '10.5764'
+  - corner: BL
+    x: '0.6319'
+    y: '10.5764'
+  pageMarks:
+  - corner: PTL
+    x: '0.6944'
+    y: '0.3958'
+  - corner: PTR
+    x: '7.8056'
+    y: '0.3958'
+  barcodeCentre:
+    x: '7.4444'
+    y: '1.3194'
+  contests:
+  - id: 1
+    title: Mayor
+    contestType: PLURALITY
+    maxVotes: 1
+    percentToWin: 50.0
+    boundingBox:
+      offsetFromLeft: '0.6389'
+      offsetFromTop: '2.5972'
+      width: '7.1111'
+      height: '1.0403'
+    candidates:
+    - id: 1
+      name: Alice Johnson
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8194'
+        offsetFromTop: '3.1514'
+        width: '0.2222'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 2
+      name: Bob Williams
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8194'
+        offsetFromTop: '3.4708'
+        width: '0.2222'
+        height: '0.0694'
+        indicatorStyle: OVAL
+  - id: 2
+    title: City Council Member
+    contestType: PLURALITY
+    maxVotes: 2
+    percentToWin: 50.0
+    boundingBox:
+      offsetFromLeft: '0.6389'
+      offsetFromTop: '3.7750'
+      width: '7.1111'
+      height: '1.0403'
+    candidates:
+    - id: 3
+      name: Carmen Lopez
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8194'
+        offsetFromTop: '4.3291'
+        width: '0.2222'
+        height: '0.0694'
+        indicatorStyle: OVAL
+    - id: 4
+      name: Dave Kim
+      writeIn: false
+      indicator:
+        offsetFromLeft: '0.8194'
+        offsetFromTop: '4.6486'
+        width: '0.2222'
+        height: '0.0694'
+        indicatorStyle: OVAL

@@ -73,8 +73,8 @@ class CornerDetectionTest {
         if (!Files.isDirectory(dir) || !hasYamlFiles(dir)) {
             dir = Paths.get(CornerDetectionTest.class.getResource("/test-images").toURI());
         }
-        var layouts = new BboxReportLoader().loadForBarcode(dir, "1|1|1|1|1|1");
-        assertThat(layouts).as("No layout found for barcode 1|1|1|1|1|1").isNotEmpty();
+        var layouts = new BboxReportLoader().loadForBarcode(dir, "1|1|0|1|1|1");
+        assertThat(layouts).as("No layout found for barcode 1|1|0|1|1|1").isNotEmpty();
         return layouts.get(0);
     }
 
@@ -92,8 +92,8 @@ class CornerDetectionTest {
      */
     private static PageLayout loadCurrentLayout() throws Exception {
         Path dir = Paths.get(CornerDetectionTest.class.getResource("/test-images").toURI());
-        var layouts = new BboxReportLoader().loadForBarcode(dir, "1|1|1|1|1|1");
-        assertThat(layouts).as("No bundled current layout found for barcode 1|1|1|1|1|1").isNotEmpty();
+        var layouts = new BboxReportLoader().loadForBarcode(dir, "1|1|0|1|1|1");
+        assertThat(layouts).as("No bundled current layout found for barcode 1|1|0|1|1|1").isNotEmpty();
         return layouts.get(0);
     }
 
