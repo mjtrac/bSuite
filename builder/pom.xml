@@ -14,7 +14,7 @@
 
   <groupId>com.mjtrac</groupId>
   <artifactId>builder</artifactId>
-  <version>0.9.16</version>
+  <version>0.9.17</version>
   <name>builder</name>
   <description>Standalone Swing ballot-design tool — full CRUD (jurisdictions, elections, parties, contests, ballot templates) plus PDF generation</description>
 
@@ -25,6 +25,14 @@
   <dependencies>
     <!-- Swing is part of java.desktop (JDK-bundled) — no UI framework dependency needed. -->
 
+    <!-- Modern flat look-and-feel — real theming (colors/fonts/flat design)
+         isn't achievable through UIManager defaults alone. -->
+    <dependency>
+      <groupId>com.formdev</groupId>
+      <artifactId>flatlaf</artifactId>
+      <version>3.7.2</version>
+    </dependency>
+
     <!-- Shared ballot-design engine (model, repository, util, generation
          services) — see builder-core/README.md. Requires `mvn install`
          from ~/pbss2/builder-core before building this module for the
@@ -32,7 +40,7 @@
     <dependency>
       <groupId>com.mjtrac</groupId>
       <artifactId>builder-core</artifactId>
-      <version>0.9.16</version>
+      <version>0.9.17</version>
     </dependency>
 
     <!-- Password hashing only — no web filter chain needed -->

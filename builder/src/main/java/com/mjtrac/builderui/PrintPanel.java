@@ -110,7 +110,21 @@ class PrintPanel extends JPanel {
     private void addRow(JPanel grid, GridBagConstraints gc, int row, String label, JComponent field) {
         gc.gridx = 0; gc.gridy = row;
         grid.add(new JLabel(label), gc);
-        gc.gridx = 1; gc.fill = GridBagConstraints.HORIZONTAL; gc.weightx = 1;
+        gc.gridx = 1;
+        if (field instanceof JSpinner spinner) {
+            // Same reasoning as SimpleCrudPanel.addField(): numeric spinners
+            // default to stretching across the whole row like a text field.
+            FontMetrics fm = spinner.getFontMetrics(spinner.getFont());
+            int width = fm.stringWidth("9999") + 36;
+            Dimension d = new Dimension(width, spinner.getPreferredSize().height);
+            spinner.setPreferredSize(d);
+            spinner.setMinimumSize(d);
+            gc.fill = GridBagConstraints.NONE;
+            gc.weightx = 0;
+        } else {
+            gc.fill = GridBagConstraints.HORIZONTAL;
+            gc.weightx = 1;
+        }
         grid.add(field, gc);
         gc.fill = GridBagConstraints.NONE; gc.weightx = 0;
     }

@@ -186,8 +186,29 @@ abstract class SimpleCrudPanel<T> extends JPanel {
         c.insets = new Insets(4, 4, 4, 4);
         c.gridx = 0; c.gridy = row; c.anchor = GridBagConstraints.WEST;
         grid.add(new JLabel(label), c);
-        c.gridx = 1; c.fill = GridBagConstraints.HORIZONTAL; c.weightx = 1;
+        c.gridx = 1;
+        if (field instanceof JSpinner spinner) {
+            // Numeric spinners default to stretching across the whole row
+            // like a text field — most hold at most a 4-digit value, so cap
+            // width to that instead of leaving the up/down buttons stranded
+            // at the far edge of the form.
+            capSpinnerWidth(spinner);
+            c.fill = GridBagConstraints.NONE;
+            c.weightx = 0;
+        } else {
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.weightx = 1;
+        }
         grid.add(field, c);
+    }
+
+    private static void capSpinnerWidth(JSpinner spinner) {
+        FontMetrics fm = spinner.getFontMetrics(spinner.getFont());
+        int textWidth = fm.stringWidth("9999");
+        int width = textWidth + 36; // padding + up/down arrow buttons
+        Dimension d = new Dimension(width, spinner.getPreferredSize().height);
+        spinner.setPreferredSize(d);
+        spinner.setMinimumSize(d);
     }
 
     /** Populates a JComboBox from a supplier and selects `current` if present, by identity-agnostic equality on the id. */

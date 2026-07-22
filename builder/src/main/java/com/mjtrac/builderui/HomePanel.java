@@ -78,7 +78,7 @@ class HomePanel extends JPanel {
             "Ballot Combinations"),
     };
 
-    HomePanel(Consumer<String> onNavigate) {
+    HomePanel(Consumer<String> onNavigate, Color[] cardColors) {
         super(new BorderLayout(8, 8));
         setBorder(new EmptyBorder(16, 16, 16, 16));
 
@@ -94,8 +94,9 @@ class HomePanel extends JPanel {
         hint.setBorder(new EmptyBorder(4, 0, 12, 0));
         steps.add(hint);
 
+        int cardIndex = 0;
         for (Step s : STEPS) {
-            steps.add(stepCard(s, onNavigate, steps));
+            steps.add(stepCard(s, onNavigate, steps, cardColors[cardIndex++ % cardColors.length]));
             steps.add(Box.createVerticalStrut(6));
         }
 
@@ -104,26 +105,29 @@ class HomePanel extends JPanel {
             "Generates the actual ballot PDF, plus the YAML layout file counter/bCounter/viewer read "
             + "back to know where each vote indicator is on the printed page.",
             "Print");
-        steps.add(stepCard(print, onNavigate, steps));
+        steps.add(stepCard(print, onNavigate, steps, cardColors[cardIndex % cardColors.length]));
 
         JScrollPane scroll = new JScrollPane(steps);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         add(scroll, BorderLayout.CENTER);
     }
 
-    private static JComponent stepCard(Step s, Consumer<String> onNavigate, JPanel stepsContainer) {
+    private static JComponent stepCard(Step s, Consumer<String> onNavigate, JPanel stepsContainer, Color background) {
         JPanel card = new JPanel(new BorderLayout(12, 0));
-        card.setBorder(new CompoundBorder(new LineBorder(new Color(0xdd, 0xdd, 0xdd)), new EmptyBorder(10, 12, 10, 12)));
+        card.setBorder(new CompoundBorder(new LineBorder(PbssTheme.RULE), new EmptyBorder(10, 12, 10, 12)));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
         card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        card.setBackground(background);
+        card.setOpaque(true);
 
         JLabel number = new JLabel(s.number());
         number.setFont(number.getFont().deriveFont(Font.BOLD, 18f));
-        number.setForeground(new Color(0x1a, 0x4a, 0x7a));
+        number.setForeground(PbssTheme.TEAL_DARK);
         number.setPreferredSize(new Dimension(28, 0));
         card.add(number, BorderLayout.WEST);
 
         JPanel text = new JPanel(new GridLayout(2, 1));
+        text.setOpaque(false);
         JLabel titleLabel = new JLabel(s.title());
         titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD));
         JLabel descLabel = new JLabel("<html>" + s.description() + "</html>");

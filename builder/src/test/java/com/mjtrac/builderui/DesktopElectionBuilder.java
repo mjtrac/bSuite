@@ -93,6 +93,13 @@ class DesktopElectionBuilder {
 
         ensurePartyAndRegionTablesAreNonEmpty();
 
+        // BuilderApp.main() isn't used here (this builds the Spring context
+        // directly), so its look-and-feel install() call has to happen
+        // here instead, before MainFrame gets constructed — otherwise this
+        // drives a plain default look and feel that diverges from what
+        // real users of the packaged app actually run.
+        PbssTheme.install();
+
         springContext = new SpringApplicationBuilder(BuilderApp.class)
             .web(WebApplicationType.NONE)
             .headless(false)

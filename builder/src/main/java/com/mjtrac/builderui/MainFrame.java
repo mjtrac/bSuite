@@ -3,6 +3,7 @@
  */
 package com.mjtrac.builderui;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.swing.*;
@@ -27,13 +28,14 @@ public class MainFrame extends JFrame {
               RegionPanel regionPanel, AdminPanel adminPanel,
               ElectionPanel electionPanel, BallotCombinationPanel ballotCombinationPanel,
               BallotDesignTemplatePanel ballotDesignTemplatePanel, ContestPanel contestPanel,
-              PrintPanel printPanel) {
+              PrintPanel printPanel,
+              @Value("${dashboard.card.colors:" + PbssTheme.DEFAULT_DASHBOARD_COLORS + "}") String dashboardCardColors) {
         super("pbss Ballot Builder");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1200, 780);
         setLocationRelativeTo(null);
 
-        addScreen(HOME, new HomePanel(this::navigate));
+        addScreen(HOME, new HomePanel(this::navigate, PbssTheme.parsePalette(dashboardCardColors)));
         addScreen("Elections", electionPanel);
         addScreen("Regions", regionPanel);
         addScreen("Parties", partyPanel);

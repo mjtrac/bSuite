@@ -150,7 +150,17 @@ class BallotDesignTemplatePanel extends SimpleCrudPanel<BallotDesignTemplate> {
 
             String rowId = "typeRow" + r.label().replaceAll("[^A-Za-z0-9]", "");
 
-            JSpinner size = new JSpinner(new SpinnerNumberModel(r.getSize().apply(t).floatValue(), 4f, 72f, 0.5f));
+            // Clamped, not the raw stored value: a template row created via
+            // a path that never explicitly set this font size (e.g.
+            // bBuilder's own form, or any future one) reads back as Java's
+            // float default of 0 — below this spinner's 4f minimum, which
+            // SpinnerNumberModel's constructor rejects immediately,
+            // crashing this dialog outright. Same root cause confirmed for
+            // real against ContestCandidatesDialog's Order spinner
+            // (candidates with a never-set displayOrder=0 against a
+            // model whose minimum was 1, not 0).
+            JSpinner size = new JSpinner(new SpinnerNumberModel(
+                Math.max(r.getSize().apply(t).floatValue(), 4f), 4f, 72f, 0.5f));
             size.setName(rowId + "Size");
             c.gridx = 1;
             table.add(size, c);
@@ -211,7 +221,10 @@ class BallotDesignTemplatePanel extends SimpleCrudPanel<BallotDesignTemplate> {
         primaryFontCombo.setSelectedItem(t.getFontFamilyPrimary());
         JComboBox<FontFamily> altFontCombo = new JComboBox<>(FontFamily.values());
         altFontCombo.setSelectedItem(t.getFontFamilyAlternate());
-        JSpinner columnsSpinner = new JSpinner(new SpinnerNumberModel(t.getColumns(), 1, 6, 1));
+        // Clamped for the same reason as the typography table's font-size
+        // spinners above: a template row whose columns was never explicitly
+        // set reads back as 0, below this spinner's minimum of 1.
+        JSpinner columnsSpinner = new JSpinner(new SpinnerNumberModel(Math.max(t.getColumns(), 1), 1, 6, 1));
         JSpinner marginTop = new JSpinner(new SpinnerNumberModel(t.getMarginTopPt(), 0f, 200f, 1f));
         JSpinner marginBottom = new JSpinner(new SpinnerNumberModel(t.getMarginBottomPt(), 0f, 200f, 1f));
         JSpinner marginLeft = new JSpinner(new SpinnerNumberModel(t.getMarginLeftPt(), 0f, 200f, 1f));
@@ -240,8 +253,12 @@ class BallotDesignTemplatePanel extends SimpleCrudPanel<BallotDesignTemplate> {
         // ── Ranked-choice options ────────────────────────────────────────
         JCheckBox rcvIndicatorsRight = new JCheckBox("", t.isRcvIndicatorsRight());
         JCheckBox rcvShowRankNumbers = new JCheckBox("", t.isRcvShowRankNumbers());
-        JSpinner rcvRankNumberFont = new JSpinner(new SpinnerNumberModel(t.getRcvRankNumberFontPt(), 4f, 24f, 0.5f));
-        JSpinner rcvBoxLineWidth = new JSpinner(new SpinnerNumberModel(t.getRcvBoxLineWidthPt(), 0.1f, 5f, 0.1f));
+        // Both clamped for the same reason as columnsSpinner/the typography
+        // table above — getRcvRankNumberFontPt()/getRcvBoxLineWidthPt() are
+        // plain field reads with no fallback (unlike getIndicatorLineWidthPt(),
+        // which already guards against 0 at the entity level).
+        JSpinner rcvRankNumberFont = new JSpinner(new SpinnerNumberModel(Math.max(t.getRcvRankNumberFontPt(), 4f), 4f, 24f, 0.5f));
+        JSpinner rcvBoxLineWidth = new JSpinner(new SpinnerNumberModel(Math.max(t.getRcvBoxLineWidthPt(), 0.1f), 0.1f, 5f, 0.1f));
 
         JTextArea headerHtmlArea = new JTextArea(t.getHeaderHtml(), 6, 30);
         indicatorLineWidth.setName("indicatorLineWidth");

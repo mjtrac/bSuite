@@ -188,7 +188,18 @@ final class ContestCandidatesDialog {
 
     /** JSpinner-backed editor for the "Order" column — JTable has no built-in spinner editor. */
     private static class OrderSpinnerCellEditor extends AbstractCellEditor implements TableCellEditor {
-        private final JSpinner spinner = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
+        // Min is 0, not 1: candidates created via bBuilder's REST API (e.g.
+        // test-harness/build_election.py) never set displayOrder at all,
+        // leaving it at the field's default of 0 — confirmed against a real
+        // database. spinner.setValue() throws IllegalArgumentException for
+        // any value outside the model's own min/max, which for an existing
+        // candidate with displayOrder=0 against the old min=1 model broke
+        // this editor's setup entirely: the spinner never finished
+        // initializing, so neither clicking its arrows nor typing into it
+        // (beeping — a JFormattedTextField's standard reaction to an editor
+        // stuck in an invalid state) did anything. The free-text field this
+        // replaced had no such bound and never hit this.
+        private final JSpinner spinner = new JSpinner(new SpinnerNumberModel(1, 0, 999, 1));
 
         @Override public Object getCellEditorValue() {
             return spinner.getValue();
@@ -196,7 +207,8 @@ final class ContestCandidatesDialog {
 
         @Override public Component getTableCellEditorComponent(
                 JTable table, Object value, boolean isSelected, int row, int column) {
-            spinner.setValue(value instanceof Integer i ? i : 1);
+            int v = value instanceof Integer i ? i : 1;
+            spinner.setValue(Math.max(0, Math.min(v, 999)));
             return spinner;
         }
     }

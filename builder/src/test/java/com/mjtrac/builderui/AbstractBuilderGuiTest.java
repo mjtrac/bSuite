@@ -53,6 +53,14 @@ abstract class AbstractBuilderGuiTest {
 
     @BeforeEach
     void bootBuilder() {
+        // BuilderApp.main() isn't used here (this builds the Spring context
+        // directly, with test-only datasource overrides), so the
+        // look-and-feel install() call it would normally do has to happen
+        // here instead, before anything gets constructed — otherwise these
+        // tests exercise a plain default look and feel that real users
+        // never actually see, instead of the app's real, themed appearance.
+        PbssTheme.install();
+
         String dbUrl = "jdbc:sqlite:" + tempDir.resolve("test.db");
         String exportDir = tempDir.resolve("export").toString();
 

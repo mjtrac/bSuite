@@ -52,7 +52,18 @@ public class MainFrame extends JFrame {
         this.authContext = authContext;
         this.loginDialog = loginDialog;
         this.outputDirField = new JTextField(config.outputDir, 34);
-        this.dpiSpinner.setValue(config.dpi);
+        // Clamped, not the raw property value: dpiSpinner's model only
+        // accepts [72, 1200] (see its field declaration above), and
+        // SpinnerNumberModel.setValue() throws IllegalArgumentException for
+        // anything outside that — a scanner.dpi override outside that range
+        // in application.properties would otherwise crash this window at
+        // construction instead of just clamping to something sane. Same
+        // bug class confirmed for real in builder's Contest candidates
+        // table (see ContestCandidatesDialog's Order spinner) and its
+        // ballot design template screen, both driven by persisted data
+        // rather than a properties override, but the underlying model-
+        // bounds mismatch is identical.
+        this.dpiSpinner.setValue(Math.max(72, Math.min(config.dpi, 1200)));
         this.duplexCheckbox.setSelected(config.duplex);
 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);

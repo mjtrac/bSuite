@@ -39,18 +39,17 @@ public class BuilderApp {
     }
 
     public static void main(String[] args) {
+        // Must run before the Spring context is built below, not after: the
+        // context eagerly constructs MainFrame (and every child screen) as
+        // part of bean initialization, so a look-and-feel installed
+        // afterward has nothing left to affect.
+        PbssTheme.install();
+
         ConfigurableApplicationContext ctx = new SpringApplicationBuilder(BuilderApp.class)
             .web(WebApplicationType.NONE)
             .headless(false)
             .run(args);
 
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {
-                // Fall back to the default cross-platform look and feel.
-            }
-            ctx.getBean(MainFrame.class).start();
-        });
+        SwingUtilities.invokeLater(() -> ctx.getBean(MainFrame.class).start());
     }
 }

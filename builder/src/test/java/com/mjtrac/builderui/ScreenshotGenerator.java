@@ -11,6 +11,8 @@ package com.mjtrac.builderui;
 import com.mjtrac.ballot.model.*;
 import com.mjtrac.ballot.repository.*;
 import org.springframework.boot.WebApplicationType;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 
@@ -25,10 +27,22 @@ import java.util.List;
 
 public class ScreenshotGenerator {
 
+    @SpringBootApplication(scanBasePackages = "com.mjtrac.ballot")
+    @EntityScan("com.mjtrac.ballot.model")
+    static class SeedConfig {
+    }
+
     static final Path OUT_DIR = Paths.get(System.getProperty("shots.dir",
         "/private/tmp/claude-501/-Users-mjtrac-pbss/2c1ac0f4-5791-487a-b6fa-f42d90ccdd41/scratchpad/shots"));
 
     public static void main(String[] args) throws Exception {
+        // BuilderApp.main() isn't used here (this bypasses it to build the
+        // Spring context with test-only datasource overrides), so the
+        // look-and-feel install() call it would normally do has to happen
+        // here instead — same ordering requirement: before MainFrame gets
+        // eagerly constructed as a Spring bean.
+        PbssTheme.install();
+
         OUT_DIR.toFile().mkdirs();
 
         Path dataDir = OUT_DIR.resolve("seed/builder_pbss_data");
@@ -39,6 +53,26 @@ public class ScreenshotGenerator {
             "--spring.datasource.url=jdbc:sqlite:" + dataDir.resolve("db/election_ballot.db"),
             "--ballot.export.dir=" + dataDir.resolve("ballot_templates"),
         };
+
+        // Seed BEFORE the real (Swing-scanning) context boots below: MainFrame
+        // is a Spring bean, eagerly constructed as part of that context's own
+        // startup, and its constructor refreshes every screen including
+        // Party/Region — whose onFirstOpenEmpty() pops a real, blocking
+        // JOptionPane the instant either table is still empty at that point.
+        // Seeding through this separate, UI-free context first (same trick
+        // AbstractBuilderGuiTest/TestElectionBuilder use) means neither table
+        // is ever empty when MainFrame's constructor actually runs — this
+        // used to seed *after* .getBean(MainFrame.class), which never even
+        // got that far: it hung inside .run(overrides) below, before this
+        // method's own seedData() call was ever reached, the moment this ran
+        // against a genuinely fresh scratch DB with nothing seeded yet.
+        try (ConfigurableApplicationContext seedCtx = new SpringApplicationBuilder(SeedConfig.class)
+                .web(WebApplicationType.NONE)
+                .headless(false)
+                .run(overrides)) {
+            seedData(seedCtx);
+        }
+
         ConfigurableApplicationContext ctx = new SpringApplicationBuilder(BuilderApp.class)
             .web(WebApplicationType.NONE)
             .headless(false)
@@ -52,8 +86,6 @@ public class ScreenshotGenerator {
                     "REFUSING TO CONTINUE: datasource did not resolve to the scratch dir. "
                     + "Effective URL was: " + effectiveUrl);
             }
-
-            seedData(ctx);
 
             MainFrame frame = ctx.getBean(MainFrame.class);
             frame.setSize(1200, 780);
@@ -76,6 +108,14 @@ public class ScreenshotGenerator {
             navigate(frame, "Contests");
             shoot(frame, "builder_2_contests.png");
 
+            JDialog contestForm = openDialogViaButton(frame, "ContestsNewButton");
+            if (contestForm != null) {
+                shoot(contestForm, "builder_2b_contest_form.png");
+                SwingUtilities.invokeAndWait(contestForm::dispose);
+            } else {
+                System.out.println("WARNING: contest New dialog did not open");
+            }
+
             navigate(frame, "Print");
             shoot(frame, "builder_3_print.png");
 
@@ -95,6 +135,36 @@ public class ScreenshotGenerator {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    /**
+     * Clicks a named button (asynchronously — the resulting dialog is
+     * modal, so a synchronous click would block this thread until it's
+     * dismissed) and polls for the new top-level window it opens.
+     */
+    private static JDialog openDialogViaButton(JFrame frame, String buttonName) throws Exception {
+        JButton btn = findButtonByName(frame, buttonName);
+        if (btn == null) return null;
+        java.util.Set<Window> before = java.util.Set.of(Window.getWindows());
+        SwingUtilities.invokeLater(btn::doClick);
+        for (int i = 0; i < 50; i++) {
+            for (Window w : Window.getWindows()) {
+                if (w instanceof JDialog d && d.isVisible() && !before.contains(w)) return d;
+            }
+            Thread.sleep(100);
+        }
+        return null;
+    }
+
+    private static JButton findButtonByName(Container root, String name) {
+        for (Component c : root.getComponents()) {
+            if (c instanceof JButton b && name.equals(b.getName())) return b;
+            if (c instanceof Container child) {
+                JButton found = findButtonByName(child, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private static JButton findButtonByText(Container root, String text) {
@@ -126,6 +196,17 @@ public class ScreenshotGenerator {
         precinct.setName("Precinct 7");
         precinct.setRegionType(Region.RegionType.SINGLE_PRECINCT);
         precinct = regionRepo.save(precinct);
+
+        // Without at least one Party, PartyPanel's table is empty when
+        // MainFrame's constructor eagerly refreshes every screen —
+        // triggering PartyPanel.onFirstOpenEmpty()'s real, blocking
+        // JOptionPane with no robot/human to dismiss it, hanging this tool
+        // indefinitely (same root cause as AbstractBuilderGuiTest's
+        // seed-before-boot fix elsewhere in this module's test suite).
+        Party party = new Party();
+        party.setJurisdiction(jurisdiction);
+        party.setName("Nonpartisan");
+        ctx.getBean(PartyRepository.class).save(party);
 
         Election election = new Election();
         election.setJurisdiction(jurisdiction);
@@ -187,8 +268,15 @@ public class ScreenshotGenerator {
     }
 
     static void shoot(JFrame frame, String filename) throws Exception {
-        Container content = frame.getContentPane();
-        BufferedImage img = new BufferedImage(frame.getWidth(), frame.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        shoot(frame.getContentPane(), frame.getWidth(), frame.getHeight(), filename);
+    }
+
+    static void shoot(JDialog dialog, String filename) throws Exception {
+        shoot(dialog.getContentPane(), dialog.getWidth(), dialog.getHeight(), filename);
+    }
+
+    private static void shoot(Container content, int width, int height, String filename) throws Exception {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = img.createGraphics();
         g2.setColor(Color.WHITE);
         g2.fillRect(0, 0, img.getWidth(), img.getHeight());
