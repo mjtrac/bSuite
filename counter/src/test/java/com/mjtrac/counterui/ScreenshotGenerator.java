@@ -42,8 +42,24 @@ public class ScreenshotGenerator {
         dataDir.resolve("writeins").toFile().mkdirs();
         dataDir.resolve("scribbles").toFile().mkdirs();
         dataDir.resolve("reports").toFile().mkdirs();
+        // test-images/ now also holds several *subdirectories* of unrelated
+        // fixtures for other tests (RCV, percent-threshold, top-two —
+        // different DPI, different ballot design) — CountingService scans
+        // recursively, so pointing it at that shared root directly used to
+        // sweep all of them into one batch and flag most for review instead
+        // of the clean "4 counted, 0 flagged" demo scenario this screenshot
+        // is supposed to show. Copy just the 4 original top-level fixture
+        // files (+ their YAML) into an isolated scratch folder instead.
         URL resource = ScreenshotGenerator.class.getClassLoader().getResource("test-images/ballot_1_1_1_1_1_1.yaml");
-        File testImagesDir = new File(resource.getFile()).getParentFile();
+        File sharedTestImagesDir = new File(resource.getFile()).getParentFile();
+        File testImagesDir = OUT_DIR.resolve("seed/counter_screenshot_images").toFile();
+        testImagesDir.mkdirs();
+        for (File f : sharedTestImagesDir.listFiles()) {
+            if (f.isFile()) {
+                java.nio.file.Files.copy(f.toPath(), testImagesDir.toPath().resolve(f.getName()),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
 
         // NOTE: SpringApplicationBuilder.properties(...) sets the LOWEST-
         // precedence "default properties" layer — BELOW the app's own

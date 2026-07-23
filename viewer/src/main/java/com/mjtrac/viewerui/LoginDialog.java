@@ -34,9 +34,12 @@ class LoginDialog {
     boolean showAndAuthenticate(Frame owner) {
         JDialog dialog = new JDialog(owner, loginTitle, true);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.setName("loginDialog");
 
         JTextField usernameField = new JTextField(18);
         JPasswordField passwordField = new JPasswordField(18);
+        usernameField.setName("usernameField");
+        passwordField.setName("passwordField");
         JLabel errorLabel = new JLabel(" ");
         errorLabel.setForeground(new Color(0xdc, 0x26, 0x26));
 
@@ -61,6 +64,7 @@ class LoginDialog {
         form.add(passwordField, c);
 
         JButton signIn = new JButton("Sign In");
+        signIn.setName("signInButton");
         c.gridy++; c.gridx = 1; c.anchor = GridBagConstraints.EAST;
         form.add(signIn, c);
 

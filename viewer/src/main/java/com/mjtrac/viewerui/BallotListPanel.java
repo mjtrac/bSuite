@@ -65,6 +65,8 @@ class BallotListPanel extends JPanel {
         nameRow.add(new JLabel("Name filter:"));
         nameRow.add(nameFilterField);
         JButton nameFilterBtn = new JButton("Filter by Name");
+        nameFilterField.setName("nameFilterField");
+        nameFilterBtn.setName("nameFilterButton");
         nameRow.add(nameFilterBtn);
         nameFilterField.setToolTipText("Filename/path glob — * and ? wildcards, e.g. *precinct3*");
         filters.add(nameRow);
@@ -101,6 +103,7 @@ class BallotListPanel extends JPanel {
         north.add(filters);
         add(north, BorderLayout.NORTH);
 
+        table.setName("ballotTable");
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.getColumnModel().getColumn(0).setMaxWidth(80);
 
@@ -119,6 +122,7 @@ class BallotListPanel extends JPanel {
         JPanel bottom = new JPanel(new BorderLayout());
         bottom.add(countLabel, BorderLayout.WEST);
         JButton viewBtn = new JButton("View →");
+        viewBtn.setName("viewButton");
         bottom.add(viewBtn, BorderLayout.EAST);
         add(bottom, BorderLayout.SOUTH);
 

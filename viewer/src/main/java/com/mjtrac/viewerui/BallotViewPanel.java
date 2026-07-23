@@ -70,6 +70,9 @@ class BallotViewPanel extends JPanel {
         this.viewService = viewService;
         this.contestCandidateWindow = contestCandidateWindow;
 
+        backBtn.setName("backButton");
+        prevBtn.setName("prevButton");
+        nextBtn.setName("nextButton");
         JPanel top = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         top.add(backBtn);
         top.add(new JSeparator(SwingConstants.VERTICAL));

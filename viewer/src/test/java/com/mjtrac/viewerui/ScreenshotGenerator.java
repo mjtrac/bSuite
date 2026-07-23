@@ -30,17 +30,41 @@ public class ScreenshotGenerator {
     static final Path OUT_DIR = Paths.get(System.getProperty("shots.dir",
         "/private/tmp/claude-501/-Users-mjtrac-pbss/2c1ac0f4-5791-487a-b6fa-f42d90ccdd41/scratchpad/shots"));
 
-    // Read-only seed: an earlier blCounter test-harness GUI-pipeline run's
-    // output. Never written to here (viewer's own ddl-auto=none matches).
+    // Read-only seed. Never written to here (viewer's own ddl-auto=none
+    // matches). Was the disposable output of an earlier blCounter
+    // test-harness GUI-pipeline run under test-harness/ (gitignored) — that
+    // corpus is emptied/regenerated independently of this tool and had 0
+    // ballot_image rows the last time this was run, silently producing only
+    // 1 of 3 screenshots (see the exception-swallowing note below). counter's
+    // own DemoWalkthroughRobot's demo election (docs/video_walkthrough_script.md)
+    // is a real, curated, always-available alternative: 10 ballots across a
+    // plurality/ranked-choice/measure mix.
     static final String SEED_DB = System.getProperty("user.home")
-        + "/pbss2/test-harness/desktop_pipeline/blcounter_results/counter_results.db";
+        + "/pbss_demo/db/counter_demo.db";
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        try {
+            run();
+            System.exit(0);
+        } catch (Throwable t) {
+            // A bare finally{System.exit(0)} here used to swallow whatever
+            // this threw without ever printing it -- System.exit()
+            // terminates the JVM before an uncaught exception gets a chance
+            // to propagate up and print its stack trace, so a real failure
+            // (e.g. the seed DB having 0 ballots) looked identical to a
+            // clean, silently-partial run.
+            t.printStackTrace();
+            System.exit(1);
+        }
+    }
+
+    private static void run() throws Exception {
         OUT_DIR.toFile().mkdirs();
 
         if (!new File(SEED_DB).isFile()) {
             throw new IllegalStateException("Seed DB not found: " + SEED_DB
-                + " — run test-harness/run_desktop_gui_pipeline.sh first.");
+                + " — run counter's DemoWalkthroughRobot first (see docs/video_walkthrough_script.md), "
+                + "then docs/prepare_demo_ballots.py before that.");
         }
 
         String[] overrides = {
@@ -58,57 +82,60 @@ public class ScreenshotGenerator {
             .headless(false)
             .run(overrides);
 
-        try {
-            String effectiveUrl = ctx.getEnvironment().getProperty("spring.datasource.url");
-            System.out.println("Effective spring.datasource.url = " + effectiveUrl);
-            if (effectiveUrl == null || !effectiveUrl.contains(SEED_DB)) {
-                throw new IllegalStateException(
-                    "REFUSING TO CONTINUE: datasource did not resolve to the read-only seed db. "
-                    + "Effective URL was: " + effectiveUrl);
-            }
-
-            BallotListPanel listPanel = ctx.getBean(BallotListPanel.class);
-            BallotViewPanel viewPanel = ctx.getBean(BallotViewPanel.class);
-            BallotViewService viewService = ctx.getBean(BallotViewService.class);
-
-            listPanel.setSize(1100, 750);
-            listPanel.doLayout();
-            listPanel.addNotify();
-            listPanel.refresh();
-            listPanel.validate();
-            shoot(listPanel, "viewer_1_list.png");
-
-            List<Long> ids = viewService.listAll().stream().map(b -> b.id).toList();
-            Long targetId = viewService.listAll().stream()
-                .filter(b -> b.imageName.contains("valid_all_check") && b.imageName.contains("clean"))
-                .map(b -> b.id).findFirst().orElse(ids.get(0));
-
-            viewPanel.setSize(1100, 750);
-            viewPanel.doLayout();
-            viewPanel.addNotify();
-            viewPanel.validate();
-
-            SwingUtilities.invokeAndWait(() -> viewPanel.load(targetId, ids));
-            // load() schedules fitToViewport() via invokeLater — flush the
-            // EDT queue once more so it actually runs before we paint.
-            SwingUtilities.invokeAndWait(() -> {});
-            Thread.sleep(300);
-            SwingUtilities.invokeAndWait(() -> {});
-
-            shoot(viewPanel, "viewer_2_view.png");
-
-            ContestCandidateWindow contestWindow = ctx.getBean(ContestCandidateWindow.class);
-            contestWindow.setSize(400, 620);
-            contestWindow.addNotify();
-            JTree tree = (JTree) getField(contestWindow, "tree");
-            for (int row = 0; row < tree.getRowCount(); row++) tree.expandRow(row);
-            contestWindow.validate();
-            shoot((JComponent) contestWindow.getContentPane(), "viewer_3_contests.png");
-
-            System.out.println("Done: " + OUT_DIR);
-        } finally {
-            System.exit(0);
+        String effectiveUrl = ctx.getEnvironment().getProperty("spring.datasource.url");
+        System.out.println("Effective spring.datasource.url = " + effectiveUrl);
+        if (effectiveUrl == null || !effectiveUrl.contains(SEED_DB)) {
+            throw new IllegalStateException(
+                "REFUSING TO CONTINUE: datasource did not resolve to the read-only seed db. "
+                + "Effective URL was: " + effectiveUrl);
         }
+
+        BallotListPanel listPanel = ctx.getBean(BallotListPanel.class);
+        BallotViewPanel viewPanel = ctx.getBean(BallotViewPanel.class);
+        BallotViewService viewService = ctx.getBean(BallotViewService.class);
+
+        listPanel.setSize(1100, 750);
+        listPanel.doLayout();
+        listPanel.addNotify();
+        listPanel.refresh();
+        listPanel.validate();
+        shoot(listPanel, "viewer_1_list.png");
+
+        List<Long> ids = viewService.listAll().stream().map(b -> b.id).toList();
+        if (ids.isEmpty()) {
+            throw new IllegalStateException("Seed DB has 0 ballot images: " + SEED_DB
+                + " -- run docs/prepare_demo_ballots.py and counter's DemoWalkthroughRobot first.");
+        }
+        // First demo ballot has a real mix of marks across all three
+        // contests (Mayor, ranked-choice City Council, Measure B) -- more
+        // illustrative on one screen than an arbitrary/empty one.
+        Long targetId = viewService.listAll().stream()
+            .filter(b -> b.imageName.contains("cast_ballot_01"))
+            .map(b -> b.id).findFirst().orElse(ids.get(0));
+
+        viewPanel.setSize(1100, 750);
+        viewPanel.doLayout();
+        viewPanel.addNotify();
+        viewPanel.validate();
+
+        SwingUtilities.invokeAndWait(() -> viewPanel.load(targetId, ids));
+        // load() schedules fitToViewport() via invokeLater — flush the
+        // EDT queue once more so it actually runs before we paint.
+        SwingUtilities.invokeAndWait(() -> {});
+        Thread.sleep(300);
+        SwingUtilities.invokeAndWait(() -> {});
+
+        shoot(viewPanel, "viewer_2_view.png");
+
+        ContestCandidateWindow contestWindow = ctx.getBean(ContestCandidateWindow.class);
+        contestWindow.setSize(400, 620);
+        contestWindow.addNotify();
+        JTree tree = (JTree) getField(contestWindow, "tree");
+        for (int row = 0; row < tree.getRowCount(); row++) tree.expandRow(row);
+        contestWindow.validate();
+        shoot((JComponent) contestWindow.getContentPane(), "viewer_3_contests.png");
+
+        System.out.println("Done: " + OUT_DIR);
     }
 
     static Object getField(Object target, String name) throws Exception {

@@ -66,6 +66,15 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+
+    <!-- Real java.awt.Robot-driven GUI automation — same version builder/
+         counter use, for the demo-video walkthrough robot. -->
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-swing</artifactId>
+      <version>3.17.1</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
