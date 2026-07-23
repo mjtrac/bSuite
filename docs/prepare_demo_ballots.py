@@ -10,11 +10,12 @@ interesting vote pattern:
   Mayor (plurality):        Alice Johnson=6, Bob Williams=3, Carmen Diaz=1
 
   City Council (ranked, 6 -- 5 named + a Write-In slot): first-rank votes
-  split 3/2/2/1/1/1 across Dana Kim/Elena Ruiz/Frank Osei/Grace Chen/Henry
-  Park/Write-In. Round 1 eliminates the three 1-vote candidates together
-  (Grace, Henry, Write-In -- tied for last), each transferring its single
-  ballot to a second choice, producing an exact 4/3/3 second round (Dana
-  Kim/Elena Ruiz/Frank Osei). Elena and Frank are then tied for last and
+  split 3/2/2/1/1/1 across Dana Kim/Elena Ruiz/Frank Osei/Grace Chen/
+  Hadassah Olayinka Ali-Youngman/Write-In. Round 1 eliminates the three
+  1-vote candidates together (Grace, Hadassah, Write-In -- tied for last),
+  each transferring its single ballot to a second choice, producing an
+  exact 4/3/3 second round (Dana Kim/Elena Ruiz/Frank Osei). Elena and
+  Frank are then tied for last and
   eliminated together in round 2; two of their six combined ballots
   transfer to Dana Kim (the other four exhaust -- no further rank marked),
   so Dana Kim wins the final round outright with 6 votes. Ballot 10 is the
@@ -202,7 +203,7 @@ BALLOTS = [
     ("Alice Johnson",  ["Frank Osei", "Dana Kim"],           "Yes"),
     ("Bob Williams",   ["Frank Osei"],                       "Yes"),
     ("Bob Williams",   ["Grace Chen", "Dana Kim"],           "No"),
-    ("Bob Williams",   ["Henry Park", "Elena Ruiz"],         "No"),
+    ("Bob Williams",   ["Hadassah Olayinka Ali-Youngman", "Elena Ruiz"], "No"),
     ("Carmen Diaz",    ["Write-In", "Frank Osei"],           "No"),
 ]
 

@@ -291,14 +291,11 @@ public class ScreenshotGenerator {
         alice.setName("Alice Johnson");
         alice.setDisplayOrder(1);
         alice.setContest(mayor);
-        alice.setPartyAffiliation("Independent");
-        // Plain ASCII "*" -- U+2605 (★) has no glyph in most PDF-embedded
-        // fonts and silently drops from the printed ballot.
-        alice.setPrefixText("*");
-        alice.setPrintPrefixText(true);
-        alice.setSuffixText("Incumbent");
-        alice.setPrintSuffixText(true);
-        alice.setExplanatoryText("Serving since 2022; endorsed by the Humboldt Chamber of Commerce.");
+        // No prefix/suffix/party -- those print directly on the name line,
+        // and nothing should print there beyond the name itself. The note
+        // prints in italics under the name by default
+        // (BallotDesignTemplate.candidateNoteItalic).
+        alice.setExplanatoryText("Incumbent (Ind)");
         alice.setPrintExplanatoryText(true);
         Candidate bob = new Candidate();
         bob.setName("Bob Williams");

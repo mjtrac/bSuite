@@ -28,7 +28,6 @@ import com.mjtrac.ballot.repository.JurisdictionRepository;
 import com.mjtrac.ballot.repository.PartyRepository;
 import com.mjtrac.ballot.repository.RegionRepository;
 import org.assertj.swing.core.BasicRobot;
-import org.assertj.swing.data.TableCell;
 import org.assertj.swing.edt.GuiActionRunner;
 import org.assertj.swing.finder.JOptionPaneFinder;
 import org.assertj.swing.fixture.FrameFixture;
@@ -195,16 +194,15 @@ public class DemoWalkthroughRobot {
                 pause();
                 window.button("saveButton").click();
 
-                // Alice gets the full field set (party, prefix, suffix,
-                // explanatory note) so the Candidates screen visibly shows
-                // candidates carry more than just a name — Bob/Carmen stay
-                // plain for contrast.
-                // Plain ASCII "*" -- not the U+2605 star glyph: most
-                // PDF-embedded fonts have no glyph for it, so it silently
-                // drops from the printed ballot instead of erroring,
-                // leaving a confusing blank gap before the name.
-                addCandidateExtra(window, "Alice Johnson", false, "Independent",
-                    "*", "Incumbent", "Serving since 2022; endorsed by the Humboldt Chamber of Commerce.");
+                // Alice gets an explanatory note (no prefix/suffix/party --
+                // those print directly on the candidate's own name line,
+                // and nothing should print there beyond the name itself)
+                // so the Candidates screen visibly shows candidates carry
+                // more than just a name — Bob/Carmen stay plain for
+                // contrast. Explanatory Text prints in italics under the
+                // name by default (BallotDesignTemplate.candidateNoteItalic).
+                addCandidateExtra(window, "Alice Johnson", false, null,
+                    null, null, "Incumbent (Ind)");
                 addCandidate(window, "Bob Williams");
                 addCandidate(window, "Carmen Diaz");
                 window.dialog("candidatesDialog").button("saveContinueButton").click();
@@ -234,7 +232,11 @@ public class DemoWalkthroughRobot {
                 addCandidate(window, "Elena Ruiz");
                 addCandidate(window, "Frank Osei");
                 addCandidate(window, "Grace Chen");
-                addCandidate(window, "Henry Park");
+                // Exercises a printed prefix/suffix alongside a long,
+                // hyphenated multi-part name -- a real stress case for the
+                // ballot renderer's name-wrapping and prefix/suffix layout.
+                addCandidateExtra(window, "Hadassah Olayinka Ali-Youngman", false, null,
+                    "Dr.", "Pre-PhD", null);
                 // A sixth, write-in slot — one of the cast demo ballots marks
                 // this instead of a printed candidate, so counter's write-in
                 // crop/report pipeline has something real to demonstrate.
@@ -350,6 +352,49 @@ public class DemoWalkthroughRobot {
                 window.button("openFolderButton").click();
             });
 
+            beat("Try a different design — connect-the-dots, two columns", () -> {
+                // A second, separate template (not an edit of the first) --
+                // but autoExport() names output files after the ballot
+                // COMBINATION only (region/party/type/election/page), never
+                // the template, so generating from this second template
+                // still overwrites the exact same ballot_*.pdf/.yaml the
+                // first Generate (beat 12) just wrote -- there is no way for
+                // both designs' files to coexist on disk. This beat restores
+                // the original oval/1-column design with a final, silent
+                // regenerate (no beat, no folder pop) after showing the
+                // alternate one, so the file prepare_demo_ballots.py picks
+                // up afterward is always the oval one the rest of the demo
+                // (RCV pattern, write-in, scribble mark) was built against.
+                window.menuItem("BallotDesignTemplatesMenuItem").click();
+                window.button("BallotDesignTemplatesNewButton").click();
+                window.comboBox("electionCombo").selectItem(0);
+                window.comboBox("paperCombo").selectItem("LETTER_8_5x11");
+                window.comboBox("indicatorCombo").selectItem("CONNECT_DOTS");
+                // Two columns even though this election's short candidate
+                // lists only need one -- demonstrating the option, not
+                // actually needing it, per the request.
+                window.spinner("columnsSpinner").enterText("2");
+                pause();
+                window.button("saveButton").click();
+
+                window.menuItem("PrintMenuItem").click();
+                window.comboBox("combinationCombo").selectItem(0);
+                // Item 1: the template just created above, not the
+                // original (item 0).
+                window.comboBox("templateCombo").selectItem(1);
+                window.comboBox("userCombo").selectItem(0);
+                window.button("generateButton").click();
+                pause();
+                window.button("openFolderButton").click();
+                pause();
+
+                // Silent restore -- see comment above. Not narrated; the
+                // presenter's "compare the two side by side" beat already
+                // happened via the Finder window opened just above.
+                window.comboBox("templateCombo").selectItem(0);
+                window.button("generateButton").click();
+            });
+
             System.out.println();
             System.out.println("Done. Ballot PDF/YAML written under: " + EXPORT_DIR);
             System.out.println("Next: run prepare_demo_ballots.py to mark sample cast ballots,");
@@ -383,17 +428,25 @@ public class DemoWalkthroughRobot {
         window.dialog("candidatesDialog").button("addCandidateButton").click();
         JTableFixture tableFx = window.dialog("candidatesDialog").table("candidatesTable");
         int row = tableFx.target().getRowCount() - 1;
-        // Settle before typing into the just-added row: typing straight into
-        // a cell editor that hasn't finished gaining focus yet can drop the
-        // Shift for the name's first keystroke (observed: "Write-In" landed
-        // as "write-In") -- a real flake that broke write-in vote matching
-        // in prepare_demo_ballots.py since candidate names must match
-        // exactly. pause() (DEMO_PAUSE_MS) both fixes the race and doubles
-        // as this beat's own on-screen pacing.
-        pause();
-        tableFx.enterValue(TableCell.row(row).column(0), name);
-
         javax.swing.table.TableModel model = tableFx.target().getModel();
+
+        // Name in two visible steps -- first name, then the full name --
+        // rather than robot-simulated keystroke-by-keystroke typing
+        // (org.assertj.swing.fixture.JTableFixture.enterValue()'s normal
+        // approach): noticeably faster for an on-camera beat, and it also
+        // removes a real flake where typing straight into a just-added
+        // row's cell editor before it fully gained focus could drop the
+        // Shift for the name's first letter (observed: "Write-In" landed
+        // as "write-In"). Names with no space ("Write-In", "Yes") just get
+        // set directly -- nothing to split.
+        int spaceIdx = name.indexOf(' ');
+        if (spaceIdx > 0) {
+            String firstName = name.substring(0, spaceIdx);
+            GuiActionRunner.execute(() -> model.setValueAt(firstName, row, 0));
+            shortPause();
+        }
+        GuiActionRunner.execute(() -> model.setValueAt(name, row, 0));
+
         GuiActionRunner.execute(() -> {
             if (writeIn) model.setValueAt(true, row, 1);
             if (party != null) model.setValueAt(party, row, 2);
@@ -423,6 +476,15 @@ public class DemoWalkthroughRobot {
     private static void pause() {
         try {
             Thread.sleep(DEMO_PAUSE_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    /** Brief beat between the first and last name in addCandidateExtra() -- pacing, not a "read this" pause. */
+    private static void shortPause() {
+        try {
+            Thread.sleep(300);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

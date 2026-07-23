@@ -54,10 +54,11 @@ checkbox.
 
 Saving a contest cascades straight into **Candidates**: one row per
 candidate/option in an editable table. A name is all that's required, but
-each row also has **Write-In**, **Party**, **Order**, and a printed
-**Prefix**/**Suffix** (e.g. "Incumbent", a term number) plus an
-**Explanatory Text** note beneath the name — Alice Johnson below shows
-the full set; Bob Williams shows the plain case.
+each row also has **Write-In**, **Party**, **Order**, a printed
+**Prefix**/**Suffix** on the candidate's own name line, and an
+**Explanatory Text** note printed in italics beneath the name (e.g.
+"Incumbent (Ind)") — Alice Johnson below shows that note; Bob Williams
+shows the plain case.
 
 ![builder candidates screen](screenshots/builder_02c_candidates_dialog.png)
 

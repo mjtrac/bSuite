@@ -100,20 +100,20 @@ mvn -q -o exec:java -Dexec.mainClass=com.mjtrac.builderui.DemoWalkthroughRobot -
 
 *[Robot opens Setup → Contests, creates "Mayor" as a plurality contest, vote for
 one. Saving cascades straight into the Candidates dialog, where the robot types in
-three real candidate names — Alice Johnson gets a party affiliation, an "Incumbent"
-suffix, and an explanatory note, so the table visibly carries more than just a name
-column. Saving that cascades into the Regions dialog, where the robot assigns
-Precinct 1.]*
+three real candidate names — Alice Johnson gets an explanatory note, so the table
+visibly carries more than just a name column. Saving that cascades into the
+Regions dialog, where the robot assigns Precinct 1.]*
 
 > "Our first contest: Mayor, a standard vote-for-one race. Saving a new contest
 > takes you straight into adding candidates — Alice Johnson, Bob Williams, Carmen
-> Diaz. Notice the Candidates table has room for more than a name: party
-> affiliation, a prefix or suffix printed right on the ballot line — here,
-> 'Incumbent' next to Alice Johnson — and an explanatory note underneath. None of
-> that is required, but it's there when a real race needs it. Saving candidates
-> moves into assigning which regions this contest appears in — that assignment is
-> what lets pbss build different ballot styles for different parts of a
-> jurisdiction from the same election."
+> Diaz. Notice the Candidates table has room for more than a name: an optional
+> party affiliation, a prefix or suffix printed right on the ballot line, and an
+> explanatory note underneath — here, 'Incumbent (Ind)' prints in italics under
+> Alice Johnson's name rather than crowding the name line itself. None of that is
+> required, but it's there when a real race needs it. Saving candidates moves into
+> assigning which regions this contest appears in — that assignment is what lets
+> pbss build different ballot styles for different parts of a jurisdiction from
+> the same election."
 
 **Press Enter.**
 
@@ -195,13 +195,39 @@ showing both files.]*
 > that YAML is what the counter uses to know where to look. Here's the folder they
 > both landed in."
 
-**Press Enter** — the robot prints where the files landed and exits.
+**Press Enter.**
 
 > *[With the Finder window now open, click the PDF to open and scroll through
 > it — point out the corner marks in each corner (used for orientation and to
 > correct for a tilted scan), and the ovals next to each candidate. Then open
 > the YAML alongside it and point out that its coordinates are exactly what
 > counter reads to find those same marks on a scanned image.]*
+
+### Beat 13 — Try a different design
+
+*[Robot creates a second Ballot Design Template — same election, letter paper,
+but "Connect the Dots" instead of ovals, and two columns — then generates and
+opens the output folder again. A generated ballot's filename is keyed to its
+ballot combination, not its template, so this regenerates the *same* PDF/YAML
+the folder already had, now in the new design — not a second file alongside
+the first. The robot then silently regenerates once more with the original
+oval/one-column template, off camera, so the ballot the rest of this demo
+(and `prepare_demo_ballots.py`, next) is built around ends up back on disk
+exactly as it was after Beat 12 — that last regenerate isn't narrated or
+shown; nothing changes on screen when it happens.]*
+
+> "The physical design isn't locked in once you've printed — here's a second
+> template for the same election: connect-the-dots instead of filled ovals, and
+> two columns instead of one, even though this short a ballot doesn't actually
+> need the second column. Generate again, and the same PDF is rebuilt in the
+> new design — same contests, same candidates, a completely different physical
+> layout."
+
+**Press Enter** — the robot prints where the files landed and exits.
+
+> *[Open the regenerated PDF and page through it — point out how different
+> connect-the-dots and two columns look against the oval/one-column version
+> from a moment ago.]*
 
 **Stop recording this segment.**
 
@@ -216,20 +242,23 @@ filling out ballots by hand either. Run this between recording sessions.)*
 python3 docs/prepare_demo_ballots.py
 ```
 
-This rasterizes the ballot PDF `builder` just generated and produces 10 marked,
-scanned-looking ballot images under `~/pbss_demo/cast_ballots/` — as if they'd
-already come back from the precinct. The vote pattern is designed to be
-interesting on camera:
+This rasterizes the oval/one-column ballot PDF — Beat 13's connect-the-dots/
+two-column design is shown briefly for the demo but never scanned or counted;
+its own last action silently regenerates the oval version back onto disk before
+builder exits, specifically so this step always finds the right one — and
+produces 10 marked, scanned-looking ballot images under `~/pbss_demo/cast_ballots/`
+as if they'd already come back from the precinct. The vote pattern is designed
+to be interesting on camera:
 
 - **Mayor:** Alice Johnson wins clearly (6 of 10)
 - **City Council:** first-choice votes split 3/2/2/1/1/1 across Dana Kim, Elena
-  Ruiz, Frank Osei, Grace Chen, Henry Park, and the Write-In slot — nobody has a
-  majority, so the three lowest (tied at 1 each) are eliminated together in
-  round 1, producing an exact 4/3/3 second round; the two now-tied-for-last are
-  eliminated together in round 2, and Dana Kim wins the final round outright
-  with 6 votes. One of the ten ballots is the one that actually marks the
-  Write-In slot, with a hand-written name on it — counter's write-in crop/review
-  pipeline picks that up automatically.
+  Ruiz, Frank Osei, Grace Chen, Hadassah Olayinka Ali-Youngman, and the
+  Write-In slot — nobody has a majority, so the three lowest (tied at 1 each)
+  are eliminated together in round 1, producing an exact 4/3/3 second round;
+  the two now-tied-for-last are eliminated together in round 2, and Dana Kim
+  wins the final round outright with 6 votes. One of the ten ballots is the
+  one that actually marks the Write-In slot, with a hand-written name on it —
+  counter's write-in crop/review pipeline picks that up automatically.
 - **Measure B:** passes at 70% — comfortably over its 60% threshold
 
 One ballot (`cast_ballot_03.png`) also carries an unrelated hand-scribbled note —
