@@ -11,6 +11,7 @@ import com.mjtrac.ballot.repository.ContestRepository;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellEditor;
 import java.awt.*;
 import java.util.ArrayList;
@@ -51,15 +52,56 @@ final class ContestCandidatesDialog {
         table.setName("candidatesTable");
         table.setRowHeight(24);
         // "Name" (column 0) otherwise defaults to the same narrow
-        // auto-width JTable gives every column here — wide enough for a
-        // real candidate name (many run 20-30+ characters) that the user
-        // shouldn't have to manually drag it wider every time this dialog
-        // opens. "M" is one of the widest common letters, so 30 of them is
-        // a deliberate over-estimate — real names mix narrower letters too
-        // — guaranteeing at least 30 characters actually fit, not just on
-        // average.
+        // auto-width JTable gives every column here. 20 "M"s is 2/3 of the
+        // 30 this used to be — still comfortable room for a real candidate
+        // name, but the other nine columns need their own share of the
+        // dialog's width too.
         FontMetrics nameFm = table.getFontMetrics(table.getFont());
-        table.getColumnModel().getColumn(0).setPreferredWidth(nameFm.stringWidth("M") * 30);
+        table.getColumnModel().getColumn(0).setPreferredWidth(nameFm.stringWidth("M") * 20);
+
+        // The three "Print <Field>" checkbox columns get a two-line header
+        // ("Print" over the field name) — as one line each was the widest
+        // captions in the table by far, forcing every other column wider
+        // than it needed to be just to avoid truncating these three.
+        table.getColumnModel().getColumn(5).setHeaderValue("<html>Print<br>Prefix</html>");
+        table.getColumnModel().getColumn(7).setHeaderValue("<html>Print<br>Suffix</html>");
+        table.getColumnModel().getColumn(9).setHeaderValue("<html>Print<br>Explanatory</html>");
+
+        // Every other column defaulted to JTable's flat 75px auto-width,
+        // narrower than several of these column captions — truncating
+        // headers instead of growing to fit them. Size each to the wider of
+        // its own header text (the two-line columns measured by their
+        // widest single line, not the full concatenated caption) or a
+        // reasonable amount of room for real content, so nothing here is
+        // ever narrower than its label.
+        FontMetrics headerFm = table.getTableHeader().getFontMetrics(table.getTableHeader().getFont());
+        int headerPad = 24; // header cell insets + sort-indicator space
+        for (int col = 1; col < model.getColumnCount(); col++) {
+            int headerTextWidth = switch (col) {
+                case 5, 9 -> headerFm.stringWidth("Explanatory"); // "Print"/"Prefix"/"Explanatory" -- widest word wins
+                case 7    -> headerFm.stringWidth("Suffix");
+                default   -> headerFm.stringWidth(model.getColumnName(col));
+            };
+            int headerWidth = headerTextWidth + headerPad;
+            int contentWidth = switch (col) {
+                case 2, 4, 6 -> nameFm.stringWidth("M") * 12; // Party/Prefix/Suffix Text
+                case 8 -> nameFm.stringWidth("M") * 20;       // Explanatory Text
+                default -> 0;                                 // Write-In/Order/Print-* checkboxes: header width is enough
+            };
+            table.getColumnModel().getColumn(col).setPreferredWidth(Math.max(headerWidth, contentWidth));
+        }
+        int totalColumnWidth = 0;
+        for (int col = 0; col < model.getColumnCount(); col++) {
+            totalColumnWidth += table.getColumnModel().getColumn(col).getPreferredWidth();
+        }
+        // Two-line headers need a taller header row than JTableHeader's
+        // single-line default, or their second line clips. Reuses the
+        // width JTableHeader would already auto-compute from the column
+        // widths just set above, so fixing the height here doesn't also
+        // freeze the header narrower than its columns.
+        JTableHeader header = table.getTableHeader();
+        int twoLineHeaderHeight = headerFm.getHeight() * 2 + 10;
+        header.setPreferredSize(new Dimension(header.getPreferredSize().width, twoLineHeaderHeight));
         // "Order" (column 3) is numeric entry — a spinner constrains input
         // to valid integers directly, rather than free text parsed (and
         // silently ignored on bad input) after the fact.
@@ -142,11 +184,11 @@ final class ContestCandidatesDialog {
         });
 
         dialog.getContentPane().add(root);
-        // Widened from 760: the Name column now takes noticeably more of
-        // the row width (see nameFm above), so the remaining free-text
-        // columns (Party, Prefix/Suffix/Explanatory Text) need the extra
-        // room to stay usable rather than being squeezed to near-zero.
-        dialog.setSize(900, 420);
+        // Sized to the table's own actual preferred column widths (computed
+        // above) plus margin for the scrollpane border/insets, rather than a
+        // fixed guess — so every column, including its header text, is
+        // visible without needing a horizontal scroll or manual resize.
+        dialog.setSize(Math.max(900, totalColumnWidth + 40), 420);
         dialog.setLocationRelativeTo(owner);
         dialog.setVisible(true);
     }

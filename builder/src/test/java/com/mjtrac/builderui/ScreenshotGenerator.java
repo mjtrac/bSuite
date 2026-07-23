@@ -292,11 +292,13 @@ public class ScreenshotGenerator {
         alice.setDisplayOrder(1);
         alice.setContest(mayor);
         alice.setPartyAffiliation("Independent");
-        alice.setPrefixText("★");
+        // Plain ASCII "*" -- U+2605 (★) has no glyph in most PDF-embedded
+        // fonts and silently drops from the printed ballot.
+        alice.setPrefixText("*");
         alice.setPrintPrefixText(true);
         alice.setSuffixText("Incumbent");
         alice.setPrintSuffixText(true);
-        alice.setExplanatoryText("Serving since 2022; endorsed by the Riverside Chamber of Commerce.");
+        alice.setExplanatoryText("Serving since 2022; endorsed by the Humboldt Chamber of Commerce.");
         alice.setPrintExplanatoryText(true);
         Candidate bob = new Candidate();
         bob.setName("Bob Williams");

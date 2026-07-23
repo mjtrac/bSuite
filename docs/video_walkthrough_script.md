@@ -10,7 +10,7 @@ you're ready for the robot to perform the next beat. There's no clock to race �
 record in one continuous take per segment, narrating over what's already on screen
 and then watching the next action happen live.
 
-**Demo data:** one election — *Riverside County, 2026 General Election* — with
+**Demo data:** one election — *Humboldt County, 2026 General Election* — with
 three contests chosen to show off three different counting modes:
 - **Mayor** — plurality, vote for one, three candidates (one with a party,
   incumbent marker, and note beyond just a name)
@@ -61,10 +61,10 @@ mvn -q -o exec:java -Dexec.mainClass=com.mjtrac.builderui.DemoWalkthroughRobot -
 
 ### Beat 2 — Create the jurisdiction
 
-*[Robot opens Setup → Jurisdictions, clicks New, types "Riverside County", saves.]*
+*[Robot opens Setup → Jurisdictions, clicks New, types "Humboldt County", saves.]*
 
 > "Every ballot starts with a jurisdiction — the county or district running the
-> election. I'll call ours Riverside County."
+> election. I'll call ours Humboldt County."
 
 **Press Enter.**
 
@@ -186,17 +186,22 @@ Precinct ballot type, this election.]*
 ### Beat 12 — Generate the PDF
 
 *[Robot opens Ballots → Print, selects the combination/template/user, clicks
-Generate. A real PDF and YAML layout file are written to disk.]*
+Generate. A real PDF and YAML layout file are written to disk. It then clicks
+"Open Output Folder" — a real Finder window opens on the export folder,
+showing both files.]*
 
 > "And that's enough to print a real ballot. Generate produces an actual PDF, plus a
 > YAML file describing the exact pixel position of every vote target on the page —
-> that YAML is what the counter uses to know where to look."
+> that YAML is what the counter uses to know where to look. Here's the folder they
+> both landed in."
 
 **Press Enter** — the robot prints where the files landed and exits.
 
-> *[Optional: open the generated PDF here on screen and scroll through it — point
-> out the corner marks in each corner (used for orientation and to correct for a
-> tilted scan), and the ovals next to each candidate.]*
+> *[With the Finder window now open, click the PDF to open and scroll through
+> it — point out the corner marks in each corner (used for orientation and to
+> correct for a tilted scan), and the ovals next to each candidate. Then open
+> the YAML alongside it and point out that its coordinates are exactly what
+> counter reads to find those same marks on a scanned image.]*
 
 **Stop recording this segment.**
 

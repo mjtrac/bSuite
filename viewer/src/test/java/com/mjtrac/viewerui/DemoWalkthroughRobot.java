@@ -41,6 +41,12 @@ public class DemoWalkthroughRobot {
     private static final BufferedReader STDIN = new BufferedReader(new InputStreamReader(System.in));
     private static int beatNumber = 0;
 
+    // Demo-recording pacing: how long freshly typed text stays on screen
+    // before the robot's next action, so it's legible on a recording
+    // rather than flashing by (same convention as builder's/counter's
+    // DemoWalkthroughRobot).
+    private static final int DEMO_PAUSE_MS = 2000;
+
     public static void main(String[] args) {
         try {
             run();
@@ -91,7 +97,9 @@ public class DemoWalkthroughRobot {
         try {
             beat("Sign in as admin", () -> {
                 login.textBox("usernameField").setText("admin");
+                pause();
                 login.textBox("passwordField").setText("ChangeMe123!");
+                pause();
                 login.button("signInButton").click();
             });
 
@@ -122,6 +130,15 @@ public class DemoWalkthroughRobot {
     private static void beat(String description, Runnable action) {
         action.run();
         waitForEnter("Beat " + (++beatNumber) + " done: " + description);
+    }
+
+    /** See DEMO_PAUSE_MS. */
+    private static void pause() {
+        try {
+            Thread.sleep(DEMO_PAUSE_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void waitForEnter(String prompt) {

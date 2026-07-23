@@ -49,6 +49,12 @@ public class DemoWalkthroughRobot {
     private static final BufferedReader STDIN = new BufferedReader(new InputStreamReader(System.in));
     private static int beatNumber = 0;
 
+    // Demo-recording pacing: how long freshly typed text stays on screen
+    // before the robot's next action, so it's legible on a recording
+    // rather than flashing by (same convention as builder's/viewer's
+    // DemoWalkthroughRobot).
+    private static final int DEMO_PAUSE_MS = 2000;
+
     public static void main(String[] args) {
         try {
             run();
@@ -95,7 +101,9 @@ public class DemoWalkthroughRobot {
 
             beat("Point counter at the scanned images and the ballot layout", () -> {
                 window.textBox("imageFolderField").deleteText().enterText(IMAGES_DIR.toString());
+                pause();
                 window.textBox("reportFolderField").deleteText().enterText(LAYOUT_DIR.toString());
+                pause();
             });
 
             action("Click Start Counting", () -> window.button("startButton").click());
@@ -135,6 +143,15 @@ public class DemoWalkthroughRobot {
     private static void action(String description, Runnable action) {
         action.run();
         System.out.println(description + "...");
+    }
+
+    /** See DEMO_PAUSE_MS. */
+    private static void pause() {
+        try {
+            Thread.sleep(DEMO_PAUSE_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void waitForEnter(String prompt) {

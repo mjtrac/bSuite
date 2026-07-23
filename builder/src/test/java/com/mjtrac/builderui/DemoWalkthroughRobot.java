@@ -55,6 +55,12 @@ public class DemoWalkthroughRobot {
     private static final BufferedReader STDIN = new BufferedReader(new InputStreamReader(System.in));
     private static int beatNumber = 0;
 
+    // Demo-recording pacing: how long freshly typed text or a popped-up
+    // dialog stays on screen before the robot's next action, so it's
+    // legible on a recording rather than flashing by faster than a viewer
+    // (or the presenter narrating live) can read it.
+    private static final int DEMO_PAUSE_MS = 2000;
+
     @SpringBootApplication(scanBasePackages = "com.mjtrac.ballot")
     @EntityScan("com.mjtrac.ballot.model")
     static class SeedConfig {
@@ -139,10 +145,11 @@ public class DemoWalkthroughRobot {
         try {
             beat("Open builder", () -> {});
 
-            beat("Create the jurisdiction — Riverside County", () -> {
+            beat("Create the jurisdiction — Humboldt County", () -> {
                 window.menuItem("JurisdictionsMenuItem").click();
                 window.button("JurisdictionsNewButton").click();
-                window.textBox("nameField").setText("Riverside County");
+                window.textBox("nameField").setText("Humboldt County");
+                pause();
                 window.button("saveButton").click();
             });
 
@@ -151,6 +158,7 @@ public class DemoWalkthroughRobot {
                 window.button("RegionsNewButton").click();
                 window.comboBox("jurisdictionCombo").selectItem(0);
                 window.textBox("nameField").setText("Precinct 1");
+                pause();
                 window.comboBox("typeCombo").selectItem("SINGLE_PRECINCT");
                 window.button("saveButton").click();
             });
@@ -160,6 +168,7 @@ public class DemoWalkthroughRobot {
                 window.button("BallotTypesNewButton").click();
                 window.comboBox("jurisdictionCombo").selectItem(0);
                 window.textBox("nameField").setText("Precinct");
+                pause();
                 window.button("saveButton").click();
             });
 
@@ -168,7 +177,9 @@ public class DemoWalkthroughRobot {
                 window.button("ElectionsNewButton").click();
                 window.comboBox("jurisdictionCombo").selectItem(0);
                 window.textBox("nameField").setText("2026 General Election");
+                pause();
                 window.textBox("dateField").setText("2026-11-03");
+                pause();
                 window.comboBox("typeCombo").selectItem("GENERAL");
                 window.button("saveButton").click();
             });
@@ -178,20 +189,30 @@ public class DemoWalkthroughRobot {
                 window.button("ContestsNewButton").click();
                 window.comboBox("electionCombo").selectItem(0);
                 window.textBox("titleField").setText("Mayor");
+                pause();
                 window.comboBox("methodCombo").selectItem("PLURALITY");
                 window.spinner("maxChoicesSpinner").enterText("1");
+                pause();
                 window.button("saveButton").click();
 
                 // Alice gets the full field set (party, prefix, suffix,
                 // explanatory note) so the Candidates screen visibly shows
                 // candidates carry more than just a name — Bob/Carmen stay
                 // plain for contrast.
+                // Plain ASCII "*" -- not the U+2605 star glyph: most
+                // PDF-embedded fonts have no glyph for it, so it silently
+                // drops from the printed ballot instead of erroring,
+                // leaving a confusing blank gap before the name.
                 addCandidateExtra(window, "Alice Johnson", false, "Independent",
-                    "★", "Incumbent", "Serving since 2022; endorsed by the Riverside Chamber of Commerce.");
+                    "*", "Incumbent", "Serving since 2022; endorsed by the Humboldt Chamber of Commerce.");
                 addCandidate(window, "Bob Williams");
                 addCandidate(window, "Carmen Diaz");
                 window.dialog("candidatesDialog").button("saveContinueButton").click();
 
+                // Pause as soon as the dialog appears, before selecting
+                // anything, so it's actually readable on a recording rather
+                // than the precinct selection happening the instant it pops up.
+                pause();
                 window.dialog("regionsDialog").list("regionList").selectItem(0);
                 window.dialog("regionsDialog").button("saveButton").click();
             });
@@ -201,9 +222,12 @@ public class DemoWalkthroughRobot {
                 window.button("ContestsNewButton").click();
                 window.comboBox("electionCombo").selectItem(0);
                 window.textBox("titleField").setText("City Council");
+                pause();
                 window.comboBox("methodCombo").selectItem("RANKED_CHOICE");
                 window.spinner("maxChoicesSpinner").enterText("1");
+                pause();
                 window.spinner("maxRankSpinner").enterText("5");
+                pause();
                 window.button("saveButton").click();
 
                 addCandidate(window, "Dana Kim");
@@ -217,6 +241,10 @@ public class DemoWalkthroughRobot {
                 addCandidateExtra(window, "Write-In", true, null, null, null, null);
                 window.dialog("candidatesDialog").button("saveContinueButton").click();
 
+                // Pause as soon as the dialog appears, before selecting
+                // anything, so it's actually readable on a recording rather
+                // than the precinct selection happening the instant it pops up.
+                pause();
                 window.dialog("regionsDialog").list("regionList").selectItem(0);
                 window.dialog("regionsDialog").button("saveButton").click();
             });
@@ -226,33 +254,48 @@ public class DemoWalkthroughRobot {
                 window.button("ContestsNewButton").click();
                 window.comboBox("electionCombo").selectItem(0);
                 window.textBox("titleField").setText("Measure B — Library Bond");
+                pause();
                 window.comboBox("methodCombo").selectItem("MEASURE");
                 window.spinner("maxChoicesSpinner").enterText("1");
+                pause();
                 window.spinner("percentToWinSpinner").enterText("60");
+                pause();
                 // Preamble/postamble — the statutory blurb and fiscal-impact
                 // note a real bond measure carries, shown here so the
                 // Contest screen visibly has more than a title and a
                 // dropdown behind it.
                 window.textBox("preambleArea").setText(
                     "This measure authorizes the City to issue up to $12,000,000 in "
-                    + "general obligation bonds to renovate and expand the Riverside "
+                    + "general obligation bonds to renovate and expand the Humboldt "
                     + "Public Library.");
+                pause();
                 window.checkBox("printPreamble").check();
                 window.textBox("postambleArea").setText(
                     "Approximate cost to homeowners: $18 per $100,000 of assessed "
                     + "value, annually, until the bonds are repaid.");
+                pause();
                 window.checkBox("printPostamble").check();
                 window.button("saveButton").click();
                 // Changing percentToWin away from the 50% default pops a
                 // confirmation dialog (see ContestPanel's showConfirmDialog) —
                 // fires here since a brand-new contest's spinner still starts
-                // at the 50% default before this beat changes it to 60.
-                JOptionPaneFinder.findOptionPane().using(window.robot()).yesButton().click();
+                // at the 50% default before this beat changes it to 60. Held
+                // on screen via pause() (DEMO_PAUSE_MS) before being
+                // dismissed, so it's actually legible on a recording rather
+                // than flashing past before a viewer can read it.
+                org.assertj.swing.fixture.JOptionPaneFixture confirmThresholdDialog =
+                    JOptionPaneFinder.findOptionPane().using(window.robot());
+                pause();
+                confirmThresholdDialog.yesButton().click();
 
                 addCandidate(window, "Yes");
                 addCandidate(window, "No");
                 window.dialog("candidatesDialog").button("saveContinueButton").click();
 
+                // Pause as soon as the dialog appears, before selecting
+                // anything, so it's actually readable on a recording rather
+                // than the precinct selection happening the instant it pops up.
+                pause();
                 window.dialog("regionsDialog").list("regionList").selectItem(0);
                 window.dialog("regionsDialog").button("saveButton").click();
             });
@@ -264,6 +307,7 @@ public class DemoWalkthroughRobot {
                 window.comboBox("paperCombo").selectItem("LETTER_8_5x11");
                 window.comboBox("indicatorCombo").selectItem("OVAL");
                 window.spinner("columnsSpinner").enterText("1");
+                pause();
                 window.button("saveButton").click();
             });
 
@@ -281,7 +325,9 @@ public class DemoWalkthroughRobot {
                 window.menuItem("AdminUsersMenuItem").click();
                 window.button("UsersNewButton").click();
                 window.textBox("usernameField").setText("clerk1");
+                pause();
                 window.textBox("passwordField").setText("s3cret-pw");
+                pause();
                 window.checkBox("adminCheck").check();
                 window.comboBox("jurisdictionCombo").selectItem(0);
                 window.button("saveButton").click();
@@ -293,6 +339,15 @@ public class DemoWalkthroughRobot {
                 window.comboBox("templateCombo").selectItem(0);
                 window.comboBox("userCombo").selectItem(0);
                 window.button("generateButton").click();
+                pause();
+                // Pops a real Finder window on the export folder, showing
+                // both the generated PDF and its companion YAML side by
+                // side — deliberate for the recording, same reasoning as
+                // counter's robot clicking its own "open results" button:
+                // a real OS window opening live is worth seeing on camera,
+                // and it's what lets the presenter click either file open
+                // right after this beat.
+                window.button("openFolderButton").click();
             });
 
             System.out.println();
@@ -328,6 +383,14 @@ public class DemoWalkthroughRobot {
         window.dialog("candidatesDialog").button("addCandidateButton").click();
         JTableFixture tableFx = window.dialog("candidatesDialog").table("candidatesTable");
         int row = tableFx.target().getRowCount() - 1;
+        // Settle before typing into the just-added row: typing straight into
+        // a cell editor that hasn't finished gaining focus yet can drop the
+        // Shift for the name's first keystroke (observed: "Write-In" landed
+        // as "write-In") -- a real flake that broke write-in vote matching
+        // in prepare_demo_ballots.py since candidate names must match
+        // exactly. pause() (DEMO_PAUSE_MS) both fixes the race and doubles
+        // as this beat's own on-screen pacing.
+        pause();
         tableFx.enterValue(TableCell.row(row).column(0), name);
 
         javax.swing.table.TableModel model = tableFx.target().getModel();
@@ -347,12 +410,22 @@ public class DemoWalkthroughRobot {
                 model.setValueAt(true, row, 9);
             }
         });
+        pause();
     }
 
     /** Prints the beat's narration cue, runs the GUI action, then blocks on Enter before the next beat. */
     private static void beat(String description, Runnable action) {
         action.run();
         waitForEnter("Beat " + (++beatNumber) + " done: " + description);
+    }
+
+    /** See DEMO_PAUSE_MS. */
+    private static void pause() {
+        try {
+            Thread.sleep(DEMO_PAUSE_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static void waitForEnter(String prompt) {
