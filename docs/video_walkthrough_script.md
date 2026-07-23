@@ -12,9 +12,12 @@ and then watching the next action happen live.
 
 **Demo data:** one election — *Riverside County, 2026 General Election* — with
 three contests chosen to show off three different counting modes:
-- **Mayor** — plurality, vote for one, three candidates
-- **City Council** — ranked-choice, five candidates
-- **Measure B (Library Bond)** — a ballot measure requiring 60% (not the usual 50%) to pass
+- **Mayor** — plurality, vote for one, three candidates (one with a party,
+  incumbent marker, and note beyond just a name)
+- **City Council** — ranked-choice, five named candidates plus a write-in slot
+- **Measure B (Library Bond)** — a ballot measure requiring 60% (not the usual
+  50%) to pass, with a real preamble/postamble (the statutory blurb and fiscal
+  note a bond measure actually carries)
 
 Everything lives under `~/pbss_demo/`, never your real election data. Each robot
 wipes and rebuilds its own app's demo database at the start of every run, so you can
@@ -97,40 +100,53 @@ mvn -q -o exec:java -Dexec.mainClass=com.mjtrac.builderui.DemoWalkthroughRobot -
 
 *[Robot opens Setup → Contests, creates "Mayor" as a plurality contest, vote for
 one. Saving cascades straight into the Candidates dialog, where the robot types in
-three real candidate names. Saving that cascades into the Regions dialog, where the
-robot assigns Precinct 1.]*
+three real candidate names — Alice Johnson gets a party affiliation, an "Incumbent"
+suffix, and an explanatory note, so the table visibly carries more than just a name
+column. Saving that cascades into the Regions dialog, where the robot assigns
+Precinct 1.]*
 
 > "Our first contest: Mayor, a standard vote-for-one race. Saving a new contest
 > takes you straight into adding candidates — Alice Johnson, Bob Williams, Carmen
-> Diaz — and then into assigning which regions this contest appears in. That
-> assignment is what lets pbss build different ballot styles for different parts of
-> a jurisdiction from the same election."
+> Diaz. Notice the Candidates table has room for more than a name: party
+> affiliation, a prefix or suffix printed right on the ballot line — here,
+> 'Incumbent' next to Alice Johnson — and an explanatory note underneath. None of
+> that is required, but it's there when a real race needs it. Saving candidates
+> moves into assigning which regions this contest appears in — that assignment is
+> what lets pbss build different ballot styles for different parts of a
+> jurisdiction from the same election."
 
 **Press Enter.**
 
 ### Beat 7 — Create the City Council contest (ranked choice)
 
-*[Robot creates "City Council" as a ranked-choice contest, five ranks, five
-candidates, assigned to Precinct 1.]*
+*[Robot creates "City Council" as a ranked-choice contest, five ranks, five named
+candidates plus a sixth "Write-In" slot, assigned to Precinct 1.]*
 
 > "Here's where it gets more interesting: City Council is ranked-choice voting.
 > Voters rank up to five candidates in order of preference, and if nobody gets a
 > majority of first-choice votes, the counter runs an instant-runoff — eliminating
-> the lowest candidate and transferring their voters' next choice — until someone
-> does. We'll see that play out for real in a few minutes."
+> the lowest candidate(s) and transferring their voters' next choice — until
+> someone does. I'm also adding a sixth slot here, marked Write-In, so a voter can
+> back someone who isn't printed on the ballot at all. We'll see both the runoff
+> and a real write-in play out in a few minutes."
 
 **Press Enter.**
 
-### Beat 8 — Create Measure B (60% threshold)
+### Beat 8 — Create Measure B (60% threshold, preamble/postamble)
 
 *[Robot creates "Measure B — Library Bond" as a MEASURE contest, sets "Percent
-Required to Win" to 60, adds Yes/No candidates, assigns Precinct 1.]*
+Required to Win" to 60, types a preamble and postamble and checks their "Print"
+boxes, adds Yes/No candidates, assigns Precinct 1.]*
 
 > "And a ballot measure — Measure B, a library bond. Bond measures often need more
 > than a simple majority to pass; this one requires 60%. pbss supports any threshold
 > per contest, not just the default fifty-percent-plus-one, and the results report
 > will flag any contest using a non-default threshold so nobody misreads a 55%
-> result as a win when the real bar was 60."
+> result as a win when the real bar was 60. I'm also filling in a preamble — the
+> statutory description that has to appear before the Yes/No choices — and a
+> postamble underneath with the estimated cost to homeowners. Both print right on
+> the ballot exactly where a real bond measure's language is legally required to
+> go."
 
 **Press Enter.**
 
@@ -201,9 +217,21 @@ already come back from the precinct. The vote pattern is designed to be
 interesting on camera:
 
 - **Mayor:** Alice Johnson wins clearly (6 of 10)
-- **City Council:** no one has a first-choice majority, so the counter's
-  ranked-choice tabulation runs two elimination rounds before Dana Kim wins
+- **City Council:** first-choice votes split 3/2/2/1/1/1 across Dana Kim, Elena
+  Ruiz, Frank Osei, Grace Chen, Henry Park, and the Write-In slot — nobody has a
+  majority, so the three lowest (tied at 1 each) are eliminated together in
+  round 1, producing an exact 4/3/3 second round; the two now-tied-for-last are
+  eliminated together in round 2, and Dana Kim wins the final round outright
+  with 6 votes. One of the ten ballots is the one that actually marks the
+  Write-In slot, with a hand-written name on it — counter's write-in crop/review
+  pipeline picks that up automatically.
 - **Measure B:** passes at 70% — comfortably over its 60% threshold
+
+One ballot (`cast_ballot_03.png`) also carries an unrelated hand-scribbled note —
+"Meet Joe at 5." — to the right of the Mayor contest title, simulating a real
+voter's stray pen mark that has nothing to do with any vote. It's there so the
+demo set includes at least one imperfect, real-looking ballot rather than ten
+that look computer-generated.
 
 ---
 
@@ -262,12 +290,22 @@ processed.]*
 > 60% requirement being called out explicitly, so nobody misreads what number
 > actually mattered.
 >
-> City Council is the interesting one: with five candidates and no first-choice
-> majority, you can see the round-by-round breakdown — who got eliminated each
-> round, and how their voters' next choice carried forward — until Dana Kim crosses
-> the threshold in the final round. That entire ranked-choice tabulation, corner
-> detection, and mark-reading pipeline is the same code whether you're counting ten
-> ballots or ten thousand."
+> City Council is the interesting one — six-way field, nobody close to a
+> majority on first choices. Open the ranked-choice report and you can see it
+> round by round: the three lowest candidates, all tied at one vote apiece, get
+> eliminated together in round one — that produces this clean 4/3/3 second
+> round. The two now tied for last get eliminated together in round two, and
+> Dana Kim comes out the other side with a clear majority: six votes, a
+> straight win. That entire ranked-choice tabulation, corner detection, and
+> mark-reading pipeline is the same code whether you're counting ten ballots or
+> ten thousand.
+>
+> One more thing worth opening: the write-in report. One of these ten ballots
+> marked the write-in slot instead of a printed candidate, and counter didn't
+> just count that mark — it cropped the actual handwritten name off the ballot
+> image and put it in a report for a human to read and adjudicate. Software
+> never decides what a write-in name says; it just makes sure nobody has to go
+> hunting through a stack of paper to find it."
 
 **Stop recording this segment.**
 

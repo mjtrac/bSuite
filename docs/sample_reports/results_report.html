@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<title>bCounter Results Report</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11pt;
+         max-width: 900px; margin: 2rem auto; color: #111; }
+  h1   { font-size: 16pt; border-bottom: 2px solid #1a2744;
+         padding-bottom: .4rem; color: #1a2744; }
+  h2   { font-size: 12pt; margin: 1.5rem 0 .3rem;
+         color: #1a2744; }
+  table { border-collapse: collapse; width: 100%;
+          margin-bottom: 1rem; }
+  th   { text-align: left; background: #1a2744; color: #fff;
+         padding: .3rem .6rem; font-size: 10pt; }
+  td   { padding: .25rem .6rem; border-bottom: 1px solid #ddd; }
+  tr:last-child td { border-bottom: 2px solid #1a2744; }
+  tr.winner td { background: #eff6ff; font-weight: bold; }
+  .num { text-align: right; }
+  .ov  { color: #b45309; font-size: 9pt; }
+  .meta { color: #555; font-size: 10pt; margin-bottom: 1.5rem; }
+  .no-winner { color: #b45309; font-size: 9.5pt; margin: .3rem 0 1rem; }
+  .threshold-banner { background: #fef3c7; border: 1px solid #d97706;
+         border-radius: 5px; padding: .6rem 1rem; margin-bottom: 1.5rem;
+         color: #92400e; font-size: 10pt; }
+  @media print { body { margin: 1cm; } }
+</style></head><body>
+<h1>bCounter Results Report</h1>
+<p class="meta">Generated: July 23, 2026  1:29 PM &nbsp;|&nbsp; Ballots scanned: 10 &nbsp;|&nbsp; Image folder: /Users/mjtrac/pbss_demo/cast_ballots</p>
+<div class="threshold-banner"><strong>Non-default win threshold:</strong> 
+Measure B — Library Bond requires more than 60.0% to win. </div>
+<h2>Mayor</h2>
+<table>
+  <tr><th>Candidate / Option</th><th class="num" style="text-align:right">Marked</th><th class="num" style="text-align:right">Overvoted</th><th class="num" style="text-align:right">Counted</th></tr>
+  <tr class="winner"><td>Alice Johnson &#10003; WINNER</td><td class="num">6</td><td class="num">0</td><td class="num">6</td></tr>
+  <tr><td>Bob Williams</td><td class="num">3</td><td class="num">0</td><td class="num">3</td></tr>
+  <tr><td>Carmen Diaz</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+</table>
+<h2>City Council</h2>
+<table>
+  <tr><th>Candidate / Option</th><th class="num" style="text-align:right">Marked</th><th class="num" style="text-align:right">Overvoted</th><th class="num" style="text-align:right">Counted</th></tr>
+  <tr><td>Dana Kim (Rank 2)</td><td class="num">3</td><td class="num">0</td><td class="num">3</td></tr>
+  <tr><td>Dana Kim (Rank 1)</td><td class="num">3</td><td class="num">0</td><td class="num">3</td></tr>
+  <tr><td>Elena Ruiz (Rank 1)</td><td class="num">2</td><td class="num">0</td><td class="num">2</td></tr>
+  <tr><td>Frank Osei (Rank 1)</td><td class="num">2</td><td class="num">0</td><td class="num">2</td></tr>
+  <tr><td>Grace Chen (Rank 1)</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+  <tr><td>Elena Ruiz (Rank 2)</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+  <tr><td>Henry Park (Rank 1)</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+  <tr><td>Frank Osei (Rank 2)</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+  <tr><td>Write-In (Rank 1)</td><td class="num">1</td><td class="num">0</td><td class="num">1</td></tr>
+</table>
+<h2>Measure B — Library Bond</h2>
+<table>
+  <tr><th>Candidate / Option</th><th class="num" style="text-align:right">Marked</th><th class="num" style="text-align:right">Overvoted</th><th class="num" style="text-align:right">Counted</th></tr>
+  <tr class="winner"><td>Yes &#10003; WINNER</td><td class="num">7</td><td class="num">0</td><td class="num">7</td></tr>
+  <tr><td>No</td><td class="num">3</td><td class="num">0</td><td class="num">3</td></tr>
+</table>
+</body></html>

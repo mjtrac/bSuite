@@ -125,6 +125,47 @@ public class ScreenshotGenerator {
         Thread.sleep(300);
         SwingUtilities.invokeAndWait(() -> {});
 
+        // fitToViewport() shrinks the whole tall page to fit height-wise,
+        // leaving most of the 1100x750 frame as empty side margin around a
+        // thumbnail-sized ballot. Zoom to a width-fit scale instead (bigger,
+        // since width — not height — becomes the binding dimension), then
+        // scroll past the header/barcode band so the frame opens directly
+        // on Mayor/City Council/Measure B rather than the page top.
+        OverlayImagePanel canvas = (OverlayImagePanel) getField(viewPanel, "canvas");
+        JScrollPane scroll = (JScrollPane) getField(viewPanel, "scroll");
+        java.lang.reflect.Method setScaleMethod = BallotViewPanel.class.getDeclaredMethod("setScale", double.class);
+        setScaleMethod.setAccessible(true);
+
+        Dimension viewportSize = scroll.getViewport().getExtentSize();
+        double widthFit = canvas.fitScale(viewportSize.width, Integer.MAX_VALUE);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                // Goes through BallotViewPanel's own setScale (not
+                // canvas.setScale directly) so the toolbar's zoom-percent
+                // label stays in sync with what's actually rendered.
+                setScaleMethod.invoke(viewPanel, widthFit);
+            } catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+            // Force the viewport's notion of the view's size immediately,
+            // rather than relying on revalidate()'s asynchronous layout
+            // pass to resize `canvas` before setViewPosition() below reads
+            // it — setViewPosition() clamps against the view's *current*
+            // bounds, which without this were still the pre-zoom (fit-to-
+            // page) size at this point in the EDT queue.
+            scroll.getViewport().setViewSize(canvas.getPreferredSize());
+        });
+        SwingUtilities.invokeAndWait(() -> {});
+        int scaledHeight = canvas.getPreferredSize().height;
+        // ballotContentArea starts ~20% down a Letter-size page (corner
+        // marks, barcode, and the jurisdiction/election header live above
+        // it, per the ballot YAML's own offsetFromTop values) — skip that
+        // band.
+        int scrollY = (int) Math.round(scaledHeight * 0.20);
+        SwingUtilities.invokeAndWait(() -> scroll.getViewport().setViewPosition(new Point(0, scrollY)));
+        Thread.sleep(200);
+        SwingUtilities.invokeAndWait(() -> {});
+
         shoot(viewPanel, "viewer_2_view.png");
 
         ContestCandidateWindow contestWindow = ctx.getBean(ContestCandidateWindow.class);

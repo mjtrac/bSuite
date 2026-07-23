@@ -108,12 +108,15 @@ public class ScreenshotGenerator {
             navigate(frame, "Contests");
             shoot(frame, "builder_2_contests.png");
 
-            JDialog contestForm = openDialogViaButton(frame, "ContestsNewButton");
+            // Edit (not New) the already-seeded Mayor contest — its
+            // Voting Method, preamble, and postamble are populated (see
+            // seedData() above), which a blank New-contest form can't show.
+            JDialog contestForm = openEditDialog(frame, "ContestsTable", 0, "ContestsEditButton");
             if (contestForm != null) {
                 shoot(contestForm, "builder_2b_contest_form.png");
                 SwingUtilities.invokeAndWait(contestForm::dispose);
             } else {
-                System.out.println("WARNING: contest New dialog did not open");
+                System.out.println("WARNING: contest Edit dialog did not open");
             }
 
             // ContestCandidatesDialog isn't reachable via a button from here
@@ -178,6 +181,28 @@ public class ScreenshotGenerator {
                 if (w instanceof JDialog d && d.isVisible() && !before.contains(w)) return d;
             }
             Thread.sleep(100);
+        }
+        return null;
+    }
+
+    /** Selects a table row, then clicks a named Edit button — same async/poll pattern as openDialogViaButton(). */
+    private static JDialog openEditDialog(JFrame frame, String tableName, int row, String editButtonName) throws Exception {
+        JTable table = findTableByName(frame, tableName);
+        if (table == null) {
+            System.out.println("WARNING: no table named " + tableName + " found");
+            return null;
+        }
+        SwingUtilities.invokeAndWait(() -> table.setRowSelectionInterval(row, row));
+        return openDialogViaButton(frame, editButtonName);
+    }
+
+    private static JTable findTableByName(Container root, String name) {
+        for (Component c : root.getComponents()) {
+            if (c instanceof JTable t && name.equals(t.getName())) return t;
+            if (c instanceof Container child) {
+                JTable found = findTableByName(child, name);
+                if (found != null) return found;
+            }
         }
         return null;
     }
@@ -251,10 +276,28 @@ public class ScreenshotGenerator {
         mayor.setMaxChoices(1);
         mayor.setVotingMethod(Contest.VotingMethod.PLURALITY);
         mayor.setAssignedRegions(List.of(precinct));
+        // Preamble/postamble and a candidate with fields beyond just a name
+        // are set here (rather than left blank, as a bare-minimum seed
+        // would) specifically so the Contest-edit and Candidates screenshots
+        // this tool produces for the desktop guide actually show those
+        // fields populated, not just present-but-empty.
+        mayor.setPreamble("Elections Code § 13307: this office is elected at large, "
+            + "citywide, for a four-year term.");
+        mayor.setPrintPreamble(true);
+        mayor.setPostamble("Write-in candidates must file a declaration of intent "
+            + "no later than 14 days before the election.");
+        mayor.setPrintPostamble(true);
         Candidate alice = new Candidate();
         alice.setName("Alice Johnson");
         alice.setDisplayOrder(1);
         alice.setContest(mayor);
+        alice.setPartyAffiliation("Independent");
+        alice.setPrefixText("★");
+        alice.setPrintPrefixText(true);
+        alice.setSuffixText("Incumbent");
+        alice.setPrintSuffixText(true);
+        alice.setExplanatoryText("Serving since 2022; endorsed by the Riverside Chamber of Commerce.");
+        alice.setPrintExplanatoryText(true);
         Candidate bob = new Candidate();
         bob.setName("Bob Williams");
         bob.setDisplayOrder(2);

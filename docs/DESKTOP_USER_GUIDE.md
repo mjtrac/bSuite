@@ -41,6 +41,26 @@ list and a set of assigned regions, edited via their own dialogs.
 
 ![builder contests screen](screenshots/builder_02_contests.png)
 
+Opening a contest shows the rest of what a race or measure can carry
+beyond a title: **Voting Method** (Plurality, Ranked Choice, Approval, or
+Measure — each drives its own tabulation in `counter`), a per-contest
+**Percent Required to Win** (default 50%, overridable for supermajority
+measures), and an optional **Preamble**/**Postamble** — statutory text,
+a fiscal-impact note, a write-in reminder, whatever a real contest needs
+printed before or after its candidate list, each with its own **Print**
+checkbox.
+
+![builder contest edit screen](screenshots/builder_02b_contest_form.png)
+
+Saving a contest cascades straight into **Candidates**: one row per
+candidate/option in an editable table. A name is all that's required, but
+each row also has **Write-In**, **Party**, **Order**, and a printed
+**Prefix**/**Suffix** (e.g. "Incumbent", a term number) plus an
+**Explanatory Text** note beneath the name — Alice Johnson below shows
+the full set; Bob Williams shows the plain case.
+
+![builder candidates screen](screenshots/builder_02c_candidates_dialog.png)
+
 Step 6 (**Design Templates**) is where you choose paper size, column
 count, and vote-indicator style (oval, rectangle, or connect-the-dots —
 see the README's [Vote Indicator Styles](../README.md#vote-indicator-styles)
@@ -127,6 +147,31 @@ overvotes, write-ins, scribbles — see the README's
 browser; **Print Results** sends `results_report.html` straight to a
 printer via the OS's own HTML print handling.
 
+`results_report.html` is a plain per-contest tally, with a banner calling
+out any contest using a non-default win threshold so a 55% result on a
+60%-required measure can't be misread as a win:
+
+![results report](screenshots/counter_results_report.png)
+
+Ranked-choice contests get their own `rcv_report.html`, a full
+round-by-round instant-runoff breakdown — who was eliminated each round
+and where their ballots' next choice went, down to a final winner:
+
+![RCV tabulation report](screenshots/counter_rcv_report.png)
+
+Both are real, unedited output from a real count — the same 10-ballot demo
+election used throughout this guide — copied into
+[`docs/sample_reports/`](sample_reports/) so you can open
+[`results_report.html`](sample_reports/results_report.html) and
+[`rcv_report.html`](sample_reports/rcv_report.html) directly, live, in a
+browser. That same run also flagged a stray, unrelated hand-scribbled note
+on one ballot ([`scribble_report.html`](sample_reports/scribble_report.html))
+and captured a marked write-in vote's hand-written name for review
+([`writein_report.html`](sample_reports/writein_report.html)) — both
+report pages carry "View" links back into the running app, so they won't
+resolve outside of it, but the tables themselves are static and browsable
+as-is.
+
 ## viewer — review the scanned ballots
 
 `viewer` is read-only — it never writes to `counter_results.db`, so it's
@@ -145,7 +190,10 @@ vote-indicator box is color-coded — green for a counted mark, blue for an
 unmarked box, amber for an overvote — with candidate names labeled
 directly on the image. **Next**/**Prev** step through the filtered list
 without going back to it; **Fit**/**+**/**−** control zoom; hovering a
-box shows its contest, candidate, and status in the status bar.
+box shows its contest, candidate, and status in the status bar. The
+screenshot below is zoomed in past the header/barcode band to the three
+contests themselves — exactly what **+**/**−** or dragging the zoom
+percentage let you do interactively.
 
 ![viewer ballot view](screenshots/viewer_02_view.png)
 
