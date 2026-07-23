@@ -38,6 +38,11 @@ which remain available and are described further down.
 | **scanner** | Drive a physical document scanner (NAPS2, `scanimage`, or a custom command) to produce ballot images, plus operator start/end notes. | `ScannerUser` — `ADMINISTRATOR` or `OPERATOR` |
 | **viewer** | Review scanned ballot images with vote-indicator overlays, read-only. | `CounterUser` — `VIEWER` or `ADMIN` |
 
+**Default login for counter/scanner/viewer:** `admin` / `ChangeMe123!` —
+each app seeds this account automatically the first time it runs against
+an empty database, so you can sign in immediately to explore. Change the
+password once you're done experimenting (`builder` has no login at all).
+
 All four read/write the same `~/pbss_data/` directory and database files as
 their `b`/`bl` counterparts (see [Data Directories](#data-directories)
 below) — fully interchangeable, including switching apps mid-election.

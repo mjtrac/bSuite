@@ -18,6 +18,12 @@ need an internet connection — see
 [Running Offline / Air-Gapped](../README.md#running-offline--air-gapped)
 in the README.
 
+**Default login:** `admin` / `ChangeMe123!` works for `scanner`, `counter`,
+and `viewer` — each seeds this account itself the first time it runs
+against an empty database, so you can sign in right away and start
+clicking around. Change the password once you're done exploring.
+(`builder` has no login of its own.)
+
 ## builder — design the election and the ballot
 
 Launch `builder` and you land on the **Home** screen: a numbered checklist
