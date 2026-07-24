@@ -136,7 +136,9 @@ candidates plus a sixth "Write-In" slot, assigned to Precinct 1.]*
 
 *[Robot creates "Measure B — Library Bond" as a MEASURE contest, sets "Percent
 Required to Win" to 60, types a preamble and postamble and checks their "Print"
-boxes, adds Yes/No candidates, assigns Precinct 1.]*
+boxes, assigns Precinct 1. Saving cascades into the Candidates dialog with "Yes"
+and "No" already sitting there — pbss auto-creates them the moment a brand-new
+Measure contest is saved with no candidates of its own yet.]*
 
 > "And a ballot measure — Measure B, a library bond. Bond measures often need more
 > than a simple majority to pass; this one requires 60%. pbss supports any threshold
@@ -146,7 +148,10 @@ boxes, adds Yes/No candidates, assigns Precinct 1.]*
 > statutory description that has to appear before the Yes/No choices — and a
 > postamble underneath with the estimated cost to homeowners. Both print right on
 > the ballot exactly where a real bond measure's language is legally required to
-> go."
+> go. And notice the Candidates screen — Yes and No are already there. Every
+> Measure contest is a yes/no question in practice, so pbss creates those two
+> automatically the first time you save one, rather than making you type them
+> in by hand every single time."
 
 **Press Enter.**
 

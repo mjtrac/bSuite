@@ -12,6 +12,7 @@ import com.mjtrac.ballot.repository.ContestRepository;
 import com.mjtrac.ballot.repository.ContestTranslationRepository;
 import com.mjtrac.ballot.repository.ElectionRepository;
 import com.mjtrac.ballot.repository.RegionRepository;
+import com.mjtrac.ballot.service.ContestDefaultsService;
 import org.springframework.stereotype.Component;
 
 import javax.swing.*;
@@ -38,10 +39,12 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
     private final BallotLanguageRepository languageRepo;
     private final ContestTranslationRepository contestTranslationRepo;
     private final CandidateTranslationRepository candidateTranslationRepo;
+    private final ContestDefaultsService contestDefaultsService;
 
     ContestPanel(ContestRepository repo, ElectionRepository electionRepo, RegionRepository regionRepo,
                  BallotLanguageRepository languageRepo, ContestTranslationRepository contestTranslationRepo,
-                 CandidateTranslationRepository candidateTranslationRepo) {
+                 CandidateTranslationRepository candidateTranslationRepo,
+                 ContestDefaultsService contestDefaultsService) {
         super("Contests", new String[]{"ID", "Election", "Title", "Voting Method", "Max Choices", "Candidates", "Regions"},
             c -> new Object[]{c.getId(),
                 c.getElection() != null ? c.getElection().getName() : "",
@@ -53,6 +56,7 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
         this.languageRepo = languageRepo;
         this.contestTranslationRepo = contestTranslationRepo;
         this.candidateTranslationRepo = candidateTranslationRepo;
+        this.contestDefaultsService = contestDefaultsService;
     }
 
     @Override List<Contest> loadAll() { return repo.findAll(); }
@@ -213,6 +217,15 @@ class ContestPanel extends SimpleCrudPanel<Contest> {
                 c.setExplanatoryText(explanatoryTextArea.getText());
                 c.setPrintExplanatoryText(printExplanatoryText.isSelected());
                 c.setExplanatoryTextLocation(explanatoryLocationField.getText());
+
+                // Convenience: a brand-new Measure contest starts with
+                // "Yes"/"No" already in place instead of an empty
+                // Candidates screen. Never fires once the contest has any
+                // candidates of its own.
+                if (contestDefaultsService.needsMeasureDefaults(c)) {
+                    c.setCandidates(contestDefaultsService.yesNoCandidates(c));
+                }
+
                 onSave.accept(c);
 
                 // Once saved, the contest definitely has an id — cascade

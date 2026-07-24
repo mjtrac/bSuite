@@ -58,7 +58,12 @@ each row also has **Write-In**, **Party**, **Order**, a printed
 **Prefix**/**Suffix** on the candidate's own name line, and an
 **Explanatory Text** note printed in italics beneath the name (e.g.
 "Incumbent (Ind)") — Alice Johnson below shows that note; Bob Williams
-shows the plain case.
+shows the plain case. A brand-new **Measure** contest arrives here with
+"Yes"/"No" already filled in — every builder flavor (this app, `blBuilder`,
+`bBuilder`) creates them automatically the first time a Measure contest is
+saved with no candidates of its own yet, since that's what the overwhelming
+majority of real measures need. Rename or replace them freely; this only
+ever fires on a contest that currently has none.
 
 ![builder candidates screen](screenshots/builder_02c_candidates_dialog.png)
 

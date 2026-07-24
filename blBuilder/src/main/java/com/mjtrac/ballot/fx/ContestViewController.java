@@ -7,6 +7,7 @@ package com.mjtrac.ballot.fx;
 
 import com.mjtrac.ballot.model.*;
 import com.mjtrac.ballot.repository.*;
+import com.mjtrac.ballot.service.ContestDefaultsService;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -41,6 +42,7 @@ public class ContestViewController {
     private final ContestRepository contestRepo;
     private final ElectionRepository electionRepo;
     private final RegionRepository regionRepo;
+    private final ContestDefaultsService contestDefaultsService;
 
     @FXML private Label messageLabel;
     @FXML private Label formTitleLabel;
@@ -69,10 +71,12 @@ public class ContestViewController {
 
     public ContestViewController(ContestRepository contestRepo,
                                   ElectionRepository electionRepo,
-                                  RegionRepository regionRepo) {
+                                  RegionRepository regionRepo,
+                                  ContestDefaultsService contestDefaultsService) {
         this.contestRepo = contestRepo;
         this.electionRepo = electionRepo;
         this.regionRepo = regionRepo;
+        this.contestDefaultsService = contestDefaultsService;
     }
 
     @FXML
@@ -305,6 +309,13 @@ public class ContestViewController {
         c.setMaxChoices(maxChoicesSpinner.getValue());
         c.setDisplayOrder(displayOrderSpinner.getValue());
         c.setInstructions(instructionsField.getText());
+
+        // Convenience: a brand-new Measure contest starts with "Yes"/"No"
+        // already in place instead of an empty Candidates screen. Never
+        // fires once the contest has any candidates of its own.
+        if (contestDefaultsService.needsMeasureDefaults(c)) {
+            c.setCandidates(contestDefaultsService.yesNoCandidates(c));
+        }
 
         Contest saved = contestRepo.save(c);
         String verb = (editing != null) ? "Updated" : "Created";

@@ -19,6 +19,7 @@ package com.mjtrac.ballot.controller;
 import com.mjtrac.ballot.model.*;
 import com.mjtrac.ballot.repository.*;
 import com.mjtrac.ballot.service.ContestAssignmentService;
+import com.mjtrac.ballot.service.ContestDefaultsService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -46,19 +47,22 @@ public class ContestController {
     private final RegionRepository         regionRepo;
     private final JurisdictionRepository   jurisdictionRepo;
     private final ContestAssignmentService assignmentService;
+    private final ContestDefaultsService   contestDefaultsService;
 
     public ContestController(ContestRepository contestRepo,
                              ElectionRepository electionRepo,
                              CandidateRepository candidateRepo,
                              RegionRepository regionRepo,
                              JurisdictionRepository jurisdictionRepo,
-                             ContestAssignmentService assignmentService) {
+                             ContestAssignmentService assignmentService,
+                             ContestDefaultsService contestDefaultsService) {
         this.contestRepo       = contestRepo;
         this.electionRepo      = electionRepo;
         this.candidateRepo     = candidateRepo;
         this.regionRepo        = regionRepo;
         this.jurisdictionRepo  = jurisdictionRepo;
         this.assignmentService = assignmentService;
+        this.contestDefaultsService = contestDefaultsService;
     }
 
     // ── Contest list ──────────────────────────────────────────────────────────
@@ -191,6 +195,13 @@ public class ContestController {
         contest.setExplanatoryText(explanatoryText);
         contest.setPrintExplanatoryText(printExplanatoryText);
         contest.setExplanatoryTextLocation(explanatoryTextLocation);
+
+        // Convenience: a brand-new Measure contest starts with "Yes"/"No"
+        // already in place instead of an empty Candidates screen. Never
+        // fires once the contest has any candidates of its own.
+        if (contestDefaultsService.needsMeasureDefaults(contest)) {
+            contest.setCandidates(contestDefaultsService.yesNoCandidates(contest));
+        }
 
         Contest saved = contestRepo.save(contest);
         ra.addFlashAttribute("success", "Saved contest \"" + saved.getTitle() + "\".");

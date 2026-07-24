@@ -290,8 +290,12 @@ public class DemoWalkthroughRobot {
                 pause();
                 confirmThresholdDialog.yesButton().click();
 
-                addCandidate(window, "Yes");
-                addCandidate(window, "No");
+                // ContestPanel auto-creates "Yes"/"No" for a brand-new
+                // Measure contest with no candidates yet (see
+                // ContestDefaultsService) -- the Candidates dialog that
+                // just cascaded open already has both rows; nothing to
+                // type here.
+                pause();
                 window.dialog("candidatesDialog").button("saveContinueButton").click();
 
                 // Pause as soon as the dialog appears, before selecting
